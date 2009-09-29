@@ -1,7 +1,7 @@
 -module(logger_ext).
 -export([start/1]).
 -vsn('$Rev$').
-
+ 
 % A very simple logger (External)
 % ====================
 % Rev: $rev$

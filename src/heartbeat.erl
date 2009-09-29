@@ -4,6 +4,7 @@
 %%% Created : 28 Sep 2009 by Axel <>
 
 -module(heartbeat).
+-include_lib("eunit/include/eunit.hrl").
 -export([init/1, start/1]).
 
 -revision('$Rev$').
@@ -34,3 +35,13 @@ loop(ECG_PID) ->
     loop(ECG_PID).
 % TODO: we don't check if we receive (erroneous) messages, and it's hard to
 % add without hurting the time-critical aspect
+
+
+loop_test() ->
+    spawn(?MODULE, loop, [self()]),
+    receive
+        {heartbeat, PID} ->
+            io:format("Got a heartbeat from PID ~p!~n", [PID]) 
+    after ?CARDIAC_FREQUENCY * 2 ->
+            exit("Didn't get a heartbeat.")
+    end.

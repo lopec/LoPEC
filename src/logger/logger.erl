@@ -1,10 +1,13 @@
 -module(logger).
 -export([start/1]).
 
-
 % A very simple logger (External)
+% ====================
+% Maybe we should have different log-types (Error, Warning, Info)?
 
-% Starts the server and opens a file named "Filename" and calls logger_loop-function
+
+% Starts the server and opens a file named "Filename" 
+% and calls logger_loop-function
 start(Filename) ->
 	{ok, IoDevice} = file:open(Filename, [raw,append]),
 	file:write(IoDevice, "Starting logger for JobID: "++Filename++"\n"),

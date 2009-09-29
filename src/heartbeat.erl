@@ -38,10 +38,17 @@ loop(ECG_PID) ->
 
 
 loop_test() ->
-    spawn(?MODULE, loop, [self()]),
+    start_link(self()),
     receive
         {heartbeat, PID} ->
             io:format("Got a heartbeat from PID ~p!~n", [PID]) 
-    after ?CARDIAC_FREQUENCY * 2 ->
-            exit("Didn't get a heartbeat.")
+    after (2 * ?CARDIAC_FREQUENCY) ->
+            exit("Didn't get a heartbeat within 2 heartbeat timers.")
+    end,
+    
+    receive
+        {heartbeat, PID2} ->
+            io:format("Got another heartbeat from PID ~p!~n", [PID2]) 
+    after (2 * ?CARDIAC_FREQUENCY) ->
+            exit("Didn't get a second heartbeat within 2 heartbeat timers.")
     end.

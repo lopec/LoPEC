@@ -3,7 +3,7 @@
 
 % Internal logger
 % $LastChangedDate$
-% $Rev$
+% $Rev$ 
 
 % Starting the internal logger
 start(ExternalLogger) ->

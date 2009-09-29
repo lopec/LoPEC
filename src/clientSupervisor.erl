@@ -8,18 +8,16 @@
 -behaviour(supervisor).
 
 -export([start_link/0]).
--export([init/1, printer/1]).
+-export([init/1]).
 
 start_link() ->
     supervisor:start_link(?MODULE, no_args).
 
 init(no_args) ->
     {ok,{{one_for_one, 1, 60},
-            [{printer, {?MODULE, printer, [no_args]},
-                 permanent, brutal_kill, worker, [clientSupervisor]}]
-        }}.
+            [child(heartbeat, self())]}}.
 
-printer(no_args) ->
-    io:format("Printer: Hello world ~n"),
-    timer:sleep(1000),
-    printer(no_args).
+child(Module, no_args) ->
+    {Module, {Module, start_link, []}, permanent, brutal_kill, worker, [Module]};
+child(Module, Args) ->
+    {Module, {Module, start_link, [Args]}, permanent, brutal_kill, worker, [Module]}.

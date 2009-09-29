@@ -1,6 +1,6 @@
 -module(logger_ext).
 -export([start/1]).
--vsn('$Rev$').
+-vsn('$Rev: 15 $').
  
 % A very simple logger (External)
 % ====================

@@ -5,7 +5,7 @@
 
 -module(heartbeat).
 -include_lib("eunit/include/eunit.hrl").
--export([init/1, start/1]).
+-export([init/1, start_link/1]).
 
 -revision('$Rev$').
 -created("Date: Monday, September 28 2009").
@@ -19,7 +19,7 @@ signal that the node the heartbeat process belongs to is still alive.").
 
 -define(CARDIAC_FREQUENCY, 1000). % 1000 = 1 second
 
-start(ECG_PID) ->
+start_link(ECG_PID) ->
     {ok, spawn_link(?MODULE, init, [ECG_PID])}.
 
 % TODO: find out if we need to manually terminate the heartbeat process

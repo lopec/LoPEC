@@ -22,5 +22,6 @@ init(no_args) ->
 printer(no_args) ->
     receive
         Anything ->
-            io:print("Got message: ~p ~n", [Anything])
+            io:print("Got message: ~p ~n", [Anything]),
+            printer(no_args)
     end.

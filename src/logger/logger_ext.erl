@@ -5,6 +5,7 @@
 % A very simple logger (External)
 % ====================
 % Rev: $rev$
+% Version: $LastChangedDate$
 % Maybe we should have different log-types (Error, Warning, Info)?
 
 

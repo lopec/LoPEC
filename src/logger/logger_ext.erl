@@ -1,10 +1,13 @@
 -module(logger_ext).
 -export([start/1]).
 -vsn('$Rev: 15 $').
+
+-ifdef(TEST).
+-compile(export_all).
+-endif.
  
 % A very simple logger (External)
 % ====================
-% Rev: $rev$
 % Version: $LastChangedDate$
 % Maybe we should have different log-types (Error, Warning, Info)?
 
@@ -27,14 +30,14 @@ stop(IoDevice) ->
 % and prints it to a filehandler "IoDevice".
 logger_loop(IoDevice) ->
 	receive 
-		{event, PID, Message} -> 
+		{event, _PID, Message} -> 
 			Time = dh_date:format("H:i:s", erlang:localtime()),
 			file:write(IoDevice, ("[PID] "++Time++" - "++Message++"\n")),
 			logger_loop(IoDevice);
-        {event, PID, Type, Message} ->
+        {event, _PID, Type, Message} ->
             Time = dh_date:format("H:i:s", erlang:localtime()),
-            file:write(IoDevice, ("[PID] ["++Type++"] "++Time++" - "
-                        ++Message++"\n")),
+            file:write(IoDevice, ("[PID] ["++atom_to_list(Type)++"] "++Time++
+                        " - "++Message++"\n")),
             logger_loop(IoDevice);
 		{stop} ->
 			stop(IoDevice)

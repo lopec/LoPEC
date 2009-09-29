@@ -2,7 +2,8 @@
 -export([start/1, stop/1]).
 
 % Internal logger
-
+% $LastChangedDate$
+% $Rev$
 
 % Starting the internal logger
 start(ExternalLogger) ->

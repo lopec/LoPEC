@@ -6,29 +6,19 @@
 -created_by('Vasilij Savin').
 
 %%
-%% Include files
-%%
-
-%%
-%% Exported Functions
-%%
-%%-export([loop/1]).
-
-%%
 %% Exported Init - do not touch this
 %%
--export([init/1]).
+-export([init/0]).
 
-%%
-%% API Functions
-%%
-
-%%
 %% TODO: Add description of init/function_arity
-%%
-init(TTL) -> 
-    EcgTable = ets:new(ecg_Table, [named_table, private, set]),
-    loop(EcgTable, TTL).
+init() -> 
+    net_kernel:monitor_nodes(true),
+	%%HACK just for testing if ecg works, will be removed later
+	LogPID = spawn_link(logger_ext, start, ["test.logging"]),
+	register (logger, LogPID),
+	logger ! {event, self(), "Start Logging!"},
+    register (ecg, self()),
+    loop().
 
 %%
 %% Local Functions
@@ -37,25 +27,29 @@ init(TTL) ->
 %%
 %% Listens to heartbeats from nodes and removes dead nodes
 %%
-loop(EcgTable, TTL) ->
+loop() ->
     receive
-        {heartbeat, PID} ->
-            ets:insert(EcgTable, {PID, TTL});
-        {tick} ->
-            update_list(EcgTable, ets:first(EcgTable)),
-            bury_dead(EcgTable)
+        {nodeup, Node} ->
+            io:format("Welcome new node: ~w~n", [Node]),
+            logger ! {event, self(), 
+                io_lib:format("Welcome new node: ~w", [Node])};
+        {nodedown, Node} ->
+            io:format("Node ~w just died. :(", [Node]),
+			logger ! {event, self(),
+                      io_lib:format("Node ~w just died. :()~n", [Node])};
+			% Stub needed to contact Task List API
+			% tasklist:free_tasks(Node),
+		{new_node, Node} ->
+		  	case lists:member(Node, nodes()) of
+				false ->
+					%logger ! {event, self(), "New Node comes!"},
+					net_adm:ping(Node);
+				true ->
+					%logger ! {event, self(), "Hey old Dude!"},
+					ok
+			end;
+        UnrecognisedMessage ->
+            io:format("~w", [UnrecognisedMessage]),
+            logger ! {event, self(), io_lib:format("~w", [UnrecognisedMessage])}
     end,
-    loop(EcgTable, TTL).
-
-%% Reducing value of each element by one in ETS
-update_list(_, '$end_of_table') ->
-    ok;
-update_list(EcgTable, Key) ->
-    {_, NewTTL} = ets:lookup(EcgTable, Key),
-    ets:insert(EcgTable, {Key, NewTTL - 1}),
-    NextKey = ets:next(EcgTable, Key),
-    update_list(EcgTable, NextKey).
-
-%% Remove deadnodes
-bury_dead(EcgTable) ->
-    ets:match_delete(EcgTable, {'_', 0}).
+    loop().

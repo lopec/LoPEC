@@ -5,7 +5,7 @@ SOURCES= $(wildcard src/*.erl)
 HEADERS= $(wildcard include/*.hrl)
 OBJECTS= $(SOURCES:src/%.erl=ebin/%.beam)
 
-all: $(OBJECTS) test 
+all: $(OBJECTS) test docs
 
 ebin/%.beam : src/%.erl $(HEADERS) Makefile
 	erlc $(ERLC_FLAGS) -o ebin/ $<

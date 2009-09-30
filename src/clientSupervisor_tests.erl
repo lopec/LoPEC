@@ -6,10 +6,10 @@
 %%% @end
 %%% Created : 30 Sep 2009 by Fredrik Andersson <sedrik@consbox.se>
 %%%-------------------------------------------------------------------
--module(clientSupervisor_test).
+-module(clientSupervisor_tests).
 -include_lib("eunit/include/eunit.hrl").
 
 child_test() ->
     {ok, {_, ChildSpecs}} = clientSupervisor:init(no_args),
-    supervisor:check_childspecs(ChildSpecs).
+    ok = supervisor:check_childspecs(ChildSpecs).
 

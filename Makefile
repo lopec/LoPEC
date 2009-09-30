@@ -1,10 +1,11 @@
 # A very basic Makefile (this line is a comment)
+APPNAME = slave
 ERLC_FLAGS= -I include +debug_info
 SOURCES= $(wildcard src/*.erl)
 HEADERS= $(wildcard include/*.hrl)
 OBJECTS= $(SOURCES:src/%.erl=ebin/%.beam)
 
-all: $(OBJECTS) 
+all: $(OBJECTS) test 
 
 ebin/%.beam : src/%.erl $(HEADERS) Makefile
 	erlc $(ERLC_FLAGS) -o ebin/ $<

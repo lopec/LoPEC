@@ -6,28 +6,54 @@
 -compile(export_all).
 -endif.
  
-% A very simple logger (External)
-% ====================
-% Version: $LastChangedDate$
-% Maybe we should have different log-types (Error, Warning, Info)?
-
-
-% Starts the server and opens a file named "Filename" 
-% and calls logger_loop-function
+%%%===================================================================
+%%% Start function
+%%%===================================================================
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% 
+%% Opens a file with appendflag. If a file exist it appends new 
+%% information to it, else it just create it. Writes a 'start'-message
+%% and then calls logger_loop
+%%
+%%
+%% @spec start(Filename::string())
+%% @end
+%%--------------------------------------------------------------------
 start(Filename) ->
 	{ok, IoDevice} = file:open(Filename, [raw,append]),
 	file:write(IoDevice, "Starting logger for JobID: "++Filename++"\n"),
 	logger_loop(IoDevice).
 
 
-% Writes a "Stopping"-message to the file and then closes it.
+%%%===================================================================
+%%% Stop function
+%%%===================================================================
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Writes a 'bye'-message to the logfile and closes it.
+%%
+%% @spec stop(IoDevice) -> ok | {error, Reason} 
+%% @end
+%%--------------------------------------------------------------------
 stop(IoDevice) ->
 	file:write(IoDevice, "Stopping logger\n"),
 	file:close(IoDevice).
 
-% Main loop. Waits for messages on form:
-	% {event, PID, Message}
-% and prints it to a filehandler "IoDevice".
+%%%===================================================================
+%%% Main loop of logger
+%%%===================================================================
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%%  Listens to event-messages from other processes. 
+%%
+%% @spec logger_loop(IoDevice)
+%% @end
+%%--------------------------------------------------------------------
 logger_loop(IoDevice) ->
 	receive 
 		{event, _PID, Message} -> 

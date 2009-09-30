@@ -12,7 +12,7 @@ ebin/%.beam : src/%.erl $(HEADERS) Makefile
 clean:
 	-rm $(OBJECTS)
 
-test:
+test: $(OBJECTS)
 	erl -noshell -pa ebin -eval 'eunit:test("ebin",[verbose])' -s init stop
 
 docs: 

@@ -43,7 +43,7 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 receive_details(Data) ->
-    gen_server:cast(?SERVER, {task_details, Data}).
+    gen_server:call(?SERVER, {task_details, Data}).
 
 
 %%%===================================================================
@@ -79,7 +79,9 @@ init([]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call(_Request, _From, State) -> %not used
+handle_call({task_details, Data}, From, waiting_for_task_details) ->
+    From ! db:add_task(Data);
+handle_call(_Request, _From, State) ->
     Reply = ok,
     {reply, Reply, State}.
 
@@ -94,13 +96,9 @@ handle_call(_Request, _From, State) -> %not used
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({task_details, Data}, waiting_for_task_details) ->
-    db:add_task(Data),
-    {noreply, done};
 handle_cast(_Msg, State) -> 
   {noreply, State}.
-%TODO: May want to use calls instead of casts, in case the user needs
-%to know whether the data was entered into the task list successfully
+
 
 %%--------------------------------------------------------------------
 %% @private

@@ -7,11 +7,13 @@
 %%% Created : 29 Sep 2009 by Vasilij Savin <>
 %%%-------------------------------------------------------------------
 -module(ecg).
+-behaviour(gen_server).
 -revision('$Rev$').
 -created_by('Vasilij Savin').
+-author("Vasilij Savin, Gustav Simonsson").
 
 %% Exported Init - do not touch this
--export([init/0]).
+-export([init/1, start_link/0]).
 
 %%%===================================================================
 %%% Interface Function
@@ -25,13 +27,26 @@
 %% 
 %% @end
 %%--------------------------------------------------------------------
-init() -> 
+init(Args) -> 
     net_kernel:monitor_nodes(true),
     %%for debugging
     %%register (logger, spawn_link(logger_ext, start, ["test.logging"])),
 	logger ! {event, self(), "ECG is up and running!"},
-    global:register_name(ecg, self()),
+    % global:register_name(ecg, self()),
     loop().
+
+%%%===================================================================
+%%% Interface Function
+%%%===================================================================
+%%--------------------------------------------------------------------
+%% @public
+%% @doc
+%% gen_server callback function.
+%% 
+%% @end
+%%--------------------------------------------------------------------
+start_link() ->
+    gen_server:start_link({global, ecg}, ecg, [], []).
 
 %%%===================================================================
 %%% Internal Functions

@@ -99,7 +99,8 @@ handle_cast({task_details, Data}, waiting_for_task_details) ->
     {noreply, done};
 handle_cast(_Msg, State) -> 
   {noreply, State}.
-
+%TODO: May want to use calls instead of casts, in case the user needs
+%to know whether the data was entered into the task list successfully
 
 %%--------------------------------------------------------------------
 %% @private

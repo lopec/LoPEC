@@ -1,11 +1,4 @@
-%%%-------------------------------------------------------------------
-%%% @author Fredrik Andersson <sedrik@consbox.se>
-%%% @copyright (C) 2009, Clusterbusters
-%%% @doc The client supervisor eunit tests
-%%% Tests the supervisor
-%%% @end
-%%% Created : 30 Sep 2009 by Fredrik Andersson <sedrik@consbox.se>
-%%%-------------------------------------------------------------------
+%%% @private
 -module(clientSupervisor_tests).
 -include_lib("eunit/include/eunit.hrl").
 

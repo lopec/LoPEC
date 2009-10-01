@@ -1,8 +1,8 @@
 %%%-------------------------------------------------------------------
+%%% @private
 %%% @author Fredrik Andersson <sedrik@consbox.se>
 %%% @copyright (C) 2009, Clusterbusters
-%%% @doc The client supervisor
-%%% Supervises the client supervision tree
+%%% @doc The client supervisor supervises the client supervision tree
 %%% @end
 %%% Created : 29 Sep 2009 by Fredrik Andersson <sedrik@consbox.se>
 %%%-------------------------------------------------------------------
@@ -20,6 +20,7 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
+%% @private
 %% @doc
 %% Starts the supervisor
 %%

@@ -1,8 +1,9 @@
 %%%-------------------------------------------------------------------
+%%% @private
 %%% @author Fredrik Andersson <sedrik@consbox.se>
 %%% @copyright (C) 2009, Clusterbusters
-%%% @doc The client application module
-%%% Handles starting and stoping of the client
+%%% @doc The client application module handles starting and stoping
+%%% of the client
 %%% @end
 %%% Created : 29 Sep 2009 by Fredrik Andersson <sedrik@consbox.se>
 %%%-------------------------------------------------------------------

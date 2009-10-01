@@ -50,7 +50,7 @@ start_link() ->
 %%--------------------------------------------------------------------
 init(no_args) ->
     gen_event:start_link({local, logger}),
-%    gen_event:add_handler(logger, terminalLogger, []),
+    gen_event:add_handler(logger, terminalLogger, []),
     gen_event:add_handler(logger, fileLogger, [logfile]),
     {ok,{{one_for_one, 1, 60}, []}}.
 

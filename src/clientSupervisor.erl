@@ -39,7 +39,8 @@ start_link() ->
 %% Whenever a supervisor is started using supervisor:start_link/[2,3],
 %% this function is called by the new process to find out about
 %% restart strategy, maximum restart frequency and child
-%% specifications.
+%% specifications. It also starts an event manager named error_manager
+%% and registers the terminalLogger to this manager.
 %%
 %% @spec init(Args) -> {ok, {SupFlags, [ChildSpec]}} |
 %%                     ignore |
@@ -48,7 +49,8 @@ start_link() ->
 %%--------------------------------------------------------------------
 init(no_args) ->
     {ok,{{one_for_one, 1, 60},
-            [ child(heartbeat, self())]}}.
+            [   child(logger, supervisor, no_args)
+                ]}}.
 
 %%%===================================================================
 %%% Internal functions
@@ -59,12 +61,12 @@ init(no_args) ->
 %% Simple helper function to make the child specefication list easier
 %% to read.
 %%
-%% @spec child(Module, Args) -> {ChildSpec}
+%% @spec child(Module, Role, Args) -> {ChildSpec}
 %% @end
 %%--------------------------------------------------------------------
-child(Module, no_args) ->
+child(Module,Role, no_args) ->
     {Module, {Module, start_link, []},
-        permanent, brutal_kill, worker, [Module]};
-child(Module, Args) ->
+        permanent, brutal_kill, Role, [Module]};
+child(Module, Role, Args) ->
     {Module, {Module, start_link, [Args]},
-        permanent, brutal_kill, worker, [Module]}.
+        permanent, brutal_kill, Role, [Module]}.

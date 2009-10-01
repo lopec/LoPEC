@@ -31,8 +31,8 @@
 %%--------------------------------------------------------------------
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
-%TODO: we may want each task adder process to be nameless, to avoid
-% any possibility of conflict
+%TODO: we may want task adder process to be nameless, to avoid any
+% possibility of conflict
 
 
 %%--------------------------------------------------------------------
@@ -81,6 +81,7 @@ init([]) ->
 %%--------------------------------------------------------------------
 handle_call({task_details, Data}, From, waiting_for_task_details) ->
     From ! db:add_task(Data);
+%TODO: must check that db:add_task reports it if there's an error
 handle_call(_Request, _From, State) ->
     Reply = ok,
     {reply, Reply, State}.

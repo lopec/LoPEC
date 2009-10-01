@@ -22,9 +22,13 @@
 ecg_test() ->
     register (logger, spawn_link(logger_ext, start, ["test.logging"])),
     ecg_server:start_link(),
-	ecg ! {badMsg, [a, b,c]},
-    exit(ecg, kill),
-    exit(logger, kill).
+    io:format("Sending ~n", []),
+	ecg_server:accept_message({new_node, 'compnode1@Workstation'}),
+    ecg_server:accept_message({badMsg, [a, b,c]}),
+    ecg_server:accept_message({stuff, [a, b,c]}),
+    io:format("Done ~n", []).
+    %exit(whereis(ecg), kill).
+    %exit(whereis(logger), kill).
 
 client_listener() ->
     receive

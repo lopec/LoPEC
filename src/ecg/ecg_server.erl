@@ -19,13 +19,19 @@
 -export([]).
 
 %% gen_server callbacks
--export([start_link/0, init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+-export([start_link/0, init/1, handle_call/3, handle_cast/2,
+         accept_message/1, handle_info/2, terminate/2, code_change/3]).
 
 -record(state, {}).
 
 %% ====================================================================
 %% External functions
 %% ====================================================================
+
+accept_message(Msg) ->
+    logger ! {event, self(),
+        io_lib:format("Msg received: ~w", [Msg])},
+    gen_server:cast(?MODULE, Msg).
 
 %%%===================================================================
 %%% Interface Function
@@ -38,7 +44,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
-    gen_server:start_link({global, ecg}, ecg, [], []).
+    gen_server:start_link({global, ?MODULE}, ?MODULE, [], []).
 
 
 %% ====================================================================
@@ -61,12 +67,9 @@ start_link() ->
 %% 
 %% @end
 %%--------------------------------------------------------------------
-init([]) ->
+init(_) ->
     net_kernel:monitor_nodes(true),
-    %%for debugging
-    %%register (logger, spawn_link(logger_ext, start, ["test.logging"])),
     logger ! {event, self(), "ECG is up and running!"},
-    global:register_name(ecg, self()),
     {ok, #state{}}.
 
 %% --------------------------------------------------------------------
@@ -103,6 +106,8 @@ handle_cast({nodedown, Node}, _) ->
 %% We need to establish connection to new node, if not yet connected
 %% This might be obsolete later, depending on comm protocol
 handle_cast({new_node, Node}, _) ->
+    logger ! {event, self(), 
+        io_lib:format("New Node", [])},
     case lists:member(Node, nodes()) of
         false ->
             net_adm:ping(Node);

@@ -1,22 +1,46 @@
 -module(logger_int).
--export([start_link/2, init/2, stop/1]).
+-export([start/2, stop/1]).
 
-% Internal logger
-
-% Starting the internal logger
-start_link(ExternalLogger, FlagList) ->
-    Pid = spawn_link(?MODULE, init, [ExternalLogger, FlagList]),
-    {ok, Pid}.
-
-init(ExternalLogger, FlagList) ->
+%%%===================================================================
+%%% Exported functions
+%%%===================================================================
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% 
+%% Just calls logger_loop with the given arguments.
+%% @spec start(ExternalLogger, FlagList::list())
+%% @end
+%%--------------------------------------------------------------------
+start(ExternalLogger, FlagList) ->
     logger_loop(ExternalLogger, FlagList).
 
-% Stopping the internal logger
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% 
+%% Sends a message to the ExternalLogger and tells it that this
+%% logger is shutting down and then stops.
+%%
+%% @spec stop(ExternalLogger)
+%% @end
+%%--------------------------------------------------------------------
 stop(ExternalLogger) ->
     ExternalLogger ! {event, self(), "Internal logger is stopping"}.
 
-% Determines if the message with type should be sent. 
-% If "Type" is in FlagList then it will be sent, else not.
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% 
+%% Checks if the current message is of a existing type in the
+%% FlagList it sends the message. Else it just discards it.
+%%
+%% @spec send(ExternalLogger, FlagList, Message)
+%% @end
+%%--------------------------------------------------------------------
 send(_ExternalLogger, [], {_event, _PID, _Type, _Message}) ->
     {ignored};
 send(ExternalLogger, [Type|_T], {event, PID, Type, Message}) ->
@@ -24,7 +48,17 @@ send(ExternalLogger, [Type|_T], {event, PID, Type, Message}) ->
 send(ExternalLogger, [_H|T], {event, PID, Type, Message}) ->
     send(ExternalLogger, T, {event, PID, Type, Message}).
 
-% The main loop
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% 
+%% Waits for messages and relay them to the external logger.
+%% If a type is provided it first send the message to the
+%% "send(...)" function.
+%%
+%% @spec logger_loop(ExternalLogger, FlagList::list())
+%% @end
+%%--------------------------------------------------------------------
 logger_loop(ExternalLogger, FlagList) ->
     receive
         {event, PID, Message} ->

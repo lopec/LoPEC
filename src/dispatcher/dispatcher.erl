@@ -50,6 +50,7 @@ get_task() ->
         Job -> Job
     end.
 %TODO: make sure that db:get_job and get_task return no_job/task
+%TODO: make sure that the database module is indeed db.erl
 
 %%%===================================================================
 %%% gen_server callbacks

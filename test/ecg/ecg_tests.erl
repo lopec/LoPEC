@@ -4,6 +4,7 @@
 -module(ecg_tests).
 -include("../global.hrl").
 
+-export([client_listener/0]).
 %%
 %% Include files
 %%
@@ -18,37 +19,18 @@
 %%
 
 %% TODO: Add description of test_update_list/function_arity
-update_list_test() -> 
-	ok.
+ecg_test() ->
+    register (logger, spawn_link(logger_ext, start, ["test.logging"])),
+    ecg_server:start_link(),
+	ecg ! {badMsg, [a, b,c]},
+    exit(ecg, kill),
+    exit(logger, kill).
 
-%% TODO: Add description of test_bury_dead/function_arity
-bury_dead_test() ->
-	Table = create_ets(),
-	ecg:bury_dead(Table),
-	test_bury(Table).    
-
-test_bury(Table) ->
-    ?_assert(length(ets:match_object(Table, {'_', 0})) =:= 0). 
-
-
-%%
-%% TODO: Add description of test_loop/function_arity
-%%
-loop_test() ->
-    ok.
-%% 	{setup, 
-%%      fun create_ets/0,
-%%      fun ecg:init/1
-%%     }.
-
-
-%%
-%% Local Functions
-%%
-
-create_ets() ->
-    TTL = 10,
-    Table = ets:new(table),
-    ets:insert(Table, [{1, TTL}, {2, TTL}, {3, TTL}, {4, TTL}, {5, 0}]),
-	Table.
-
+client_listener() ->
+    receive
+        {terminate} ->
+            halt();
+            %os:cmd("kill -9 " ++ os:getpid());
+        _ ->
+            io:format("Got wrong message ~n", [])
+    end.

@@ -63,6 +63,8 @@ init(no_args) ->
 %% @end
 %%--------------------------------------------------------------------
 child(Module, no_args) ->
-    {Module, {Module, start_link, []}, permanent, brutal_kill, worker, [Module]};
+    {Module, {Module, start_link, []},
+        permanent, brutal_kill, worker, [Module]};
 child(Module, Args) ->
-    {Module, {Module, start_link, [Args]}, permanent, brutal_kill, worker, [Module]}.
+    {Module, {Module, start_link, [Args]},
+        permanent, brutal_kill, worker, [Module]}.

@@ -3,7 +3,7 @@
 %%% @author Fredrik Andersson <sedrik@consbox.se>
 %%% @copyright (C) 2009, Clusterbusters
 %%% @doc The client application module handles starting and stoping
-%%% of the client
+%%% of a node
 %%% @end
 %%% Created : 29 Sep 2009 by Fredrik Andersson <sedrik@consbox.se>
 %%%-------------------------------------------------------------------
@@ -23,7 +23,7 @@
 %% top supervisor of the tree.
 %%
 %% @spec start(StartType, StartArgs) -> {ok, Pid} |
-%%                                      {ok, Pid, State} |
+%%                                      ignore |
 %%                                      {error, Reason}
 %%      StartType = normal | {takeover, Node} | {failover, Node}
 %%      StartArgs = term()

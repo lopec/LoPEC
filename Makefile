@@ -4,10 +4,8 @@ ERLC_FLAGS= -I include +debug_info
 SOURCES= $(wildcard src/*.erl)
 HEADERS= $(wildcard include/*.hrl)
 OBJECTS= $(SOURCES:src/%.erl=ebin/%.beam)
-APPNAME= olol
-DOCOPTS= 
 
-all: $(OBJECTS) 
+all: $(OBJECTS) test docs
 
 ebin/%.beam : src/%.erl $(HEADERS) Makefile
 	erlc $(ERLC_FLAGS) -o ebin/ $<

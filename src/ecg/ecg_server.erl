@@ -31,7 +31,7 @@
 accept_message(Msg) ->
     logger ! {event, self(),
         io_lib:format("Msg received: ~w", [Msg])},
-    gen_server:cast(?MODULE, Msg).
+    gen_server:cast({global, ?MODULE}, Msg).
 
 %%%===================================================================
 %%% Interface Function

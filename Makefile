@@ -1,7 +1,7 @@
 # A very basic Makefile (this line is a comment)
 APPNAME = slave
 ERLC_FLAGS= -I include +debug_info
-C_FLAGS= -I/usr/local/lib/erlang/usr/include
+C_FLAGS= -I/usr/local/lib/erlang/usr/include -I/usr/lib/erlang/usr/include/
 SOURCES= $(wildcard src/*.erl)
 HEADERS= $(wildcard include/*.hrl)
 OBJECTS= $(SOURCES:src/%.erl=ebin/%.beam)

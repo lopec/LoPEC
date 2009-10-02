@@ -12,7 +12,8 @@
 %%
 %% See tests at bottom for examples
 
--module(dh_date).
+%Original name is dh_date, but renamed due to naming scheme (specifying dependencies)
+-module(logger_dh_date).
 -author("Dale Harvey <dale@hypernumbers.com>").
 
 -export([format/1, format/2]).

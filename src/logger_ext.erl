@@ -54,11 +54,11 @@ stop(IoDevice) ->
 logger_loop(IoDevice) ->
 	receive 
 		{event, _PID, Message} -> 
-			Time = dh_date:format("H:i:s", erlang:localtime()),
+			Time = logger_dh_date:format("H:i:s", erlang:localtime()),
 			file:write(IoDevice, ("[PID] "++Time++" - "++Message++"\n")),
 			logger_loop(IoDevice);
         {event, _PID, Type, Message} ->
-            Time = dh_date:format("H:i:s", erlang:localtime()),
+            Time = logger_dh_date:format("H:i:s", erlang:localtime()),
             file:write(IoDevice, ("[PID] ["++atom_to_list(Type)++"] "++Time++
                         " - "++Message++"\n")),
             logger_loop(IoDevice);

@@ -23,7 +23,8 @@ ecg_test() ->
     register (logger, spawn_link(logger_ext, start, ["test.logging"])),
     ecg_server:start_link(),
     io:format("Sending ~n", []),
-	ecg_server:accept_message({new_node, 'compnode1@Workstation'}),
+    CompNode = list_to_atom("compnode1@" ++ os:cmd("uname -n") -- [$\n]),
+    ecg_server:accept_message({new_node, CompNode}),
     ecg_server:accept_message({badMsg, [a, b,c]}),
     ecg_server:accept_message({stuff, [a, b,c]}),
     io:format("Done ~n", []).

@@ -65,6 +65,9 @@ init(no_args) ->
 %% @spec child(Module, Role, Args) -> {ChildSpec}
 %% @end
 %%--------------------------------------------------------------------
+child(Module,supervisor, no_args) ->
+    {Module, {Module, start_link, []},
+        permanent, infinity, supervisor, [Module]};
 child(Module,Role, no_args) ->
     {Module, {Module, start_link, []},
         permanent, brutal_kill, Role, [Module]};

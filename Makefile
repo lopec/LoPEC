@@ -7,7 +7,7 @@ HEADERS= $(wildcard include/*.hrl)
 OBJECTS= $(SOURCES:src/%.erl=ebin/%.beam)
 DOC_OPTS= {private, true}
 
-all: $(OBJECTS) test docs port
+all: $(OBJECTS) port test docs
 
 ebin/%.beam : src/%.erl $(HEADERS) Makefile
 	erlc $(ERLC_FLAGS) -o ebin/ $<

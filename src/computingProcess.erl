@@ -1,6 +1,6 @@
 %%%-------------------------------------------------------------------
 %%% @author Bjorn Dahlman <>
-%%% @copyright (C) 2009, Bjorn Dahlman
+%%% @copyright (C) 2009, Clusterbusters
 %%% @version 0.0.1
 %%% @doc
 %%% The erlang process that communicates with the c port driver
@@ -14,7 +14,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0,start_link/2, stop/0, foo/1, bar/1]).
+-export([start_link/2, stop/0, foo/1, bar/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -30,14 +30,11 @@
 %% @doc
 %% Starts the server
 %%
-%% @spec start_link() -> {ok, Pid} |
-%%                          ignore |
-%%                       {error, Error}
+%% @spec start_link(Directory, SharedLib) -> {ok, Pid} |
+%%                                              ignore |
+%%                                           {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link() ->
-    start_link("../priv/", "port").
-
 start_link(Directory, SharedLib) ->
     case erl_ddll:load_driver(Directory, SharedLib) of
         ok -> ok;
@@ -48,7 +45,7 @@ start_link(Directory, SharedLib) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Stops the complex process. Will also terminate the port driver
+%% Stops the process. Will also terminate the port driver
 %% associated.
 %%
 %% @spec stop() -> void()

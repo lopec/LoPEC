@@ -5,7 +5,7 @@ C_FLAGS= -I/usr/local/lib/erlang/usr/include -I/usr/lib/erlang/usr/include/
 SOURCES= $(wildcard src/*.erl)
 HEADERS= $(wildcard include/*.hrl)
 OBJECTS= $(SOURCES:src/%.erl=ebin/%.beam)
-DOC_OPTS= {private, true}
+DOC_OPTS= 
 
 all: $(OBJECTS) port test docs
 

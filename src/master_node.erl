@@ -2,26 +2,17 @@
 %%% @author Vasilij Savin <>
 %%% @copyright (C) 2009, Vasilij Savin
 %%% @doc
-%%% 
+%%% This module handles start of master node application.
+%%% Currently it is not using any parameters.
+%%% TODO: Once logger is up and running, stop function will log when 
+%%% application is stopped.
 %%% @end
 %%% Created : Oct 1, 2009 by Vasilij Savin <>
 %%%-------------------------------------------------------------------
 
--module(masterApp).
+-module(master_node).
 -behaviour(application).
-%% --------------------------------------------------------------------
-%% Include files
-%% --------------------------------------------------------------------
-
-%% --------------------------------------------------------------------
-%% Behavioural exports
-%% --------------------------------------------------------------------
 -export([start/2, stop/1]).
-
-%% --------------------------------------------------------------------
-%% Internal exports
-%% --------------------------------------------------------------------
--export([]).
 
 %% ====================================================================!
 %% External functions
@@ -33,8 +24,8 @@
 %%          {error, Reason}
 %% --------------------------------------------------------------------
 start(_Type, _StartArgs) ->
-    io:format("Starting app~n", []),
-    case masterSupervisor:start_link() of
+    %io:format("Starting app~n", []),
+    case master_sup:start_link() of
 	{ok, Pid} ->
 	    {ok, Pid};
 	Error ->
@@ -44,6 +35,7 @@ start(_Type, _StartArgs) ->
 %% --------------------------------------------------------------------
 %% Func: stop/1
 %% @doc
+%% All arguments are ignored by now.
 %% Stops application and logs shutdown.
 %% @end
 %% Returns: 'ok'

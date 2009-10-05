@@ -2,18 +2,14 @@
 %%% @author Vasilij Savin <>
 %%% @copyright (C) 2009, Vasilij Savin
 %%% @doc
-%%% 
+%%% ECG supervisor - watches a single worker, ECG server. 
 %%% @end
 %%% Created : Oct 5, 2009 by Vasilij Savin <>
 %%%-------------------------------------------------------------------
 
--module(ecgSupervisor).
+-module(ecg_sup).
 -behaviour(supervisor).
 -define(SERVER, ?MODULE).
-
-%% --------------------------------------------------------------------
-%% External exports
-%% --------------------------------------------------------------------
 -export([start_link/0]).
 
 %% --------------------------------------------------------------------
@@ -25,7 +21,6 @@
 %% External functions
 %% ====================================================================
 start_link() ->
-    io:format("Starting ECG Supervisor~n", []),
     supervisor:start_link({local, ?MODULE}, ?MODULE, no_args).
 
 %% ====================================================================
@@ -55,5 +50,5 @@ init(no_args) ->
           },
     
     % Returning supervisor specification
-    io:format("Send ECG Specification ~w ~n", [ECG]),
+    %io:format("Send ECG Specification ~w ~n", [ECG]),
     {ok,{{one_for_one,1,10}, [ECG]}}.

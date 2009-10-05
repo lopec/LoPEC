@@ -9,12 +9,9 @@
 %%% @end
 %%% Created : Oct 2, 2009 by Vasilij Savin <> 
 %%% -------------------------------------------------------------------
--module(masterSupervisor).
+-module(master_sup).
 -behaviour(supervisor).
-
-%% --------------------------------------------------------------------
-%% External exports
-%% --------------------------------------------------------------------
+-define(SERVER, ?MODULE).
 -export([start_link/0]).
 
 %% --------------------------------------------------------------------
@@ -22,21 +19,17 @@
 %% --------------------------------------------------------------------
 -export([init/1]).
 
-%% --------------------------------------------------------------------
-%% Macros
-%% --------------------------------------------------------------------
--define(SERVER, ?MODULE).
-
 %% ====================================================================
 %% Server functions
 %% ====================================================================
 
 start_link() ->
-    io:format("Starting Supervisor~n", []),
+    %io:format("Starting Supervisor~n", []),
     supervisor:start_link({local, ?MODULE}, ?MODULE, no_args).
 
 %% --------------------------------------------------------------------
 %% Func: init/1
+%% All arguments are ignored.
 %% Returns: {ok,  {SupervisorConfig,  [ChildSpec]}} |
 %%          ignore                                  |
 %%          {error, Reason}
@@ -71,5 +64,4 @@ init(no_args) ->
 %%                    [dispatcher]},
     
     % Returning supervisor specification
-    {ok,{{one_for_one,1,60}, [%Dispatcher
-                              ]}}.
+    {ok,{{one_for_one,1,60}, [Dispatcher]}}.

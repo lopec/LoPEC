@@ -1,9 +1,9 @@
 {application, master,
     [{description, "Clusterbusters master node application - 
                      A distributed high performance low power cluster"},
-    {vsn, "0.1"},
-    {modules, [masterApp, masterSupervisor, dispatcher]},
+    {vsn, "0.2"},
+    {modules, [master_node, master_sup, dispatcher]},
     {registered, [dispatcher]},
-    {applications, [kernel, stdlib]},
-    {mod, {masterApp, []}}
+    {applications, [kernel, stdlib, ecg]},
+    {mod, {master_node, []}}
     ]}.

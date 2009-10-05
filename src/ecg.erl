@@ -2,23 +2,15 @@
 %%% @author Vasilij Savin <>
 %%% @copyright (C) 2009, Vasilij Savin
 %%% @doc
-%%% 
+%%% This module handles start of electrocardiogram application.
+%%% Currently it is not using any parameters.
 %%% @end
 %%% Created : Oct 5, 2009 by Vasilij Savin <>
 %%%-------------------------------------------------------------------
 
--module(ecgApp).
+-module(ecg).
 -behaviour(application).
-
-%% --------------------------------------------------------------------
-%% Behavioural exports
-%% --------------------------------------------------------------------
--export([ start/2, stop/1 ]).
-
-%% --------------------------------------------------------------------
-%% Internal exports
-%% --------------------------------------------------------------------
--export([]).
+-export([start/2, stop/1]).
 
 %% ====================================================================!
 %% External functions
@@ -30,12 +22,11 @@
 %%          {error, Reason}
 %% --------------------------------------------------------------------
 start(_Type, _StartArgs) ->
-    io:format("Starting ECG Application~n", []),
-    Result = ecgSupervisor:start_link(),
-    io:format("Response from supervisor: ~w ~n", [Result]),
+    %io:format("Starting ECG Application~n", []),
+    Result = ecg_sup:start_link(),
     case Result of
 	{ok, Pid} ->
-        io:format("Started ECG Application~n", []),
+        %io:format("Started ECG Application~n", []),
 	    {ok, Pid};
 	Error ->
 	    Error

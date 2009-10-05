@@ -71,4 +71,5 @@ init(no_args) ->
 %%                    [dispatcher]},
     
     % Returning supervisor specification
-    {ok,{{one_for_one,1,60}, [Dispatcher]}}.
+    {ok,{{one_for_one,1,60}, [%Dispatcher
+                              ]}}.

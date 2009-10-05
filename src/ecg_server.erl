@@ -44,6 +44,7 @@ accept_message(Msg) ->
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
+    io:format("Starting ECG server~n", []),
     gen_server:start_link({global, ?MODULE}, ?MODULE, [], []).
 
 
@@ -69,7 +70,7 @@ start_link() ->
 %%--------------------------------------------------------------------
 init(_) ->
     net_kernel:monitor_nodes(true),
-    logger ! {event, self(), "ECG is up and running!"},
+    %logger ! {event, self(), "ECG is up and running!"},
     {ok, #state{}}.
 
 %% --------------------------------------------------------------------

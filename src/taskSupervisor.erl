@@ -2,11 +2,11 @@
 %%% @private
 %%% @author Fredrik Andersson <sedrik@consbox.se>
 %%% @copyright (C) 2009, Clusterbusters
-%%% @doc The client supervisor supervises the client supervision tree
+%%% @doc The taskSupervisor supervises the taskFetcher
 %%% @end
 %%% Created : 29 Sep 2009 by Fredrik Andersson <sedrik@consbox.se>
 %%%-------------------------------------------------------------------
--module(clientSupervisor).
+-module(taskSupervisor).
 -behaviour(supervisor).
 
 %% API
@@ -50,9 +50,8 @@ start_link() ->
 %%--------------------------------------------------------------------
 init(no_args) ->
     {ok,{{one_for_one, 1, 60},
-            [   child(logger, supervisor, no_args),
-                child(taskSupervisor, supervisor, no_args)
-                ]}}.
+            [   child(taskFetcher, worker, [taskFetcher_tests]) %TODO change this to server address!
+            ]}}.
 
 %%%===================================================================
 %%% Internal functions
@@ -73,5 +72,5 @@ child(Module,Role, no_args) ->
     {Module, {Module, start_link, []},
         permanent, brutal_kill, Role, [Module]};
 child(Module, Role, Args) ->
-    {Module, {Module, start_link, [Args]},
+    {Module, {Module, start_link, Args},
         permanent, brutal_kill, Role, [Module]}.

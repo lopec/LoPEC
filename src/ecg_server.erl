@@ -22,7 +22,6 @@
 %% External functions
 %% ===================================================================
 %%--------------------------------------------------------------------
-%% @public
 %% @doc
 %% Main interface with ECG.
 %% ECG waits for 3 types of messages:
@@ -44,7 +43,6 @@ accept_message(Msg) ->
 %%% Interface Function
 %%%===================================================================
 %%--------------------------------------------------------------------
-%% @public
 %% @doc
 %% gen_server callback function.
 %% Starting ECG server and initialise it to listen to network messages
@@ -66,7 +64,6 @@ start_link() ->
 %%          ignore               |
 %%          {stop, Reason}
 %% --------------------------------------------------------------------
-%% @public
 %% @doc
 %% Boots up ECG - cluster heartbeat listener.
 %% IMPORTANT: 'logger' should be registered process, otherwise

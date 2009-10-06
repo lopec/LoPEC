@@ -2,8 +2,11 @@
 %%% @author Axel <>
 %%% @copyright (C) 2009, Axel
 %%% @doc
-%%% Takes job requests from nodes and does whats necessary to the task
-%%% list to get it something to do. Unless there is nothing to do.
+%%% Receives job/task requests from a node, and returns the first
+%%% available job to it. If no jobs are found, the first available
+%%% task is instead returned. If there are no jobs or tasks, it
+%%% returns what db:get_task() returns in that case - the atom
+%%% no_task, presumably.
 %%% @end
 %%% Created : 30 Sep 2009 by Axel <>
 %%%-------------------------------------------------------------------
@@ -12,13 +15,13 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, get_task/0]).
+-export([start_link/0, get_work/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-         terminate/2, code_change/3]).
+         terminate/2, code_change/3, find_job/1, find_task/1]).
 
--define(SERVER, ?MODULE). 
+-define(SERVER, dispatcher_server). 
 
 
 %%%===================================================================
@@ -41,16 +44,13 @@ start_link() ->
 %% first available task, or if no tasks are available,
 %% no_task. Assuming db:get_task() returns no_task, and db:get_job()
 %% no_job (when applicable for both).
+%%
 %% @spec get_task() -> {ok, JobID} | {ok, TaskID} | no_task
 %% @end
 %%--------------------------------------------------------------------
-get_task() ->
-    case db:get_job() of
-        no_job -> db:get_task();
-        Job -> Job
-    end.
-%TODO: make sure that db:get_job and get_task return no_job/task
-%TODO: make sure that the database module is indeed db.erl
+get_work() ->
+    gen_server:cast({get_job, self()}, waiting_for_requests).
+
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -61,10 +61,7 @@ get_task() ->
 %% @doc
 %% Initiates the server
 %%
-%% @spec init(Args) -> {ok, State} |
-%%                     {ok, State, Timeout} |
-%%                     ignore |
-%%                     {stop, Reason}
+%% @spec init(Args) -> {ok, State} 
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
@@ -73,19 +70,12 @@ init([]) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Handling call messages
+%% Not implemented, not expecting any calls to this function.
 %%
 %% @spec handle_call(Request, From, State) ->
-%%                                   {reply, Reply, State} |
-%%                                   {reply, Reply, State, Timeout} |
-%%                                   {noreply, State} |
-%%                                   {noreply, State, Timeout} |
-%%                                   {stop, Reason, Reply, State} |
-%%                                   {stop, Reason, State}
+%%                                   {reply, ok, State} 
 %% @end
 %%--------------------------------------------------------------------
-handle_call(get_job, From, waiting_for_requests) ->
-    From ! get_task(); %TODO: is this really allowed? looks crazy
 handle_call(_Request, _From, State) ->
     Reply = ok,
     {reply, Reply, State}.
@@ -93,32 +83,31 @@ handle_call(_Request, _From, State) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Handling cast messages
+%% 
 %%
-%% @spec handle_cast(Msg, State) -> {noreply, State} |
-%%                                  {noreply, State, Timeout} |
-%%                                  {stop, Reason, State}
+%% @spec handle_cast(Msg, State) -> ok | {noreply, State} 
 %% @end
 %%--------------------------------------------------------------------
-handle_cast(_Msg, State) -> %not used
+handle_cast({job_req, From}, waiting_for_requests) ->
+    spawn(?MODULE, find_job, [From]);
+handle_cast(_Msg, State) ->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Handling all non call/cast messages
+%% Not implemented, not expecting any calls to this function.
 %%
-%% @spec handle_info(Info, State) -> {noreply, State} |
-%%                                   {noreply, State, Timeout} |
-%%                                   {stop, Reason, State}
+%% @spec handle_info(Info, State) -> {noreply, State} 
 %% @end
 %%--------------------------------------------------------------------
-handle_info(_Info, State) -> %not used
+handle_info(_Info, State) -> %template default
     {noreply, State}.
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
+%% Not implemented, not expecting any calls to this function.
 %% This function is called by a gen_server when it is about to
 %% terminate. It should be the opposite of Module:init/1 and do any
 %% necessary cleaning up. When it returns, the gen_server terminates
@@ -127,22 +116,60 @@ handle_info(_Info, State) -> %not used
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(_Reason, _State) -> %not used
+terminate(_Reason, _State) -> %template default
     ok.
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
+%% Not implemented, not expecting any calls to this function.
 %% Convert process state when code is changed
 %%
 %% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% @end
 %%--------------------------------------------------------------------
-code_change(_OldVsn, State, _Extra) -> %not used
+code_change(_OldVsn, State, _Extra) -> %template default
     {ok, State}.
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
 
-%TODO: unit tests. assuming we use them for behaviour implementations..
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Sends a message to given PID with the first found job in the DB,
+%% and tells the ECG to register this new node with that PID.  If no
+%% job is found, it instead calls find_task/1 with the given PID.
+%%
+%% @spec find_job(From) -> ok
+%% @end
+%%--------------------------------------------------------------------
+find_job(From) ->
+    case db:get_job() of
+        no_job -> find_task(From);
+        Job -> 
+            global:send(ecg_server, {new_node, From}),
+            From ! {new_job, Job}
+    end.
+
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Sends a message to given PID with the first found task in the DB,
+%% and tells the ECG to register this new node with that PID. If no
+%% task is found, it instead sends {no_task_found}.
+%%
+%% @spec find_task(From) -> ok
+%% @end
+%%--------------------------------------------------------------------
+find_task(From) ->
+    case db:get_task() of
+        no_task -> From ! {no_task_found};
+        Task -> 
+            global:send(ecg_server, {new_node, From}),
+            From ! {new_task, Task}
+    end.

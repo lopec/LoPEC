@@ -2,7 +2,11 @@
 %%% @author Axel <>
 %%% @copyright (C) 2009, Axel
 %%% @doc
-%%% Contains the unit tests for the dispatcher.
+%%%
+%%% Contains the unit tests for the dispatcher. As this requires a
+%%% table to be created and contain data we know exatly, these tests
+%%% must not be run while the system is live.
+%%%
 %%% @end
 %%% Created : 1 Oct 2009 by Axel <>
 %%%-------------------------------------------------------------------
@@ -12,20 +16,20 @@
 
 
 get_task_test() ->
-    db:init(), %TODO: the DB module is not yet made, cannot run tests
+    db:start(),
+    db:create_tables(),
     TestJob = somestuff,
     db:add_job({TestJob}),
-    TestJob = dispatcher:get_task(),
+    TestJob = dispatcher:get_work(),
     TestTask = otherstuff,
     db:add_job({TestJob}),
     db:add_task(TestTask),
-    TestItem = dispatcher:get_task(),
+    TestItem = dispatcher:get_work(),
 
-    %These "case"s check that we only get the two just added items,
-    %and only once each.
     case TestItem of
         TestJob ->
-            case TestItem of
+            TestItem2 = dispatcher:get_work(),
+            case TestItem2 of
                 TestTask ->
                     ok;
                 Other ->
@@ -33,11 +37,7 @@ get_task_test() ->
                          "got ~p~n", [Other])
             end;
         TestTask ->
-            case TestItem of
-                TestJob ->
-                    ok;
-                Other ->
-                    exit("Was expecting TestJob after getting TestTask,"
-                         "got ~p~n", [Other])
-            end
+            exit("Was expecting TestJob; got TestTask.");
+        Other ->
+            exit("Was expecting TestJob; got ~p~n", [Other])
     end.

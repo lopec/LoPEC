@@ -14,5 +14,6 @@
 	       current_state,
 	       priority}).
 
--record(task_job, {task_id,
-		   job_id}).
+-record(assigned_task, {task_id,
+			job_id,
+			node_id}).

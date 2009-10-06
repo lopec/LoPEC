@@ -20,7 +20,7 @@
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @private
+%% @oublic
 %% @doc
 %% Starts the supervisor
 %%
@@ -60,7 +60,7 @@ init(no_args) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Simple helper function to make the child specefication list easier
+%% Simple helper function to make the child specification list easier
 %% to read.
 %%
 %% @spec child(Module, Role, Args) -> {ChildSpec}

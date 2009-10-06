@@ -2,7 +2,7 @@
 %%% @private
 %%% @author Fredrik Andersson <sedrik@consbox.se>
 %%% @copyright (C) 2009, Clusterbusters
-%%% @doc The client application module handles starting and stoping
+%%% @doc The client application module handles starting and stopping
 %%% of a node
 %%% @end
 %%% Created : 29 Sep 2009 by Fredrik Andersson <sedrik@consbox.se>
@@ -14,7 +14,7 @@
 -export([start/2, stop/1]).
 
 %%--------------------------------------------------------------------
-%% @private
+%% @public
 %% @doc
 %% This function is called whenever an application is started using
 %% application:start/[1,2], and should start the processes of the
@@ -33,7 +33,7 @@ start(_Type, _Args) ->
     clientSupervisor:start_link().
 
 %%--------------------------------------------------------------------
-%% @private
+%% @public
 %% @doc
 %% This function is called whenever an application has stopped. It
 %% is intended to be the opposite of Module:start/2 and should do

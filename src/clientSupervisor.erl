@@ -50,7 +50,7 @@ start_link() ->
 %%--------------------------------------------------------------------
 init(no_args) ->
     {ok,{{one_for_one, 1, 60},
-            [   child(logger, supervisor, no_args),
+            [   child(logger_sup, supervisor, no_args),
                 child(taskSupervisor, supervisor, no_args)
                 ]}}.
 

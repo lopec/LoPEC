@@ -2,8 +2,8 @@
 %%% @private
 %%% @author Fredrik Andersson <sedrik@consbox.se>
 %%% @copyright (C) 2009, Clusterbusters
-%%% @doc
-%%%
+%%% @doc the terminalLogger is an event handler that will print the logging
+%%% messages to the terminal.
 %%% @end
 %%% Created : 29 Sep 2009 by Fredrik Andersson <sedrik@consbox.se>
 %%%-------------------------------------------------------------------
@@ -40,6 +40,9 @@ init(_Args) ->
 %% Whenever an event manager receives an event sent using
 %% gen_event:notify/2 or gen_event:sync_notify/2, this function is
 %% called for each installed event handler to handle the event.
+%%
+%% The form of the error message can be any erlang term that is accepted by
+%% io:format but it is recommended that it is a simple string.
 %%
 %% @spec handle_event(Event, State) ->
 %%                          {ok, State} |

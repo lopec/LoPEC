@@ -14,7 +14,6 @@
 -export([start/2, stop/1]).
 
 %%--------------------------------------------------------------------
-%% @public
 %% @doc
 %% This function is called whenever an application is started using
 %% application:start/[1,2], and should start the processes of the
@@ -33,7 +32,6 @@ start(_Type, _Args) ->
     clientSupervisor:start_link().
 
 %%--------------------------------------------------------------------
-%% @public
 %% @doc
 %% This function is called whenever an application has stopped. It
 %% is intended to be the opposite of Module:start/2 and should do

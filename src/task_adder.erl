@@ -39,7 +39,8 @@ start_link() ->
 %% @doc
 %% Passes given data along to the tasklist.
 %%
-%% @spec receive_details() -> see gen_server:cast
+%% @spec receive_details(Data) -> term()
+%% @todo !!FIXME!!
 %% @end
 %%--------------------------------------------------------------------
 receive_details(Data) ->

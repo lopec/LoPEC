@@ -9,7 +9,8 @@
 %% @doc
 %% 
 %% Just calls logger_loop with the given arguments.
-%% @spec start(ExternalLogger, FlagList::list())
+%% @spec start(ExternalLogger, FlagList::list()) -> term()
+%% @todo !!FIXME!!
 %% @end
 %%--------------------------------------------------------------------
 start(ExternalLogger, FlagList) ->
@@ -22,7 +23,8 @@ start(ExternalLogger, FlagList) ->
 %% Sends a message to the ExternalLogger and tells it that this
 %% logger is shutting down and then stops.
 %%
-%% @spec stop(ExternalLogger)
+%% @spec stop(ExternalLogger) -> term()
+%% @todo !!FIXME!!
 %% @end
 %%--------------------------------------------------------------------
 stop(ExternalLogger) ->
@@ -38,7 +40,8 @@ stop(ExternalLogger) ->
 %% Checks if the current message is of a existing type in the
 %% FlagList it sends the message. Else it just discards it.
 %%
-%% @spec send(ExternalLogger, FlagList, Message)
+%% @spec send(ExternalLogger, FlagList, Message) -> term()
+%% @todo !!FIXME!!
 %% @end
 %%--------------------------------------------------------------------
 send(_ExternalLogger, [], {_event, _PID, _Type, _Message}) ->
@@ -56,7 +59,8 @@ send(ExternalLogger, [_H|T], {event, PID, Type, Message}) ->
 %% If a type is provided it first send the message to the
 %% "send(...)" function.
 %%
-%% @spec logger_loop(ExternalLogger, FlagList::list())
+%% @spec logger_loop(ExternalLogger, FlagList::list()) -> term()
+%% @todo !!FIXME!!
 %% @end
 %%--------------------------------------------------------------------
 logger_loop(ExternalLogger, FlagList) ->

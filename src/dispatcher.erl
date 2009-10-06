@@ -45,7 +45,7 @@ start_link() ->
 %% no_task. Assuming db:get_task() returns no_task, and db:get_job()
 %% no_job (when applicable for both).
 %%
-%% @spec get_task() -> {ok, JobID} | {ok, TaskID} | no_task
+%% @spec get_work() -> {ok, JobID} | {ok, TaskID} | no_task
 %% @end
 %%--------------------------------------------------------------------
 get_work() ->

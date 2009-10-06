@@ -18,7 +18,8 @@
 %% and then calls logger_loop
 %%
 %%
-%% @spec start(Filename::string())
+%% @spec start(Filename::string()) -> term()
+%% @todo !!FIXME!!
 %% @end
 %%--------------------------------------------------------------------
 start(Filename) ->
@@ -48,7 +49,8 @@ stop(IoDevice) ->
 %%
 %%  Listens to event-messages from other processes. 
 %%
-%% @spec logger_loop(IoDevice)
+%% @spec logger_loop(IoDevice) -> term()
+%% @todo !!FIXME!!
 %% @end
 %%--------------------------------------------------------------------
 logger_loop(IoDevice) ->

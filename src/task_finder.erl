@@ -1,10 +1,10 @@
 %%%-------------------------------------------------------------------
 %%% @author Gustav Simonsson <>
 %%% @doc
-%%% Finds a task and returns a task in the same way as db:get_task()
-%%% does.
+%%% Finds first available task tied to a JobId and returns a task of
+%%% the same format as returned by db:get_task()
 %%% @end
-%%% Created : 30 Sep 2009 by Axel <>
+%%% Created : 30 Sep 2009 by Gustav Simonsson <>
 %%%-------------------------------------------------------------------
 -module(task_finder).
 -behaviour(gen_server).
@@ -82,7 +82,6 @@ handle_call({find_task, JobId}, _From, State) ->
 %% @private
 %% @doc
 %% Handling cast messages
-%% Receives data from task listener and adds it to task list
 %% @spec handle_cast(Msg, State) -> {noreply, State} |
 %%                                  {noreply, State, Timeout} |
 %%                                  {stop, Reason, State}

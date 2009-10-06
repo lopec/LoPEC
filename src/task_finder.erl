@@ -39,7 +39,7 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 find_task(JobId) ->
-    gen_server:call(task_finder, {task_finder, JobId}).
+    gen_server:call(task_finder, {find_task, JobId}).
 
 
 %%%===================================================================

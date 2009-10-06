@@ -10,7 +10,7 @@ request_job_test_() ->
     {setup,
      fun () -> {ok, Pid} = taskFetcher:start_link(?MODULE), Pid end,
      fun (Pid) -> exit(Pid, kill) end,
-     fun (_TaskServer) ->
+     fun (_Pid) ->
              {inorder,
               [?_assertEqual(2, taskFetcher:request_job()),
                ?_assertEqual(4, taskFetcher:request_job()),

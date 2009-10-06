@@ -6,9 +6,15 @@
 
 get_jobs() -> [2,4,1,5].
 
-request_job_test() ->
-    {ok, Pid} = taskFetcher:start_link(?MODULE),
-    2 = taskFetcher:request_job(),
-    4 = taskFetcher:request_job(),
-    1 = taskFetcher:request_job(),
-    5 = taskFetcher:request_job().
+request_job_test_() ->
+    {setup,
+     fun () -> {ok, Pid} = taskFetcher:start_link(?MODULE), Pid end,
+     fun (Pid) -> exit(Pid, kill) end,
+     fun (_TaskServer) ->
+             {inorder,
+              [?_assertEqual(2, taskFetcher:request_job()),
+               ?_assertEqual(4, taskFetcher:request_job()),
+               ?_assertEqual(1, taskFetcher:request_job()),
+               ?_assertEqual(5, taskFetcher:request_job())]}
+     end
+    }.

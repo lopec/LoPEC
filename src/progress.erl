@@ -18,7 +18,8 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, get_progress/1, get_progress_full/1, get_tasks_of_state/2]).
+-export([start_link/0, get_progress/1, get_progress_full/1,
+	 get_tasks_of_state/2]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	terminate/2, code_change/3]).
@@ -60,17 +61,6 @@ init([]) ->
 %       true -> ok
 %    end.
     {ok}.
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%% Handling call messages
-%%
-%% @spec handle_info(Interval, JobId) ->
-%%                                   {to be determined}
-%% @end
-%%--------------------------------------------------------------------
-
 
 %%--------------------------------------------------------------------
 %% @private
@@ -125,7 +115,8 @@ get_progress_full(JobId) ->
 	         " (" ++
 	         percentage_string(TasksAssigned, TasksTotal) ++ ")",
     
-    Done_Progress ++ Available_Progress ++ Reserved_Progress ++ Assigned_Progress.
+    Done_Progress ++ Available_Progress ++ Reserved_Progress ++
+	Assigned_Progress.
 
 percentage_string(SubTasks, TasksTotal) ->
     lists:sublist(lists:flatten(io_lib:format(

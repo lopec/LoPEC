@@ -16,7 +16,11 @@ clean:
 	-rm $(OBJECTS)
 
 test: $(OBJECTS)
-	erl -noshell -pa ebin -eval 'eunit:test("ebin",[verbose])' -s init stop
+	mkdir tests
+	mv ebin/*_tests.beam tests/
+	erl -noshell -pa ebin -pa tests -eval 'eunit:test("tests",[verbose])' -s init stop
+	mv tests/*_tests.beam ebin/
+	rm -rf tests/
 
 port:
 	gcc $(C_FLAGS) -o priv/port.so -fpic -shared src/port/port.c

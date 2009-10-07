@@ -2,13 +2,16 @@
 %%% @author Axel <>
 %%% @copyright (C) 2009, Axel
 %%% @doc
+%%%
 %%% Receives tasks from the task listener and adds them to the task
 %%% list. Multiple copies of this process may exist simultaneously.
+%%%
 %%% @end
 %%% Created : 30 Sep 2009 by Axel <>
 %%%-------------------------------------------------------------------
 -module(task_adder).
 -behaviour(gen_server).
+
 
 %% API
 -export([start_link/0, receive_details/1]).
@@ -16,7 +19,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--define(SERVER, ?MODULE).
+-define(SERVER, task_adder_server).
 
 %%%===================================================================
 %%% API
@@ -31,16 +34,16 @@
 %%--------------------------------------------------------------------
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+%template default
 %TODO: we may want task adder process to be nameless, to avoid any
-% possibility of conflict
+%possibility of conflict
 
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Passes given data along to the tasklist.
+%% Passes given task data to the handle_call function
 %%
 %% @spec receive_details(Data) -> term()
-%% @todo !!FIXME!!
 %% @end
 %%--------------------------------------------------------------------
 receive_details(Data) ->
@@ -56,10 +59,7 @@ receive_details(Data) ->
 %% @doc
 %% Initiates the server
 %%
-%% @spec init(Args) -> {ok, State} |
-%%                     {ok, State, Timeout} |
-%%                     ignore |
-%%                     {stop, Reason}
+%% @spec init(Args) -> {ok, State} 
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
@@ -69,42 +69,48 @@ init([]) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Handling call messages
+%%
+%% Adds given data to the DB. The result of this operation is sent as
+%% a message to the ID what sent the data to be added to the DB.
 %%
 %% @spec handle_call(Request, From, State) ->
-%%                                   {reply, Reply, State} |
-%%                                   {reply, Reply, State, Timeout} |
-%%                                   {noreply, State} |
-%%                                   {noreply, State, Timeout} |
-%%                                   {stop, Reason, Reply, State} |
-%%                                   {stop, Reason, State}
+%%                                   {reply, Reply, State} 
 %% @end
 %%--------------------------------------------------------------------
-handle_call({task_details, Data}, From, waiting_for_task_details) ->
-    From ! db:add_task(Data);
-%TODO: must check that db:add_task reports it if there's an error
-handle_call(_Request, _From, State) ->
+% TODO: must check that db:add_task reports it if there's an error. Or
+% crashes, either works..
+handle_call({task_details, Data},
+            {_From, _Tag},
+            waiting_for_task_details) ->
+    {reply, db:add_task(Data), waiting_for_task_details}; 
+handle_call(Request, From, State) ->
+    logger:error("task_adder:handle_call got an invalid call!~n"
+                 "--Request: ~p~n"
+                 "--From: ~p~n"
+                 "--State: ~p~n", [Request, From, State]),
     Reply = ok,
-    {reply, Reply, State}.
+    {noreply, Reply, State}.
 
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Handling cast messages
-%% Receives data from task listener and adds it to task list
-%% @spec handle_cast(Msg, State) -> {noreply, State} |
-%%                                  {noreply, State, Timeout} |
-%%                                  {stop, Reason, State}
+%% Not implemented, not expecting any calls to this function
+%%
+%% @spec handle_cast(Msg, State) -> {noreply, State} 
 %% @end
 %%--------------------------------------------------------------------
-handle_cast(_Msg, State) -> 
-  {noreply, State}.
+handle_cast(Msg, State) -> %template default
+    logger:error("task_adder:handle_cast got an unexpected call!~n"
+                 "--Msg: ~p~n"
+                 "--State: ~p~n", [Msg, State]),
+    {noreply, State}.
 
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
+%% Not implemented, not expecting any calls to this function
 %% Handling all non call/cast messages
 %%
 %% @spec handle_info(Info, State) -> {noreply, State} |
@@ -112,13 +118,17 @@ handle_cast(_Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(_Info, State) -> %not used
+handle_info(Info, State) -> %template default
+    logger:error("task_adder:handle_info got an unexpected call!~n"
+                 "--Info: ~p~n"
+                 "--State: ~p~n", [Info, State]),
     {noreply, State}.
 
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
+%% Not implemented, not expecting any calls to this function
 %% This function is called by a gen_server when it is about to
 %% terminate. It should be the opposite of Module:init/1 and do any
 %% necessary cleaning up. When it returns, the gen_server terminates
@@ -127,18 +137,26 @@ handle_info(_Info, State) -> %not used
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(_Reason, _State) -> %not used
+terminate(Reason, State) -> %template default
+    logger:error("task_adder:terminate got an unexpected call!~n"
+                 "--Reason: ~p~n"
+                 "--State: ~p~n", [Reason, State]),
     ok.
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
+%% Not implemented, not expecting any calls to this function
 %% Convert process state when code is changed
 %%
 %% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% @end
 %%--------------------------------------------------------------------
-code_change(_OldVsn, State, _Extra) -> %not used
+code_change(OldVsn, State, Extra) -> %template default
+    logger:error("task_adder:code_change got an unexpected call!~n"
+                 "--Old version: ~p~n"
+                 "--State: ~p~n"
+                 "--Extra: ~p~n", [OldVsn, State, Extra]),
     {ok, State}.
 
 

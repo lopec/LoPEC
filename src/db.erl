@@ -1,17 +1,21 @@
 %%%-------------------------------------------------------------------
-%%% File    : db.erl
-%%% Author  : Henkan <henkan@SKYNET>
-%%% Description : 
-%%%
-%%% Created : 30 Sep 2009 by Henkan <henkan@SKYNET>
+%%% @author Henkan
+%%% @doc
+%%% db.erl is the database API, and provides the necessary
+%%% functionality for the user to operate on the job and task tables.
+%%%  
+%%% For now, when you want to run the database, you start with
+%%% typing db:start() in your erlang shell. This will setup the schema
+%%% and start the mnesia application. Afterwards, type
+%%% db:create:tables() to create the physical tables on the disc.
+%%% The tables and stuff will be stored in ./Mnesia.nonode@nohost.
+%%% 
+%%% Note that you only need to create the tables once, afterwards
+%%% you start the database by simply typing db:start(), otherwise
+%%% everything blows up.
+%%% @end
+%%% Created : 30 Sep 2009 by Henkan
 %%%-------------------------------------------------------------------
-
-%%% Some extra info: the first time you start the database,
-%%% type db:start() in the erlang shell, followed by
-%%% db:create_tables(). This will setup the necessary things
-%%% for running the shiznit. When starting it otherwise,
-%%% all you need to do is start the mnesia application
-%%% with db:start(). Gl hf!
 
 -module(db).
 -include("../include/db.hrl").
@@ -22,7 +26,7 @@
 -export([start/0, start_link/0, stop/0, create_tables/0]).
 
 %% APIs for external access to the job table
--export([add_job/4, remove_job/1, 
+-export([add_job/1, remove_job/1, 
 	 get_job/0, get_job_info/1, get_job_reply_id/1,
 	 get_job_callback_path/1, get_job_input_path/1,
 	 get_job_state/1, get_job_priority/1, get_job_progress/1,
@@ -30,7 +34,7 @@
 	 list_jobs/0]).
 
 %% APIs for external access to the task table
--export([add_task/5, remove_task/1,
+-export([add_task/1, remove_task/1,
 	 get_task/1, get_task_info/1,
 	 get_task_callback_path/1, get_task_input_path/1,
 	 get_task_state/1, get_task_priority/1, get_task_type/1, 
@@ -41,26 +45,25 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
 
-%% LOL functions
--export([random/0]).
-
 %%--------------------------------------------------------------------
 %% @doc
 %%
 %% Starts the database gen_server.
 %%
+%% @spec start() -> database_started | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 start() ->
     start_link(),
-    ok.
+    database_started.
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
 %%
-%% Starts the database gen_server.
-%%
+%% Starts the database server.
+%% 
+%% @spec start_link() -> {ok,Pid} | ignore | {error, Error} 
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
@@ -71,6 +74,7 @@ start_link() ->
 %%
 %% Stops the database gen_server.
 %%
+%% @spec stop() -> ok | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 stop() ->
@@ -82,11 +86,11 @@ stop() ->
 %% Creates the tables used for keeping track of the jobs,
 %% tasks and the assigned tasks.
 %%
+%% @spec create_tables() -> tables_created | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 create_tables() ->
     gen_server:call(?SERVER, create_tables).
-
 
 %%====================================================================
 %% JOB TABLE APIs
@@ -94,19 +98,25 @@ create_tables() ->
 %%--------------------------------------------------------------------
 %% @doc
 %%
-%% Adds a job to the job table.
+%% Calls the server to add a job to the job table with the given
+%% properties. The server returns the generated id of the job.
 %% 
+%% @spec add_job({CallbackPath::string(), InputPath::string(), 
+%%                ReplyId::integer(),Priority::integer()}) -> 
+%%            JobId::integer() | {error,Error} 
 %% @end
 %%--------------------------------------------------------------------
-add_job(CallbackPath, InputPath, ReplyId, Priority) ->
+add_job({CallbackPath, InputPath, ReplyId, Priority}) ->
     gen_server:call(?SERVER, {add_job, CallbackPath, InputPath,
-					ReplyId, Priority}).
+			      ReplyId, Priority}).
 
 %%--------------------------------------------------------------------
 %% @doc
 %%
-%% Removes a job from the job table.
+%% Removes a job from the job table. This does not remove its
+%% associated tasks.
 %% 
+%% @spec remove_job(JobId::integer()) -> ok | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 remove_job(JobId) ->
@@ -116,8 +126,10 @@ remove_job(JobId) ->
 %% @doc
 %%
 %% Returns a job from the job table which has its current status set
-%% to 'available'.
+%% to 'available', and sets the status to 'reserved'. 
+%% If no such job exists, the atom 'no_job' is returned.
 %% 
+%% @spec get_job() -> Job | no_job | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 get_job() ->
@@ -129,6 +141,7 @@ get_job() ->
 %%
 %% Returns the full record of a job given its 'JobId'.
 %% 
+%% get_job_info(JobId::integer()) -> Job | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 get_job_info(JobId) ->
@@ -139,7 +152,14 @@ get_job_info(JobId) ->
 %% @doc
 %%
 %% Changes the state of the given job with id 'JobId' to 'State'.
+%% The possible states should be either:
+%% 'available' - no one is working on the job.
+%% 'reserved'  - the job is reserved.
+%% 'mapping'   - the job is being mapped.
+%% 'reducing'  - the job is being reduced.
+%% 'done'      - the job is finished. 
 %% 
+%% @spec set_job_state(JobId::integer(), State::atom()) -> ok | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 set_job_state(JobId, State) ->
@@ -151,6 +171,8 @@ set_job_state(JobId, State) ->
 %%
 %% Changes the progress of the given job with id 'JobId' to 'Progress'.
 %% 
+%% @spec set_job_progress(JobId::integer(), Progress::integer()) ->
+%%                              ok | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 set_job_progress(JobId, Progress) ->
@@ -162,6 +184,8 @@ set_job_progress(JobId, Progress) ->
 %%
 %% Changes the priority of the given job with id 'JobId' to 'Priority'.
 %% 
+%% @spec set_job_priority(JobId::integer(), Priority::integer()) ->
+%%                              ok | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 set_job_priority(JobId, Priority) ->
@@ -173,6 +197,7 @@ set_job_priority(JobId, Priority) ->
 %%
 %% Returns the current state of the given job with id 'JobId'.
 %% 
+%% @spec get_job_state(JobId::integer()) -> Job | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 get_job_state(JobId) ->
@@ -185,6 +210,8 @@ get_job_state(JobId) ->
 %%
 %% Returns the current progress of the given job with id 'JobId'.
 %% 
+%% @spec get_job_progress(JobId::integer()) -> Progress::integer()
+%%                                           | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 get_job_progress(JobId) ->
@@ -197,6 +224,8 @@ get_job_progress(JobId) ->
 %%
 %% Returns the callback path of the given job with id 'JobId'.
 %% 
+%% @spec get_job_callback_path(JobId::integer()) -> CallbackPath::string()
+%%                                                | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 get_job_callback_path(JobId) ->
@@ -209,6 +238,8 @@ get_job_callback_path(JobId) ->
 %%
 %% Returns the input path of the job with id 'JobId'.
 %% 
+%% @spec get_job_input_path(JobId::integer()) -> InputPath::string()
+%%                                             | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 get_job_input_path(JobId) ->
@@ -221,6 +252,8 @@ get_job_input_path(JobId) ->
 %%
 %% Returns the reply id of the job with id 'JobId'.
 %% 
+%% @spec get_job_reply_id(JobId::integer()) -> ReplyId::string()
+%%                                           | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 get_job_reply_id(JobId) ->
@@ -233,6 +266,8 @@ get_job_reply_id(JobId) ->
 %%
 %% Returns the priority of the job with id 'JobId'.
 %% 
+%% @spec get_job_priority(JobId::integer()) -> Priority::integer()
+%%                                           | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 get_job_priority(JobId) ->
@@ -244,6 +279,8 @@ get_job_priority(JobId) ->
 %%
 %% Returns a list containing all id's of the jobs in the job table.
 %% 
+%% @spec list_jobs() -> List | {error, Error}
+%%              List = [integer()]
 %% @end
 %%--------------------------------------------------------------------
 list_jobs() ->
@@ -256,11 +293,16 @@ list_jobs() ->
 %% @doc
 %%
 %% Adds a task to the task table with parameters set, and its current
-%% state set to 'available'.
+%% state set to 'available'. The parameter node_id in the
+%% assigned_task table is set to 'undefined', as the task is not
+%% assigned to any node.
 %% 
+%% @spec add_task({JobId::integer(), TaskType::atom(), CallbackPath::string(),
+%%                InputPath::string(), Priority::integer()}) ->
+%%                    TaskId::integer() | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-add_task(JobId, TaskType, CallbackPath, InputPath, Priority) ->
+add_task({JobId, TaskType, CallbackPath, InputPath, Priority}) ->
     gen_server:call(?SERVER, {add_task, JobId, 
 					TaskType, CallbackPath, 
 					InputPath, available, Priority}).
@@ -271,6 +313,7 @@ add_task(JobId, TaskType, CallbackPath, InputPath, Priority) ->
 %% Remove the task with id 'TaskId' from the task table, and its
 %% relations from the assigned_task table.
 %% 
+%% @spec remove_task(TaskId::integer()) -> ok | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 remove_task(TaskId) ->
@@ -280,8 +323,10 @@ remove_task(TaskId) ->
 %% @doc
 %%
 %% Returns an available task from the task table, and assigns it as
-%% reserved to the node with id 'NodeId'.
+%% reserved to the node with id 'NodeId'. If no such task exists
+%% the atom 'no_task' is returned.
 %% 
+%% @spec get_task(NodeId::atom()) -> Task | no_task | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 get_task(NodeId) ->
@@ -292,6 +337,7 @@ get_task(NodeId) ->
 %%
 %% Returns the whole task with id 'TaskId' from the task table.
 %% 
+%% @spec get_task_info(TaskId::integer()) -> Task | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 get_task_info(TaskId) ->
@@ -302,7 +348,9 @@ get_task_info(TaskId) ->
 %% @doc
 %%
 %% Sets the state of the task with id 'TaskId' to 'State'.
-%% 
+%%
+%% @spec set_task_state(TaskId::integer(), State::atom()) -> ok | {error, Error}
+%%                           
 %% @end
 %%--------------------------------------------------------------------
 set_task_state(TaskId, State) ->
@@ -314,6 +362,8 @@ set_task_state(TaskId, State) ->
 %%
 %% Sets the priority of the task with id 'TaskId' to 'Priority'.
 %% 
+%% @spec set_task_priority(TaskId::integer(), Priority::integer()) ->
+%%                      ok | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 set_task_priority(TaskId, Priority) ->
@@ -325,6 +375,7 @@ set_task_priority(TaskId, Priority) ->
 %%
 %% Returns the state of the task with id 'TaskId'.
 %% 
+%% @spec get_task_state(TaskId::integer()) -> State::atom() | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 get_task_state(TaskId) ->
@@ -337,6 +388,8 @@ get_task_state(TaskId) ->
 %%
 %% Returns the callback path of the task with id 'TaskId'.
 %% 
+%% @spec get_task_callback_path(TaskId::integer()) -> 
+%%                           CallbackPath::string() | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 get_task_callback_path(TaskId) ->
@@ -349,6 +402,8 @@ get_task_callback_path(TaskId) ->
 %%
 %% Returns the input path of the task with id 'TaskId'.
 %% 
+%% @spec get_task_input_path(TaskId::integer()) -> 
+%%                        InputPath::string() | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 get_task_input_path(TaskId) ->
@@ -360,7 +415,8 @@ get_task_input_path(TaskId) ->
 %% @doc
 %%
 %% Returns the type of the task with id 'TaskId'.
-%% 
+%%
+%% @spec get_task_type(TaskId::integer()) -> TaskType::atom() | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 get_task_type(TaskId) ->
@@ -373,6 +429,8 @@ get_task_type(TaskId) ->
 %%
 %% Returns the priority of the task with id 'TaskId'.
 %% 
+%% @spec get_task_priority(TaskId::integer()) -> Priority::integer() 
+%%                                             | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 get_task_priority(TaskId) ->
@@ -384,6 +442,8 @@ get_task_priority(TaskId) ->
 %%
 %% Returns a list of id's of all tasks in the task table.
 %% 
+%% @list_tasks() -> List | {error, Error}
+%%           List = [TaskId::integer()]
 %% @end
 %%--------------------------------------------------------------------
 list_tasks() ->
@@ -395,6 +455,8 @@ list_tasks() ->
 %% Returns a list of id's of all tasks in the task table which belong
 %% to the job with id 'JobId'.
 %% 
+%% @spec list_tasks(JobId::integer()) -> List | {error, Error}
+%%               List = [TaskId::integer()]
 %% @end
 %%--------------------------------------------------------------------
 list_tasks(JobId) ->
@@ -406,6 +468,8 @@ list_tasks(JobId) ->
 %% Returns a list of id's of all tasks in the task table which are
 %% reserved or assigned to the node with id 'NodeId'.
 %% 
+%% @spec list_node_tasks(NodeId::integer()) -> List | {error, Error}
+%%                    List = [TaskId::integer()]
 %% @end
 %%--------------------------------------------------------------------
 list_node_tasks(NodeId) ->
@@ -422,6 +486,8 @@ list_node_tasks(NodeId) ->
 %% 
 %% @TODO add distribution to several database nodes.
 %% 
+%% @spec init(_Args) -> {ok, NodeList} | {error, Error}
+%%         NodeList = [NodeId::atom()]
 %% @end
 %%--------------------------------------------------------------------
 init(_Args) ->
@@ -434,7 +500,7 @@ init(_Args) ->
 %% @private
 %% @doc
 %%
-%% Creates the necessary tables for the database to run on disc.
+%% Creates the necessary tables for the database on disc.
 %%
 %% @end
 %%--------------------------------------------------------------------
@@ -483,8 +549,8 @@ handle_call({remove_job, JobId}, _From, State) ->
 %% @private
 %% @doc
 %%
-%% Fetches a job from the job table that is marked as "available",
-%% and returns the whole record.
+%% Fetches a job from the job table that is marked as 'available',
+%% and returns the whole record. Also sets the job as 'reserved'.
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -506,7 +572,16 @@ handle_call({get_job}, _From, State) ->
     case Result of
 	% This is what the result of the table match looks like,
 	% and we're only interested in the Job.
-	{atomic, {[Job], _Cont}} ->
+	{atomic, {[JobId], _Cont}} ->
+	    Job = get_job_info_on_server(JobId),
+	    remove_job_on_server(JobId),
+	    add_job_on_server(JobId, 
+			      Job#job.callback_path, 
+			      Job#job.input_path,
+			      reserved, 
+			      Job#job.current_progress,
+			      Job#job.reply_id,
+			      Job#job.priority),
 	    % Reply the whole job, not just the id.
  	    {reply, get_job_info_on_server(Job), State};
  	{atomic, '$end_of_table'} ->
@@ -517,8 +592,7 @@ handle_call({get_job}, _From, State) ->
 %% @private
 %% @doc
 %%
-%% 
-%% 
+%% Returns the whole job given the JobId.
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -530,15 +604,13 @@ handle_call({get_job_info, JobId}, _From, State) ->
 %% @private
 %% @doc
 %%
-%% 
-%% 
+%% Sets the state of a job.
 %% 
 %% @end
 %%--------------------------------------------------------------------
 handle_call({set_job_state, JobId, State}, _From, State) ->
     F = fun() ->
-		Job = get_job_info_on_server(JobId),
-		 
+		Job = get_job_info_on_server(JobId),		 
 	        remove_job_on_server(JobId),
 		add_job_on_server(JobId, 
 				  Job#job.callback_path, 
@@ -555,9 +627,8 @@ handle_call({set_job_state, JobId, State}, _From, State) ->
 %% @private
 %% @doc
 %%
-%% 
-%% 
-%% 
+%% Sets the progress of a job.
+%%
 %% @end
 %%--------------------------------------------------------------------
 handle_call({set_job_progress, JobId, Progress}, _From, State) ->
@@ -579,8 +650,7 @@ handle_call({set_job_progress, JobId, Progress}, _From, State) ->
 %% @private
 %% @doc
 %%
-%% 
-%% 
+%% Sets the priority of a job.
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -603,8 +673,7 @@ handle_call({set_job_priority, JobId, Priority}, _From, State) ->
 %% @private
 %% @doc
 %%
-%% 
-%% 
+%% Lists all jobs in the job table.
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -619,8 +688,7 @@ handle_call({list_jobs}, _From, State) ->
 %% @private
 %% @doc
 %%
-%% 
-%% 
+%% Adds a task to the task table and correctly sets its relations.
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -638,8 +706,7 @@ handle_call({add_task, JobId, TaskType, CallbackPath, InputPath, CurrentState,
 %% @private
 %% @doc
 %%
-%% 
-%% 
+%% Removes the given task and its relations from the database. 
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -653,8 +720,8 @@ handle_call({remove_task, TaskId}, _From, State) ->
 %% @private
 %% @doc
 %%
-%% 
-%% 
+%% Returns an available task from the task table and set it as
+%% assigned to the specified NodeId. 
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -697,8 +764,7 @@ handle_call({get_task, NodeId}, _From, State) ->
 %% @private
 %% @doc
 %%
-%% 
-%% 
+%% Returns the whole task given a task id.
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -710,8 +776,7 @@ handle_call({get_task_info, TaskId}, _From, State) ->
 %% @private
 %% @doc
 %%
-%% 
-%% 
+%% Sets the state of a task. 
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -734,8 +799,7 @@ handle_call({set_task_state, TaskId, State}, _From, State) ->
 %% @private
 %% @doc
 %%
-%% 
-%% 
+%% Sets the priority of a task.
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -758,8 +822,7 @@ handle_call({set_task_priority, TaskId, Priority}, _From, State) ->
 %% @private
 %% @doc
 %%
-%% 
-%% 
+%% Lists all tasks in the task table.
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -774,8 +837,7 @@ handle_call({list_tasks}, _From, State) ->
 %% @private
 %% @doc
 %%
-%% 
-%% 
+%% Lists all tasks that belong to the job with id JobId.
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -797,8 +859,7 @@ handle_call({list_tasks, JobId}, _From, State) ->
 %% @private
 %% @doc
 %%
-%% 
-%% 
+%% Lists all tasks that belong to the node with id NodeId.
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -815,20 +876,11 @@ handle_call({list_node_tasks, NodeId}, _From, State) ->
     {atomic, Result} = mnesia:transaction(F),
     {reply, Result, State}.
 
-
-
-%%--------------------------------------------------------------------
-%% Function: handle_cast(Msg, State) -> {noreply, State} |
-%%                                      {noreply, State, Timeout} |
-%%                                      {stop, Reason, State}
-%% Description: Handling cast messages
-%%--------------------------------------------------------------------
-
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
 %%
-%% 
+%% Stops the mnesia application.
 %% 
 %% 
 %% @end
@@ -841,8 +893,7 @@ handle_cast(stop, State) ->
 %% @private
 %% @doc
 %%
-%% 
-%% 
+%% Catches all other handle_cast-messages.
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -850,17 +901,10 @@ handle_cast(_Msg, State) ->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
-%% Function: handle_info(Info, State) -> {noreply, State} |
-%%                                       {noreply, State, Timeout} |
-%%                                       {stop, Reason, State}
-%% Description: Handling all non call/cast messages
-%%--------------------------------------------------------------------
-%%--------------------------------------------------------------------
 %% @private
 %% @doc
 %%
-%% 
-%% 
+%% Handling all non call/cast messages
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -868,35 +912,24 @@ handle_info(_Info, State) ->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
-%% Function: terminate(Reason, State) -> void()
-%% Description: This function is called by a gen_server when it is about to
-%% terminate. It should be the opposite of Module:init/1 and do any necessary
-%% cleaning up. When it returns, the gen_server terminates with Reason.
-%% The return value is ignored.
-%%--------------------------------------------------------------------
-%%--------------------------------------------------------------------
 %% @private
 %% @doc
 %%
-%% 
-%% 
+%% This function is called by a gen_server when it is about to
+%% terminate. It should be the opposite of Module:init/1 and do any necessary
+%% cleaning up. When it returns, the gen_server terminates with Reason.
+%% The return value is ignored.
 %% 
 %% @end
 %%--------------------------------------------------------------------
 terminate(_Reason, _State) ->
-    application:stop(mnesia),
-    ok.
+    application:stop(mnesia).
 
-%%--------------------------------------------------------------------
-%% Func: code_change(OldVsn, State, Extra) -> {ok, NewState}
-%% Description: Convert process state when code is changed
-%%--------------------------------------------------------------------
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
 %%
-%% 
-%% 
+%% Convert process state when code is changed
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -907,16 +940,12 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 %%--------------------------------------------------------------------
-%% Func: generate_id() -> Id
-%% Description: Generates an id based on now().
-%%--------------------------------------------------------------------
-%%--------------------------------------------------------------------
 %% @private
 %% @doc
 %%
-%% 
-%% 
-%% 
+%% Generates an id based on Erlang's now() function.
+%%
+%% @spec generate_id() -> Id::integer() 
 %% @end
 %%--------------------------------------------------------------------
 generate_id() ->
@@ -930,13 +959,17 @@ generate_id() ->
 %% @private
 %% @doc
 %%
-%% 
-%% 
+%% Adds a job to the database.
+%%
+%% add_job_on_server(JobId::integer(), CallbackPath::string()
+%%                   InputPath::integer(), CurrentState::atom(),
+%%                   CurrentProgress::integer(), ReplyId::string(),
+%%                   Priority::integer()) -> {aborted, Reason} |{atomic, ok}
 %% 
 %% @end
 %%--------------------------------------------------------------------
 add_job_on_server(JobId, CallbackPath, InputPath, CurrentState, 
-	       CurrentProgress, ReplyId, Priority) ->
+		  CurrentProgress, ReplyId, Priority) ->
     F = fun() ->
 		mnesia:write(#job{job_id = JobId,
 				  callback_path = CallbackPath,
@@ -952,9 +985,10 @@ add_job_on_server(JobId, CallbackPath, InputPath, CurrentState,
 %% @private
 %% @doc
 %%
+%% Removes a job from the server. This does not remove its associated
+%% tasks.
 %% 
-%% 
-%% 
+%% @spec remove_job_on_server(JobId::integer()) -> {aborted, Reason} | {atomic, ok}
 %% @end
 %%--------------------------------------------------------------------
 remove_job_on_server(JobId) ->
@@ -967,9 +1001,9 @@ remove_job_on_server(JobId) ->
 %% @private
 %% @doc
 %%
+%% Fetches a job given an id from the job table.
 %% 
-%% 
-%% 
+%% @spec get_job_info_on_server(JobId::integer()) -> Job
 %% @end
 %%--------------------------------------------------------------------
 get_job_info_on_server(JobId) ->
@@ -984,9 +1018,13 @@ get_job_info_on_server(JobId) ->
 %% @private
 %% @doc
 %%
+%% Adds a task to the task table.
 %% 
-%% 
-%% 
+%% @spec add_task_on_server(TaskId::integer(), JobId::integer(), 
+%%                          TaskType::atom(), CallbackPath::string(), 
+%%                          InputPath::string(), CurrentState::atom(),
+%%                          Priority::integer()) -> 
+%%                      {aborted, Reason} | ok
 %% @end
 %%--------------------------------------------------------------------
 add_task_on_server(TaskId, JobId, TaskType, CallbackPath, InputPath, 
@@ -1007,9 +1045,9 @@ add_task_on_server(TaskId, JobId, TaskType, CallbackPath, InputPath,
 %% @private
 %% @doc
 %%
+%% Removes a task from the task table.
 %% 
-%% 
-%% 
+%% @spec remove_task_on_server(TaskId::integer()) -> ok | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 remove_task_on_server(TaskId) ->    
@@ -1023,9 +1061,9 @@ remove_task_on_server(TaskId) ->
 %% @private
 %% @doc
 %%
+%% Fetches a task from the task table given an id.
 %% 
-%% 
-%% 
+%% @spec get_task_info_on_server(TaskId::integer()) -> Task
 %% @end
 %%--------------------------------------------------------------------
 get_task_info_on_server(TaskId) ->
@@ -1039,9 +1077,11 @@ get_task_info_on_server(TaskId) ->
 %% @private
 %% @doc
 %%
+%% Add the relations of a task to the assigned_task table.
 %% 
-%% 
-%% 
+%% @spec add_assigned_task_on_server(TaskId::integer(), JobId::integer(),
+%%                                   NodeId::integer()) ->
+%%                       ok | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 add_assigned_task_on_server(TaskId, JobId, NodeId) ->
@@ -1057,9 +1097,10 @@ add_assigned_task_on_server(TaskId, JobId, NodeId) ->
 %% @private
 %% @doc
 %%
+%% Removes the relations of a given task from the assigned_task table.
 %% 
-%% 
-%% 
+%% @spec remove_assigned_task_on_server(TaskId::integer()) -> 
+%%                           ok | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 remove_assigned_task_on_server(TaskId) ->
@@ -1067,224 +1108,4 @@ remove_assigned_task_on_server(TaskId) ->
 		mnesia:delete({assigned_task, TaskId})
 	end,
     mnesia:transaction(F),
-    ok.
-
-%%------------------------------------------------------
-%% LOL FUNCTIONS
-%%------------------------------------------------------
-%% random() -> ok
-%% This is a really lollerskating function that inserts
-%% a lot of things and stuff in the tables. Only to be
-%% used for random testing.
-random() ->
-    A = db:add_job('./1.job', './1.inp', 6643, 10),
-    B = db:add_job('./2.job', './2.inp', 56984, 10),
-    C = db:add_job('./3.job', './3.inp', 109, 10),
-    D = db:add_job('./4.job', './4.inp', 5094, 10),
-    E = db:add_job('./5.job', './5.inp', 83567, 10),
-    F = db:add_job('./6.job', './6.inp', 4589, 10),
-    G = db:add_job('./7.job', './7.inp', 7938, 10),
-    H = db:add_job('./8.job', './8.inp', 83567, 10),
-    I = db:add_job('./9.job', './9.inp', 7537, 10),
-    J = db:add_job('./10.job', './10.inp', 379, 10),
-    K = db:add_job('./11.job', './11.inp', 6897, 10),
-    L = db:add_job('./12.job', './12.inp', 568, 10),
-    M = db:add_job('./13.job', './13.inp', 666, 10),
-    
-    db:add_task(A, map, './1.tsk', './1.tin', 10),
-    db:add_task(A, map, './2.tsk', './2.tin', 10),
-    db:add_task(A, map, './3.tsk', './3.tin', 10),
-    db:add_task(A, map, './4.tsk', './4.tin', 10),
-    db:add_task(A, map, './5.tsk', './5.tin', 10),
-    db:add_task(A, map, './6.tsk', './6.tin', 10),
-    db:add_task(A, map, './7.tsk', './7.tin', 10),
-    db:add_task(A, map, './8.tsk', './8.tin', 10),
-    db:add_task(A, map, './9.tsk', './9.tin', 10),
-    db:add_task(A, map, './10.tsk', './10.tin', 10),
-    db:add_task(A, map, './11.tsk', './11.tin', 10),
-    db:add_task(A, map, './12.tsk', './12.tin', 10),
-    db:add_task(A, map, './13.tsk', './13.tin', 10),
-
-    db:add_task(B, map, './1.tsk', './1.tin', 10),
-    db:add_task(B, map, './2.tsk', './2.tin', 10),
-    db:add_task(B, map, './3.tsk', './3.tin', 10),
-    db:add_task(B, map, './4.tsk', './4.tin', 10),
-    db:add_task(B, map, './5.tsk', './5.tin', 10),
-    db:add_task(B, map, './6.tsk', './6.tin', 10),
-    db:add_task(B, map, './7.tsk', './7.tin', 10),
-    db:add_task(B, map, './8.tsk', './8.tin', 10),
-    db:add_task(B, map, './9.tsk', './9.tin', 10),
-    db:add_task(B, map, './10.tsk', './10.tin', 10),
-    db:add_task(B, map, './11.tsk', './11.tin', 10),
-    db:add_task(B, map, './12.tsk', './12.tin', 10),
-    db:add_task(B, map, './13.tsk', './13.tin', 10),
-    
-    db:add_task(C, map, './1.tsk', './1.tin', 10),
-    db:add_task(C, map, './2.tsk', './2.tin', 10),
-    db:add_task(C, map, './3.tsk', './3.tin', 10),
-    db:add_task(C, map, './4.tsk', './4.tin', 10),
-    db:add_task(C, map, './5.tsk', './5.tin', 10),
-    db:add_task(C, map, './6.tsk', './6.tin', 10),
-    db:add_task(C, map, './7.tsk', './7.tin', 10),
-    db:add_task(C, map, './8.tsk', './8.tin', 10),
-    db:add_task(C, map, './9.tsk', './9.tin', 10),
-    db:add_task(C, map, './10.tsk', './10.tin', 10),
-    db:add_task(C, map, './11.tsk', './11.tin', 10),
-    db:add_task(C, map, './12.tsk', './12.tin', 10),
-    db:add_task(C, map, './13.tsk', './13.tin', 10),
-    
-    db:add_task(D, reduce, './1.tsk', './1.tin', 10),
-    db:add_task(D, reduce, './2.tsk', './2.tin', 10),
-    db:add_task(D, reduce, './3.tsk', './3.tin', 10),
-    db:add_task(D, reduce, './4.tsk', './4.tin', 10),
-    db:add_task(D, reduce, './5.tsk', './5.tin', 10),
-    db:add_task(D, reduce, './6.tsk', './6.tin', 10),
-    db:add_task(D, reduce, './7.tsk', './7.tin', 10),
-    db:add_task(D, reduce, './8.tsk', './8.tin', 10),
-    db:add_task(D, reduce, './9.tsk', './9.tin', 10),
-    db:add_task(D, reduce, './10.tsk', './10.tin', 10),
-    db:add_task(D, reduce, './11.tsk', './11.tin', 10),
-    db:add_task(D, reduce, './12.tsk', './12.tin', 10),
-    db:add_task(D, reduce, './13.tsk', './13.tin', 10),
-
-    db:add_task(E, reduce, './1.tsk', './1.tin', 10),
-    db:add_task(E, reduce, './2.tsk', './2.tin', 10),
-    db:add_task(E, reduce, './3.tsk', './3.tin', 10),
-    db:add_task(E, reduce, './4.tsk', './4.tin', 10),
-    db:add_task(E, reduce, './5.tsk', './5.tin', 10),
-    db:add_task(E, reduce, './6.tsk', './6.tin', 10),
-    db:add_task(E, reduce, './7.tsk', './7.tin', 10),
-    db:add_task(E, reduce, './8.tsk', './8.tin', 10),
-    db:add_task(E, reduce, './9.tsk', './9.tin', 10),
-    db:add_task(E, reduce, './10.tsk', './10.tin', 10),
-    db:add_task(E, reduce, './11.tsk', './11.tin', 10),
-    db:add_task(E, reduce, './12.tsk', './12.tin', 10),
-    db:add_task(E, reduce, './13.tsk', './13.tin', 10),
-    
-    db:add_task(F, reduce, './1.tsk', './1.tin', 10),
-    db:add_task(F, reduce, './2.tsk', './2.tin', 10),
-    db:add_task(F, reduce, './3.tsk', './3.tin', 10),
-    db:add_task(F, reduce, './4.tsk', './4.tin', 10),
-    db:add_task(F, reduce, './5.tsk', './5.tin', 10),
-    db:add_task(F, reduce, './6.tsk', './6.tin', 10),
-    db:add_task(F, reduce, './7.tsk', './7.tin', 10),
-    db:add_task(F, reduce, './8.tsk', './8.tin', 10),
-    db:add_task(F, reduce, './9.tsk', './9.tin', 10),
-    db:add_task(F, reduce, './10.tsk', './10.tin', 10),
-    db:add_task(F, reduce, './11.tsk', './11.tin', 10),
-    db:add_task(F, reduce, './12.tsk', './12.tin', 10),
-    db:add_task(F, reduce, './13.tsk', './13.tin', 10),
-    
-    db:add_task(G, reduce, './1.tsk', './1.tin', 10),
-    db:add_task(G, reduce, './2.tsk', './2.tin', 10),
-    db:add_task(G, reduce, './3.tsk', './3.tin', 10),
-    db:add_task(G, reduce, './4.tsk', './4.tin', 10),
-    db:add_task(G, reduce, './5.tsk', './5.tin', 10),
-    db:add_task(G, reduce, './6.tsk', './6.tin', 10),
-    db:add_task(G, reduce, './7.tsk', './7.tin', 10),
-    db:add_task(G, reduce, './8.tsk', './8.tin', 10),
-    db:add_task(G, reduce, './9.tsk', './9.tin', 10),
-    db:add_task(G, reduce, './10.tsk', './10.tin', 10),
-    db:add_task(G, reduce, './11.tsk', './11.tin', 10),
-    db:add_task(G, reduce, './12.tsk', './12.tin', 10),
-    db:add_task(G, reduce, './13.tsk', './13.tin', 10),
-    
-    db:add_task(H, reduce, './1.tsk', './1.tin', 10),
-    db:add_task(H, reduce, './2.tsk', './2.tin', 10),
-    db:add_task(H, reduce, './3.tsk', './3.tin', 10),
-    db:add_task(H, reduce, './4.tsk', './4.tin', 10),
-    db:add_task(H, reduce, './5.tsk', './5.tin', 10),
-    db:add_task(H, reduce, './6.tsk', './6.tin', 10),
-    db:add_task(H, reduce, './7.tsk', './7.tin', 10),
-    db:add_task(H, reduce, './8.tsk', './8.tin', 10),
-    db:add_task(H, reduce, './9.tsk', './9.tin', 10),
-    db:add_task(H, reduce, './10.tsk', './10.tin', 10),
-    db:add_task(H, reduce, './11.tsk', './11.tin', 10),
-    db:add_task(H, reduce, './12.tsk', './12.tin', 10),
-    db:add_task(H, reduce, './13.tsk', './13.tin', 10),
-    
-    db:add_task(I, reduce, './1.tsk', './1.tin', 10),
-    db:add_task(I, reduce, './2.tsk', './2.tin', 10),
-    db:add_task(I, reduce, './3.tsk', './3.tin', 10),
-    db:add_task(I, reduce, './4.tsk', './4.tin', 10),
-    db:add_task(I, reduce, './5.tsk', './5.tin', 10),
-    db:add_task(I, reduce, './6.tsk', './6.tin', 10),
-    db:add_task(I, reduce, './7.tsk', './7.tin', 10),
-    db:add_task(I, reduce, './8.tsk', './8.tin', 10),
-    db:add_task(I, reduce, './9.tsk', './9.tin', 10),
-    db:add_task(I, reduce, './10.tsk', './10.tin', 10),
-    db:add_task(I, reduce, './11.tsk', './11.tin', 10),
-    db:add_task(I, reduce, './12.tsk', './12.tin', 10),
-    db:add_task(I, reduce, './13.tsk', './13.tin', 10),
-    
-    db:add_task(J, reduce, './1.tsk', './1.tin', 10),
-    db:add_task(J, reduce, './2.tsk', './2.tin', 10),
-    db:add_task(J, reduce, './3.tsk', './3.tin', 10),
-    db:add_task(J, reduce, './4.tsk', './4.tin', 10),
-    db:add_task(J, reduce, './5.tsk', './5.tin', 10),
-    db:add_task(J, reduce, './6.tsk', './6.tin', 10),
-    db:add_task(J, reduce, './7.tsk', './7.tin', 10),
-    db:add_task(J, reduce, './8.tsk', './8.tin', 10),
-    db:add_task(J, reduce, './9.tsk', './9.tin', 10),
-    db:add_task(J, reduce, './10.tsk', './10.tin', 10),
-    db:add_task(J, reduce, './11.tsk', './11.tin', 10),
-    db:add_task(J, reduce, './12.tsk', './12.tin', 10),
-    db:add_task(J, reduce, './13.tsk', './13.tin', 10),
-    
-    db:add_task(K, reduce, './1.tsk', './1.tin', 10),
-    db:add_task(K, reduce, './2.tsk', './2.tin', 10),
-    db:add_task(K, reduce, './3.tsk', './3.tin', 10),
-    db:add_task(K, reduce, './4.tsk', './4.tin', 10),
-    db:add_task(K, reduce, './5.tsk', './5.tin', 10),
-    db:add_task(K, reduce, './6.tsk', './6.tin', 10),
-    db:add_task(K, reduce, './7.tsk', './7.tin', 10),
-    db:add_task(K, reduce, './8.tsk', './8.tin', 10),
-    db:add_task(K, reduce, './9.tsk', './9.tin', 10),
-    db:add_task(K, reduce, './10.tsk', './10.tin', 10),
-    db:add_task(K, reduce, './11.tsk', './11.tin', 10),
-    db:add_task(K, reduce, './12.tsk', './12.tin', 10),
-    db:add_task(K, reduce, './13.tsk', './13.tin', 10),
-    
-    db:add_task(L, reduce, './1.tsk', './1.tin', 10),
-    db:add_task(L, reduce, './2.tsk', './2.tin', 10),
-    db:add_task(L, reduce, './3.tsk', './3.tin', 10),
-    db:add_task(L, reduce, './4.tsk', './4.tin', 10),
-    db:add_task(L, reduce, './5.tsk', './5.tin', 10),
-    db:add_task(L, reduce, './6.tsk', './6.tin', 10),
-    db:add_task(L, reduce, './7.tsk', './7.tin', 10),
-    db:add_task(L, reduce, './8.tsk', './8.tin', 10),
-    db:add_task(L, reduce, './9.tsk', './9.tin', 10),
-    db:add_task(L, reduce, './10.tsk', './10.tin', 10),
-    db:add_task(L, reduce, './11.tsk', './11.tin', 10),
-    db:add_task(L, reduce, './12.tsk', './12.tin', 10),
-    db:add_task(L, reduce, './13.tsk', './13.tin', 10),
-    
-    db:add_task(M, reduce, './1.tsk', './1.tin', 10),
-    db:add_task(M, reduce, './2.tsk', './2.tin', 10),
-    db:add_task(M, reduce, './3.tsk', './3.tin', 10),
-    db:add_task(M, reduce, './4.tsk', './4.tin', 10),
-    db:add_task(M, reduce, './5.tsk', './5.tin', 10),
-    db:add_task(M, reduce, './6.tsk', './6.tin', 10),
-    db:add_task(M, reduce, './7.tsk', './7.tin', 10),
-    db:add_task(M, reduce, './8.tsk', './8.tin', 10),
-    db:add_task(M, reduce, './9.tsk', './9.tin', 10),
-    db:add_task(M, reduce, './10.tsk', './10.tin', 10),
-    db:add_task(M, reduce, './11.tsk', './11.tin', 10),
-    db:add_task(M, reduce, './12.tsk', './12.tin', 10),
-    db:add_task(M, reduce, './13.tsk', './13.tin', 10),
-
-    db:get_task(busters@node1),
-    db:get_task(busters@node1),
-    db:get_task(busters@node1),
-    db:get_task(busters@node1),
-    db:get_task(busters@node1),
-    db:get_task(busters@node1),
-    db:get_task(busters@node1),
-
-    db:get_task(busters@node2),
-    db:get_task(busters@node2),
-    db:get_task(busters@node2),
-    db:get_task(busters@node2),
-    db:get_task(busters@node2),
-    db:get_task(busters@node2),
     ok.

@@ -10,7 +10,7 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/0, logMsg/1]).
+-export([start_link/0]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -49,22 +49,30 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init(no_args) ->
-    gen_event:start_link({local, logger}),
-    gen_event:add_handler(logger, terminalLogger, []),
-    gen_event:add_handler(logger, fileLogger, [logfile]),
-    {ok,{{one_for_one, 1, 60}, []}}.
-
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Logs the message Msg
-%%
-%% @spec logMsg(Msg) -> ok
-%% @end
-%%--------------------------------------------------------------------
-logMsg(Msg) ->
-    gen_event:notify(logger, Msg).
+    %gen_event:start_link({local, logger}),
+    {ok,{{rest_for_one, 1, 60},
+            [   child(gen_event, worker, {local, logger_manager}),
+                child(logger, worker, logger_manager)
+            ]}}.
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Simple helper function to make the child specification list easier
+%% to read.
+%%
+%% @spec child(Module, Role, Args) -> {ChildSpec}
+%% @end
+%%--------------------------------------------------------------------
+child(Module,supervisor, no_args) ->
+    {Module, {Module, start_link, []},
+        permanent, infinity, supervisor, [Module]};
+child(Module,Role, no_args) ->
+    {Module, {Module, start_link, []},
+        permanent, brutal_kill, Role, [Module]};
+child(Module, Role, Args) ->
+    {Module, {Module, start_link, [Args]},
+        permanent, brutal_kill, Role, [Module]}.

@@ -48,10 +48,12 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init(no_args) ->
-    {ok,{{one_for_one, 1, 60},
-            [   child(logger_sup, supervisor, no_args),
+    {ok,{ {one_for_one, 1, 60},
+            [   child(logger_sup, supervisor, no_args), %TODO start logger app when it's ready
                 child(taskSupervisor, supervisor, no_args)
-                ]}}.
+            ]
+        }
+    }.
 
 %%%===================================================================
 %%% Internal functions

@@ -1,6 +1,10 @@
 %%%-------------------------------------------------------------------
 %%% @author Gustav Simonsson <>
 %%% @doc
+%%% NOTE: Due to an overflow of design and scrum task generation
+%%% this module is now unneccessary as it just duplicates the
+%%% functionality of the dispatcher module.
+%%%
 %%% Finds first available task tied to a JobId and returns a task of
 %%% the same format as returned by db:get_task()
 %%% @end

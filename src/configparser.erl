@@ -1,19 +1,8 @@
-%%%-------------------------------------------------------------------
-%%% @author Burbas
-%%% @doc
-%%% Loadbalancer - Balances load between master nodes
-%%% @end
-%%% Created : 5 Okt 2009 by Burbas
-%%%-------------------------------------------------------------------
--module(loadbalancer).
--export([start_link/0, stop/0, init/1, handle_call/3]).
--export([code_change/3, handle_cast/2, terminate/2, handle_info/2]).
--export([request_task/1, task_abort/1, task_finished/1, add_master/1, remove_master/1]).
--export([create_schema/1]).
+%% Made by Burbas
+-module(configparser).
+-export([start_link/0, stop/0, init/1, handle_call/3, terminate/2, read_config/2]).
+-export([code_change/3, handle_cast/2, handle_info/2, parse/2]).
 -behaviour(gen_server).
--include("loadbalancer.hrl").
--vsn('$Rev$').
-
 
 %%%===================================================================
 %%% API
@@ -27,7 +16,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
-    gen_server:start({local, ?MODULE}, ?MODULE, [], []).
+   gen_server:start({local, ?MODULE}, ?MODULE, [], []).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -39,70 +28,39 @@ start_link() ->
 stop() ->
     gen_server:cast(?MODULE, stop).
 
-%%--------------------------------------------------------------------
-%% @doc
-%% Stops the genserver
-%%
-%% @spec stop() -> void()
-%% @end
-%%--------------------------------------------------------------------
-request_task(PID) ->
-    gen_server:call(?MODULE, {task_request, PID}).
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Sends a message to a master-node that a task on PID have finished.
+%% Reads the specified file and gets the value responding to Key
 %%
-%% @spec task_finished(PID) -> {ok}
+%% @spec read_config(File, Key) -> 
+%%                                  {ok, Value} |
+%%                                  {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-task_finished(PID) ->
-    gen_server:call(?MODULE, {task_finished, PID}).
-%%--------------------------------------------------------------------
-%% @doc
-%% Sends a message to a master-node that a node wants to abort its 
-%% current task.
-%%
-%% @spec task_abort() -> {ok}
-%% @end
-%%--------------------------------------------------------------------
-task_abort(PID) ->
-    gen_server:call(?MODULE, {task_abort, PID}).
+read_config(File, Key) ->
+    gen_server:call(?MODULE, {read_config, File, Key}).
+
+%%%===================================================================
+%%% INTERNAL FUNCTIONS
+%%%===================================================================
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Adds a master-node to the internal database. When its added it will
-%% start to receive request from nodes.
+%% Go throu the List and looks if there exist a Key. If so it returns
+%% the value of that key.
 %%
-%% @spec add_master(PID) -> {ok}
+%% @spec parse(Key, List) -> 
+%%                                  {ok, Value} |
+%%                                  {error, not_found}
 %% @end
 %%--------------------------------------------------------------------
-add_master(PID) ->
-    gen_server:call(?MODULE, {add_master, PID}).
-%%--------------------------------------------------------------------
-%% @doc
-%% Removes a master from the internal database. 
-%%
-%% @spec remove_master(PID) -> {ok}
-%% @end
-%%--------------------------------------------------------------------
-remove_master(PID) ->
-    gen_server:call(?MODULE, {remove_master, PID}).
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Creates the mnesia schema.
-%%
-%% @spec create_schema(Nodes) -> {ok}
-%% @end
-%%--------------------------------------------------------------------
-create_schema(Nodes) ->
-    mnesia:create_schema([node()|Nodes]),
-    mnesia:start(),
-    mnesia:create_table(master_nodes, 
-            [{type, ordered_set}, 
-            {attributes, record_info(fields, master_nodes)}]),
-    {ok}.
+parse(_Key, []) ->
+  {error, not_found};
+parse(Key, [{Key, Value} | _Config]) ->
+  {ok, Value};
+parse(Key, [{_Other, _Value} | Config]) ->
+  parse(Key, Config).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -121,10 +79,7 @@ create_schema(Nodes) ->
 %% @end
 %%--------------------------------------------------------------------
 init(_Args) ->
-    mnesia:start(),
-    mnesia:wait_for_tables([master_nodes], 2000),
     {ok, init}.
-
 
 %%--------------------------------------------------------------------
 %% @private
@@ -140,40 +95,13 @@ init(_Args) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({stop}, _From, State) ->
-    {ok, normal, State};
-handle_call({add_master, PID}, _From, State) ->
-    F = fun() ->
-        Rec = #master_nodes{load = 0, master_pid = PID},
-        mnesia:write(Rec)
-    end,
-    {atomic, ok} = mnesia:transaction(F),
-    {reply, ok, State};
-
-handle_call({remove_master, PID}, _From, State) ->
-    F = fun() ->
-        Delete = #master_nodes{load='_', master_pid = PID},
-        Records = mnesia:match_object(Delete),
-        lists:foreach(fun mnesia:delete_object/1, Records)
-    end,
-    {atomic, ok} = mnesia:transaction(F),
-    {reply, ok, State};
-handle_call({request_task, PID}, _From, State) ->
- % Find the master with lowest load
-    F = fun() ->
-        Record = mnesia:first(master_nodes)
-    end,
-    mnesia:transaction(F),
-    % Sends a message to the dispatcher located on the master specified above
-    %MasterPID ! {task_request, PID},
-    {reply, ok, State};
-handle_call({task_abort, PID}, _From, State) ->
-       {reply, ok, State};
-handle_call({task_finished, PID}, _From, State) ->
-    % Notify the dispatcher
-    {atomic, [_Load, MasterPID]} = mnesia:first(master_nodes),
-    MasterPID ! {task_finished, PID},
-    {reply, ok, State}.
+handle_call({read_config, File, Key}, _From, State) ->
+    {Ret, Config} = file:consult(File),
+    case Ret of 
+        error -> {reply, {error, Config}, State};
+        ok -> Value = parse(Key, Config),
+            {reply, Value, State}
+    end.
 
 %%--------------------------------------------------------------------
 %% @private

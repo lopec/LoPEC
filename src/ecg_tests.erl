@@ -19,17 +19,17 @@ init() ->
 %% TODO: Add description of test_update_list/function_arity
 testing_ecg() ->
     io:format("Sending ~n", []),
-    CompNode1 = list_to_atom("compnode1@" ++ os:cmd("uname -n") -- [$\n]),
-    CompNode2 = list_to_atom("compnode2@" ++ os:cmd("uname -n") -- [$\n]),
-    CompNode3 = list_to_atom("compnode666@" ++ os:cmd("uname -n") -- [$\n]),
+%%     CompNode1 = list_to_atom("compnode1@" ++ os:cmd("uname -n") -- [$\n]),
+%%     CompNode2 = list_to_atom("compnode2@" ++ os:cmd("uname -n") -- [$\n]),
+%%     CompNode3 = list_to_atom("compnode666@" ++ os:cmd("uname -n") -- [$\n]),
     
-%%     CompNode1 = list_to_atom("compnode1"),
-%%     CompNode2 = list_to_atom("compnode2"),
-%%     CompNode3 = list_to_atom("compnode666"),
+    CompNode1 = list_to_atom("compnode1"),
+    CompNode2 = list_to_atom("compnode2"),
+    CompNode3 = list_to_atom("compnode666"),
+    PID1 = slave:start_link(os:cmd("uname -n"), CompNode1, ""),
+    PID2 = slave:start_link(os:cmd("uname -n"), CompNode2, ""),
+    PID3 = slave:start_link(os:cmd("uname -n"), CompNode3, ""),
     
-%%     PID1 = slave:start_link(os:cmd("uname -n"), CompNode1, ""),
-%%     PID2 = slave:start_link(os:cmd("uname -n"), CompNode2, ""),
-%%     PID3 = slave:start_link(os:cmd("uname -n"), CompNode3, ""),
     io:format("Calling directly ~n", []),    
     ecg_server:accept_message({new_node, CompNode1}),
     ecg_server:accept_message({new_node, CompNode2}),
@@ -37,9 +37,9 @@ testing_ecg() ->
     ecg_server:accept_message({badMsg, [b, s,s]}),
     ecg_server:accept_message({stuff, [w, s,ss]}),
     
-%%     slave:stop(PID1),
-%%     slave:stop(PID2),
-%%     slave:stop(PID3),
+    slave:stop(PID1),
+    slave:stop(PID2),
+    slave:stop(PID3),
     io:format("Done ~n", []).
 
 terminate() ->

@@ -91,23 +91,11 @@ handle_call(_Request, _From, _State) ->
 
 %% --------------------------------------------------------------------
 %% Function: handle_cast/2
-%% Description: Handling cast messages
-%% Returns: {noreply, State}          |
-%%          {noreply, State, Timeout} |
-%%          {stop, Reason, State}            (terminate/2 is called)
+%% Description: Handling {new_node, <'node'@'hostname'>} message
+%% Everything else is logged.
+%% If node already registered - it is ignored
+%% Returns: {noreply, State}
 %% --------------------------------------------------------------------
-handle_cast({nodeup, Node}, _) ->
-    io:format("Welcome new node: ~w~n", [Node]),
-    logger ! {event, self(), 
-        io_lib:format("Welcome new node: ~w", [Node])},
-    {noreply, []};
-handle_cast({nodedown, Node}, _) ->
-    % Stub needed to contact Task List API
-    % tasklist:free_tasks(Node),
-    io:format("Node ~w just died. :()~n", [Node]),
-    logger ! {event, self(),
-        io_lib:format("Node ~w just died. :()~n", [Node])},
-    {noreply, []};
 %% We need to establish connection to new node, if not yet connected
 %% This might be obsolete later, depending on comm protocol
 handle_cast({new_node, Node}, _) ->
@@ -129,10 +117,9 @@ handle_cast(UnrecognisedMessage, _) ->
 
 %% --------------------------------------------------------------------
 %% Function: handle_info/2
-%% Description: Handling all non call/cast messages
-%% Returns: {noreply, State}          |
-%%          {noreply, State, Timeout} |
-%%          {stop, Reason, State}            (terminate/2 is called)
+%% Description: Handling {nodeup} and {nodedown} messages sent by
+%% net_kernel, when nodes joins cluster or dies.
+%% Returns: {noreply, State}
 %% --------------------------------------------------------------------
 handle_info({nodeup, Node}, _) ->
     io:format("Welcome new node: ~w~n", [Node]),

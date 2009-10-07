@@ -2,7 +2,9 @@
 -module(clientSupervisor_tests).
 -include_lib("eunit/include/eunit.hrl").
 
-child_test() ->
-    {ok, {_, ChildSpecs}} = clientSupervisor:init(no_args),
-    ok = supervisor:check_childspecs(ChildSpecs).
+child_init_test_() ->
+    ?_assertMatch({ok, {_, _}}, clientSupervisor:init(no_args)).
 
+child_specs_test_() ->
+    {ok, {_, ChildSpecs}} = clientSupervisor:init(no_args),
+    ?_assertMatch(ok, supervisor:check_childspecs(ChildSpecs)).

@@ -83,7 +83,9 @@ handle_call(_Request, _From, State) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% 
+%%
+%% Expects job requests from nodes, and passes such requests to the
+%% two internal functions find_job/1 and possibly find_task/1.
 %%
 %% @spec handle_cast(Msg, State) -> ok | {noreply, State} 
 %% @end

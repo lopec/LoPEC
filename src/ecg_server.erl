@@ -87,8 +87,7 @@ init(_) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_call(_Request, _From, _State) ->
-    Reply = ok,
-    {reply, Reply, []}.
+    {noreply, []}.
 
 %% --------------------------------------------------------------------
 %% Function: handle_cast/2
@@ -98,18 +97,21 @@ handle_call(_Request, _From, _State) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_cast({nodeup, Node}, _) ->
+    io:format("Welcome new node: ~w~n", [Node]),
     logger ! {event, self(), 
         io_lib:format("Welcome new node: ~w", [Node])},
     {noreply, []};
 handle_cast({nodedown, Node}, _) ->
     % Stub needed to contact Task List API
     % tasklist:free_tasks(Node),
+    io:format("Node ~w just died. :()~n", [Node]),
     logger ! {event, self(),
         io_lib:format("Node ~w just died. :()~n", [Node])},
     {noreply, []};
 %% We need to establish connection to new node, if not yet connected
 %% This might be obsolete later, depending on comm protocol
 handle_cast({new_node, Node}, _) ->
+    io:format("New Node ~n", []),
     logger ! {event, self(), 
         io_lib:format("New Node", [])},
     case lists:member(Node, nodes()) of
@@ -120,6 +122,7 @@ handle_cast({new_node, Node}, _) ->
     end,
     {noreply, []};
 handle_cast(UnrecognisedMessage, _) ->
+    io:format("UnrecognisedMessage: ~w ~n", [UnrecognisedMessage]),
     logger ! {event, self(), 
         io_lib:format("UnrecognisedMessage: ~w", [UnrecognisedMessage])},
     {noreply, []}.
@@ -131,7 +134,22 @@ handle_cast(UnrecognisedMessage, _) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_info(_Info, _State) ->
+handle_info({nodeup, Node}, _) ->
+    io:format("Welcome new node: ~w~n", [Node]),
+    logger ! {event, self(), 
+        io_lib:format("Welcome new node: ~w", [Node])},
+    {noreply, []};
+handle_info({nodedown, Node}, _) ->
+    % Stub needed to contact Task List API
+    % tasklist:free_tasks(Node),
+    io:format("Node ~w just died. :()~n", [Node]),
+    logger ! {event, self(),
+        io_lib:format("Node ~w just died. :()~n", [Node])},
+    {noreply, []};
+handle_info(UnrecognisedMessage, _) ->
+    io:format("~nUnrecognisedMessage: ~w ~n", [UnrecognisedMessage]),
+    logger ! {event, self(), 
+        io_lib:format("UnrecognisedMessage: ~w", [UnrecognisedMessage])},
     {noreply, []}.
 
 %% --------------------------------------------------------------------

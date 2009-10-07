@@ -11,7 +11,6 @@
 %%% Created : 30 Sep 2009 by Axel <>
 %%%-------------------------------------------------------------------
 -module(dispatcher).
-
 -behaviour(gen_server).
 
 %% API
@@ -19,11 +18,18 @@
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+<<<<<<< .mine
+         terminate/2, code_change/3]). 
+=======
          terminate/2, code_change/3, find_job/1, find_task/1]).
+>>>>>>> .r75
 
+<<<<<<< .mine
+=======
 -define(SERVER, dispatcher_server). 
 
 
+>>>>>>> .r75
 %%%===================================================================
 %%% API
 %%%===================================================================
@@ -36,7 +42,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -131,6 +137,8 @@ terminate(_Reason, _State) -> %template default
 %% @end
 %%--------------------------------------------------------------------
 code_change(_OldVsn, State, _Extra) -> %template default
+<<<<<<< .mine
+    {ok, State}.=======
     {ok, State}.
 
 %%%===================================================================
@@ -175,3 +183,4 @@ find_task(From) ->
             global:send(ecg_server, {new_node, From}),
             From ! {new_task, Task}
     end.
+>>>>>>> .r75

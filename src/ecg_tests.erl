@@ -3,39 +3,53 @@
 %% Description: TODO: Add description to ecg_tests
 -module(ecg_tests).
 -include("global.hrl").
+-export([client_listener/0, terminate/0]).
 
--export([client_listener/0]).
-%%
-%% Include files
-%%
+run_test() ->
+    init(),
+    testing_ecg().
+    
+    %terminate().
 
-%%
-%% Exported Functions
-%%
-
-%% bury_dead_test_/0, 
-%%
-%% API Functions
-%%
+%% Some init
+init() ->
+    register (logger, spawn_link(logger_ext, start, ["test.logging"])),
+    application:start(ecg).
 
 %% TODO: Add description of test_update_list/function_arity
-ecg_test() ->
-    register (logger, spawn_link(logger_ext, start, ["test.logging"])),
-    ecg_server:start_link(),
+testing_ecg() ->
     io:format("Sending ~n", []),
-    CompNode = list_to_atom("compnode1@" ++ os:cmd("uname -n") -- [$\n]),
-    ecg_server:accept_message({new_node, CompNode}),
-    ecg_server:accept_message({badMsg, [a, b,c]}),
-    ecg_server:accept_message({stuff, [a, b,c]}),
+    CompNode1 = list_to_atom("compnode1@" ++ os:cmd("uname -n") -- [$\n]),
+    CompNode2 = list_to_atom("compnode2@" ++ os:cmd("uname -n") -- [$\n]),
+    CompNode3 = list_to_atom("compnode666@" ++ os:cmd("uname -n") -- [$\n]),
+    
+%%     CompNode1 = list_to_atom("compnode1"),
+%%     CompNode2 = list_to_atom("compnode2"),
+%%     CompNode3 = list_to_atom("compnode666"),
+    
+%%     PID1 = slave:start_link(os:cmd("uname -n"), CompNode1, ""),
+%%     PID2 = slave:start_link(os:cmd("uname -n"), CompNode2, ""),
+%%     PID3 = slave:start_link(os:cmd("uname -n"), CompNode3, ""),
+    io:format("Calling directly ~n", []),    
+    ecg_server:accept_message({new_node, CompNode1}),
+    ecg_server:accept_message({new_node, CompNode2}),
+    ecg_server:accept_message({new_node, CompNode3}),
+    ecg_server:accept_message({badMsg, [b, s,s]}),
+    ecg_server:accept_message({stuff, [w, s,ss]}),
+    
+%%     slave:stop(PID1),
+%%     slave:stop(PID2),
+%%     slave:stop(PID3),
     io:format("Done ~n", []).
-    %exit(whereis(ecg), kill).
-    %exit(whereis(logger), kill).
 
+terminate() ->
+    exit(whereis(logger), kill),
+    application:stop(ecg).
+    
 client_listener() ->
     receive
         {terminate} ->
             halt();
-            %os:cmd("kill -9 " ++ os:getpid());
         _ ->
             io:format("Got wrong message ~n", [])
     end.

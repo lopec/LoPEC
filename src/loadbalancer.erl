@@ -43,7 +43,7 @@ stop() ->
 %% @doc
 %% Stops the genserver
 %%
-%% @spec stop() -> void()
+%% @spec request_task(PID) -> void()
 %% @end
 %%--------------------------------------------------------------------
 request_task(PID) ->

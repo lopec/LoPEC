@@ -84,7 +84,7 @@ stop() ->
 %%--------------------------------------------------------------------
 %% @doc
 %%
-%% Creates the tables used for keeping track of the jobs,
+%% Creates the tables and the schema used for keeping track of the jobs,
 %% tasks and the assigned tasks.
 %%
 %% @spec create_tables() -> tables_created | ignore | {error, Error}
@@ -93,8 +93,20 @@ stop() ->
 create_tables() ->
     gen_server:call(?SERVER, create_tables).
 
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Deletes all tables and the schema. ONLY TO BE USED FOR TESTING!
+%% 
+%% @spec delete_tables() -> tables_deleted::atom() | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
 delete_tables() ->
-    gen_server:call(?SERVER, delete_tables).
+    mnesia:delete_schema(node()),
+    mnesia:delete_table(job),
+    mnesia:delete_table(task),
+    mnesia:delete_table(assigned_task),
+    tables_deleted.
 
 %%====================================================================
 %% JOB TABLE APIs
@@ -472,7 +484,6 @@ free_tasks(NodeId) ->
     lists:foreach(Free, ListOfNodeTasks),
     ok.
 
-
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -493,7 +504,7 @@ get_task_priority(TaskId) ->
 %% Returns a list of id's of all tasks in the task table.
 %% 
 %% @list_tasks() -> List | {error, Error}
-%%           List = [TaskId::integer()]
+%%                  List = [TaskId::integer()]
 %% @end
 %%--------------------------------------------------------------------
 list_tasks() ->
@@ -532,7 +543,7 @@ list_node_tasks(NodeId) ->
 %% @private
 %% @doc
 %%
-%% Creates the mnesia schema, and starts the mnesia application.
+%% Starts the mnesia application.
 %% 
 %% @TODO add distribution to several database nodes.
 %% 
@@ -542,7 +553,6 @@ list_node_tasks(NodeId) ->
 %%--------------------------------------------------------------------
 init(_Args) ->
     NodeList = [node()],             
-    mnesia:create_schema([node()]),  
     application:start(mnesia),
     {ok, NodeList}.
 
@@ -550,34 +560,25 @@ init(_Args) ->
 %% @private
 %% @doc
 %%
-%% Creates the necessary tables for the database on disc.
+%% Creates the necessary tables and the schema for the database on disc.
+%% Should only be called once for initialization.
 %%
 %% @end
 %%--------------------------------------------------------------------
 handle_call(create_tables, _From, State) ->
+    mnesia:create_schema([node()]),  
     % Set the options for the tables, such as storing them on disc.
     Opts = [{type, set}, {disc_copies, [node()]}],
-    {atomic, ok} = mnesia:create_table(
-		     job, [{attributes, record_info(fields, job)}|Opts]),
-    {atomic, ok} = mnesia:create_table(
-		     task, [{attributes, record_info(fields, task)}|Opts]),
-    {atomic, ok} = mnesia:create_table(
-		     assigned_task, [{attributes, 
-				      record_info(fields, assigned_task)}|Opts]),
+    {atomic, ok} = mnesia:create_table(job, 
+				       [{attributes, record_info(fields, 
+					 job)}|Opts]),
+    {atomic, ok} = mnesia:create_table(task, 
+				       [{attributes, record_info(fields, 
+					 task)}|Opts]),
+    {atomic, ok} = mnesia:create_table(assigned_task, 
+				       [{attributes, record_info(fields, 
+					 assigned_task)}|Opts]),
     {reply, tables_created, State};
-
-
-handle_call(delete_tables, _From, State) ->
-    F = fun() ->
-		mnesia:delete_table(job),
-		mnesia:delete_table(task),
-		mnesia:delete_table(assigned_task)
-	end,
-    mnesia:stop(),
-    mnesia:transaction(F),
-    mnesia:start(),
-    {reply, tables_deleted, State};
-
 
 %%--------------------------------------------------------------------
 %% @private

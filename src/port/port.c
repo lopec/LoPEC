@@ -19,7 +19,7 @@ int main(int argc, char *argv[])
   else if (!strcmp(argv[1], "reduce"))
     reduce(argv[2], argv[3]);
   else {
-    fprintf(stdout,"olol ditt jaevla fitthor, ge mig riktiga varden");
+    fprintf(stdout,"Error: Bad argument");
     return(1);
   }
 

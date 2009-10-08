@@ -301,9 +301,14 @@ list_jobs() ->
 %% assigned_task table is set to 'undefined', as the task is not
 %% assigned to any node.
 %% 
-%% @spec add_task({JobId::integer(), TaskType::atom(), CallbackPath::string(),
-%%                InputPath::string(), Priority::integer()}) ->
-%%                    TaskId::integer() | {error, Error}
+%% @spec add_task(
+%%   { JobId::integer(), 
+%%     TaskType::atom(), 
+%%     CallbackPath::string(),
+%%     InputPath::string(), 
+%%     Priority::integer()
+%%    }) ->
+%%     TaskId::integer() | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 add_task({JobId, TaskType, CallbackPath, InputPath, Priority}) ->

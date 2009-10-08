@@ -101,9 +101,13 @@ create_tables() ->
 %% Calls the server to add a job to the job table with the given
 %% properties. The server returns the generated id of the job.
 %% 
-%% @spec add_job({CallbackPath::string(), InputPath::string(), 
-%%                ReplyId::integer(),Priority::integer()}) -> 
-%%            JobId::integer() | {error,Error} 
+%% @spec add_job(
+%% { CallbackPath::string(),
+%%   InputPath::string(), 
+%%   ReplyId::integer(),
+%%   Priority::integer()
+%% }) -> 
+%%   JobId::integer() | {error,Error} 
 %% @end
 %%--------------------------------------------------------------------
 add_job({CallbackPath, InputPath, ReplyId, Priority}) ->

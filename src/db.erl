@@ -319,6 +319,7 @@ list_node_tasks(NodeId) ->
 %%--------------------------------------------------------------------
 init(_Args) ->
     NodeList = [node()],
+    mnesia:create_schema([node()]),  
 %    ok = application:load(mnesia),
 %    ok = application:set_env(mnesia, dir, DBdir),
     application:start(mnesia),
@@ -334,18 +335,17 @@ init(_Args) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call(create_tables, _From, State) ->
-    mnesia:create_schema([node()]),  
     % Set the options for the tables, such as storing them on disc.
+
     Opts = [{type, set}, {disc_copies, [node()]}],
-    {atomic, ok} = mnesia:create_table(job, 
-				       [{attributes, record_info(fields, 
-					 job)}|Opts]),
-    {atomic, ok} = mnesia:create_table(task, 
-				       [{attributes, record_info(fields, 
-					 task)}|Opts]),
-    {atomic, ok} = mnesia:create_table(assigned_task, 
-				       [{attributes, record_info(fields, 
-					 assigned_task)}|Opts]),
+    {atomic, ok} = mnesia:create_table(
+		     job, [{attributes, record_info(fields, job)}|Opts]),
+    {atomic, ok} = mnesia:create_table(
+		     task, [{attributes, record_info(fields, task)}|Opts]),
+    {atomic, ok} = mnesia:create_table(
+		     assigned_task, [{attributes, 
+				      record_info(fields, assigned_task)}|Opts]),
+
     {reply, tables_created, State};
 
 %%--------------------------------------------------------------------

@@ -85,6 +85,7 @@ warning(Msg) ->
 init(LoggerName) ->
     gen_event:add_handler(LoggerName, terminalLogger, []),
     gen_event:add_handler(LoggerName, fileLogger, [logfile]),
+    info("logger was started"),
     {ok, #state{loggerName = LoggerName}}.
 
 %%--------------------------------------------------------------------
@@ -142,7 +143,8 @@ handle_info(_Info, State) ->
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(_Reason, _State) ->
+terminate(Reason, State) ->
+    info({"logger was stopped with the reason", Reason, State}),
     ok.
 
 %%--------------------------------------------------------------------

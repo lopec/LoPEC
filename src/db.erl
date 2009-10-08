@@ -23,7 +23,8 @@
 -define(SERVER, db_server).
 
 %% APIs for management of the databases
--export([start/0, start_link/0, stop/0, create_tables/0]).
+-export([start/0, start_link/0, stop/0, create_tables/0,
+	 delete_tables/0]).
 
 %% APIs for external access to the job table
 -export([add_job/1, remove_job/1, 
@@ -38,7 +39,7 @@
 	 get_task/1, get_task_info/1,
 	 get_task_callback_path/1, get_task_input_path/1,
 	 get_task_state/1, get_task_priority/1, get_task_type/1, 
-	 set_task_state/2, set_task_priority/2,
+	 set_task_state/2, set_task_priority/2, assign_task/2, free_tasks/1,
 	 list_tasks/0, list_tasks/1, list_node_tasks/1]).
 
 %% gen_server callbacks
@@ -92,6 +93,9 @@ stop() ->
 create_tables() ->
     gen_server:call(?SERVER, create_tables).
 
+delete_tables() ->
+    gen_server:call(?SERVER, delete_tables).
+
 %%====================================================================
 %% JOB TABLE APIs
 %%====================================================================
@@ -100,18 +104,21 @@ create_tables() ->
 %%
 %% Calls the server to add a job to the job table with the given
 %% properties. The server returns the generated id of the job.
+%% The JobType specifies what type of job it is, e.g. ray_tracer, etc.
 %% 
 %% @spec add_job(
-%% { CallbackPath::string(),
+%% { JobType::atom(),
+%%   CallbackPath::string(),
 %%   InputPath::string(), 
 %%   ReplyId::integer(),
 %%   Priority::integer()
 %% }) -> 
-%%   JobId::integer() | {error,Error} 
+%%   JobId::integer() | {error,Error}
+%%   JobType = any() 
 %% @end
 %%--------------------------------------------------------------------
-add_job({CallbackPath, InputPath, ReplyId, Priority}) ->
-    gen_server:call(?SERVER, {add_job, CallbackPath, InputPath,
+add_job({JobType, CallbackPath, InputPath, ReplyId, Priority}) ->
+    gen_server:call(?SERVER, {add_job, JobType, CallbackPath, InputPath,
 			      ReplyId, Priority}).
 
 %%--------------------------------------------------------------------
@@ -164,6 +171,7 @@ get_job_info(JobId) ->
 %% 'done'      - the job is finished. 
 %% 
 %% @spec set_job_state(JobId::integer(), State::atom()) -> ok | {error, Error}
+%%                 State = available | reserved | mapping | reducing | done
 %% @end
 %%--------------------------------------------------------------------
 set_job_state(JobId, State) ->
@@ -309,6 +317,7 @@ list_jobs() ->
 %%     Priority::integer()
 %%    }) ->
 %%     TaskId::integer() | {error, Error}
+%%                 TaskType = mapping | reducing
 %% @end
 %%--------------------------------------------------------------------
 add_task({JobId, TaskType, CallbackPath, InputPath, Priority}) ->
@@ -359,6 +368,7 @@ get_task_info(TaskId) ->
 %% Sets the state of the task with id 'TaskId' to 'State'.
 %%
 %% @spec set_task_state(TaskId::integer(), State::atom()) -> ok | {error, Error}
+%%                   State = available | reserved | assigned | done
 %%                           
 %% @end
 %%--------------------------------------------------------------------
@@ -431,6 +441,37 @@ get_task_input_path(TaskId) ->
 get_task_type(TaskId) ->
     Task = get_task_info(TaskId),
     Task#task.task_type.
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Sets the task as assigned to the specified node.
+%%
+%% @spec assign_task(TaskId::integer(), NodeId::atom()) -> ok | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+assign_task(TaskId, NodeId) ->
+    gen_server:call(?SERVER, {assign_task, TaskId, NodeId}).
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Sets all tasks that belong to NodeId as available.
+%%
+%% @spec free_tasks(NodeId::atom()) -> ok | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+free_tasks(NodeId) ->
+    ListOfNodeTasks = list_node_tasks(NodeId),
+    Free = fun(H) ->
+		   assign_task(H, undefined),
+		   set_task_state(H, available)
+	   end,
+    lists:foreach(Free, ListOfNodeTasks),
+    ok.
+
 
 %%--------------------------------------------------------------------
 %% @private
@@ -525,6 +566,19 @@ handle_call(create_tables, _From, State) ->
 				      record_info(fields, assigned_task)}|Opts]),
     {reply, tables_created, State};
 
+
+handle_call(delete_tables, _From, State) ->
+    F = fun() ->
+		mnesia:delete_table(job),
+		mnesia:delete_table(task),
+		mnesia:delete_table(assigned_task)
+	end,
+    mnesia:stop(),
+    mnesia:transaction(F),
+    mnesia:start(),
+    {reply, tables_deleted, State};
+
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -534,11 +588,11 @@ handle_call(create_tables, _From, State) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-handle_call({add_job,CallbackPath, InputPath, ReplyId, Priority}, 
+handle_call({add_job, JobType, CallbackPath, InputPath, ReplyId, Priority}, 
 	    _From, State) ->
     JobId = generate_id(),
-    add_job_on_server(JobId, CallbackPath, InputPath, available, undefined,
-		   ReplyId, Priority),
+    add_job_on_server(JobId, JobType, CallbackPath, InputPath, available, 
+		      undefined, ReplyId, Priority),
     {reply, JobId, State};
 
 %%--------------------------------------------------------------------
@@ -566,6 +620,7 @@ handle_call({remove_job, JobId}, _From, State) ->
 handle_call({get_job}, _From, State) ->
     F = fun() ->
 		MatchHead = #job{job_id = '$1',
+				 job_type = '_',
 				 callback_path = '_',
 				 input_path = '_',
 				 current_state = available,
@@ -585,7 +640,8 @@ handle_call({get_job}, _From, State) ->
 	    Job = get_job_info_on_server(JobId),
 	    remove_job_on_server(JobId),
 	    add_job_on_server(JobId, 
-			      Job#job.callback_path, 
+			      Job#job.job_type,
+			      Job#job.callback_path,
 			      Job#job.input_path,
 			      reserved, 
 			      Job#job.current_progress,
@@ -622,6 +678,7 @@ handle_call({set_job_state, JobId, State}, _From, State) ->
 		Job = get_job_info_on_server(JobId),		 
 	        remove_job_on_server(JobId),
 		add_job_on_server(JobId, 
+				  Job#job.job_type,
 				  Job#job.callback_path, 
 				  Job#job.input_path,
 				  State, 
@@ -645,12 +702,13 @@ handle_call({set_job_progress, JobId, Progress}, _From, State) ->
  		Job = get_job_info_on_server(JobId),
  		remove_job_on_server(JobId),
  		add_job_on_server(JobId, 
- 			Job#job.callback_path, 
- 			Job#job.input_path,
- 			Job#job.current_state, 
- 			Progress, 
- 			Job#job.reply_id,
- 		        Job#job.priority)
+				  Job#job.job_type,
+				  Job#job.callback_path, 
+				  Job#job.input_path,
+				  Job#job.current_state, 
+				  Progress, 
+				  Job#job.reply_id,
+				  Job#job.priority)
  	end,
      mnesia:transaction(F),
     {reply, ok, State};
@@ -667,13 +725,14 @@ handle_call({set_job_priority, JobId, Priority}, _From, State) ->
      F = fun() ->
  		Job = get_job_info_on_server(JobId),
  		remove_job_on_server(JobId),
- 		add_job_on_server(JobId, 
- 			Job#job.callback_path, 
- 			Job#job.input_path,
- 		        Job#job.current_state, 
- 			Job#job.current_progress,
- 			Job#job.reply_id, 
- 			Priority)
+ 		add_job_on_server(JobId,
+				  Job#job.job_type,
+				  Job#job.callback_path, 
+				  Job#job.input_path,
+				  Job#job.current_state, 
+				  Job#job.current_progress,
+				  Job#job.reply_id, 
+				  Priority)
  	end,
      mnesia:transaction(F),
     {reply, ok, State};
@@ -789,17 +848,17 @@ handle_call({get_task_info, TaskId}, _From, State) ->
 %% 
 %% @end
 %%--------------------------------------------------------------------
-handle_call({set_task_state, TaskId, State}, _From, State) ->
+handle_call({set_task_state, TaskId, NewState}, _From, State) ->
     F = fun() ->
 		Task = get_task_info_on_server(TaskId),
 		remove_task_on_server(TaskId),
 		add_task_on_server(TaskId, 
-				   Task#task.job_id, 
-				   Task#task.task_type,
-				   Task#task.callback_path,
-				   Task#task.input_path, 
-				   State,
-				   Task#task.priority)
+			 Task#task.job_id, 
+			 Task#task.task_type,
+		         Task#task.callback_path,
+			 Task#task.input_path, 
+			 NewState,
+			 Task#task.priority)
 	end,
     mnesia:transaction(F),
     {reply, ok, State};
@@ -823,6 +882,25 @@ handle_call({set_task_priority, TaskId, Priority}, _From, State) ->
 			 Task#task.input_path, 
 			 Task#task.current_state,
 			 Priority)
+	end,
+    mnesia:transaction(F),
+    {reply, ok, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Sets the task as assigned to the given node.
+%% 
+%% @end
+%%--------------------------------------------------------------------
+handle_call({assign_task, TaskId, NodeId}, _From, State) ->
+    F = fun() ->
+		Task = get_task_info_on_server(TaskId),
+		remove_assigned_task_on_server(TaskId),
+		add_assigned_task_on_server(Task#task.task_id,
+					    Task#task.job_id,
+					    NodeId)
 	end,
     mnesia:transaction(F),
     {reply, ok, State};
@@ -970,17 +1048,19 @@ generate_id() ->
 %%
 %% Adds a job to the database.
 %%
-%% add_job_on_server(JobId::integer(), CallbackPath::string()
+%% add_job_on_server(JobId::integer(), JobType::atom(), CallbackPath::string()
 %%                   InputPath::integer(), CurrentState::atom(),
 %%                   CurrentProgress::integer(), ReplyId::string(),
 %%                   Priority::integer()) -> {aborted, Reason} |{atomic, ok}
-%% 
+%%             JobType = any() 
+%%
 %% @end
 %%--------------------------------------------------------------------
-add_job_on_server(JobId, CallbackPath, InputPath, CurrentState, 
+add_job_on_server(JobId, JobType, CallbackPath, InputPath, CurrentState, 
 		  CurrentProgress, ReplyId, Priority) ->
     F = fun() ->
 		mnesia:write(#job{job_id = JobId,
+				  job_type = JobType,
 				  callback_path = CallbackPath,
 				  input_path = InputPath,
 				  current_state = CurrentState,

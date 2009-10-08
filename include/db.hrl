@@ -1,5 +1,6 @@
 %% The job record.
 -record(job, {job_id, 
+	      job_type,
 	      callback_path, 
 	      input_path, 
 	      current_state, 

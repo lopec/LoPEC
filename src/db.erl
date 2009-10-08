@@ -244,7 +244,8 @@ get_task_state(TaskId) ->
 %% @end
 %%--------------------------------------------------------------------
 assign_task(TaskId, NodeId) ->
-    gen_server:call(?SERVER, {assign_task, TaskId, NodeId}).
+    gen_server:call(?SERVER, {assign_task, TaskId, NodeId}),
+    set_task_state(TaskId, assigned).
 
 %%--------------------------------------------------------------------
 %% @private

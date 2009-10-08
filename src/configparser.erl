@@ -69,8 +69,7 @@ parse(Key, [{_Other, _Value} | Config]) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Initiates the server. It will distribute the mnesia database to
-%% itself and the nodes specified in the argument.
+%% Initiates the server. 
 %%
 %% @spec init(Args) -> {ok, State} |
 %%                     {ok, State, Timeout} |
@@ -139,7 +138,6 @@ handle_cast(_,State) ->
 %% @end
 %%--------------------------------------------------------------------
 terminate(normal,_State) ->
-    mnesia:delete_object(master_nodes),
     {ok}.
 
 %%--------------------------------------------------------------------

@@ -318,7 +318,9 @@ list_node_tasks(NodeId) ->
 %% @end
 %%--------------------------------------------------------------------
 init(_Args) ->
-    NodeList = [node()],             
+    NodeList = [node()],
+%    ok = application:load(mnesia),
+%    ok = application:set_env(mnesia, dir, DBdir),
     application:start(mnesia),
     {ok, NodeList}.
 
@@ -406,7 +408,7 @@ handle_call({get_task, NodeId}, _From, State) ->
 	{atomic, {[First], _Cont}} ->
 	    % We need to update the current state of the task
 	    % and its relations.
-	    Task = get_task_info_on_server(First),
+	    Task = get_element_on_server(First, task),
 	    remove_element_on_server(First, task),
 	    remove_element_on_server(First, assigned_task),
 	    add_task_on_server(Task#task.task_id, 
@@ -433,7 +435,7 @@ handle_call({get_task, NodeId}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({get_task_info, TaskId}, _From, State) ->
-    Task = get_task_info_on_server(TaskId),
+    Task = get_element_on_server(TaskId, task),
     {reply, Task, State};
 
 %%--------------------------------------------------------------------
@@ -446,7 +448,7 @@ handle_call({get_task_info, TaskId}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({set_task_state, TaskId, NewState}, _From, State) ->
     F = fun() ->
-		Task = get_task_info_on_server(TaskId),
+		Task = get_element_on_server(TaskId, task),
 		remove_element_on_server(TaskId, Task),
 		add_task_on_server(TaskId, 
 			 Task#task.job_id, 
@@ -469,7 +471,7 @@ handle_call({set_task_state, TaskId, NewState}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({assign_task, TaskId, NodeId}, _From, State) ->
     F = fun() ->
-		Task = get_task_info_on_server(TaskId),
+		Task = get_element_on_server(TaskId, task),
 		remove_element_on_server(TaskId, assigned_task),
 		add_assigned_task_on_server(Task#task.task_id,
 					    Task#task.job_id,
@@ -674,14 +676,15 @@ add_task_on_server(TaskId, JobId, TaskType, CallbackPath, InputPath,
 %% @private
 %% @doc
 %%
-%% Fetches a task from the task table given an id.
+%% Fetches an element from the given table given a key.
 %% 
-%% @spec get_task_info_on_server(TaskId::integer()) -> Task
+%% @spec get_element_on_server(Key::integer(), TableName::atom()) -> Element
+%%                          TableName = job | task | assigned_task
 %% @end
 %%--------------------------------------------------------------------
-get_task_info_on_server(TaskId) ->
+get_element_on_server(Key, TableName) ->
     F = fun() ->
-		mnesia:read(task, TaskId, write)
+		mnesia:read(TableName, Key, write)
 	end,
     {atomic, [Result]} = mnesia:transaction(F),
     Result.

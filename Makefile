@@ -1,7 +1,7 @@
 # A very basic Makefile (this line is a comment)
 APPNAME = slave
 ERLC_FLAGS= -I include +debug_info
-C_FLAGS= -I/usr/local/lib/erlang/usr/include -I/usr/lib/erlang/usr/include/
+C_FLAGS= 
 SOURCES= $(wildcard src/*.erl)
 HEADERS= $(wildcard include/*.hrl)
 OBJECTS= $(SOURCES:src/%.erl=ebin/%.beam)
@@ -16,14 +16,14 @@ clean:
 	-rm $(OBJECTS)
 
 test: $(OBJECTS)
-	mkdir tests
 	mv ebin/*_tests.beam tests/
 	erl -noshell -pa ebin -pa tests -eval 'eunit:test("tests",[verbose])' -s init stop
 	mv tests/*_tests.beam ebin/
 	rm -rf tests/
 
 port:
-	gcc $(C_FLAGS) -o priv/port.so -fpic -shared src/port/port.c
+	mkdir tests
+	gcc -o tests/port_test src/port/port.c
 
 docs: 
 	erl -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS)])" -s init stop

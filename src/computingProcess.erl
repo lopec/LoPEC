@@ -1,9 +1,9 @@
 %%%-------------------------------------------------------------------
 %%% @author Bjorn Dahlman <>
 %%% @copyright (C) 2009, Clusterbusters
-%%% @version 0.0.1
+%%% @version 0.0.2
 %%% @doc
-%%% The erlang process that communicates with the c port driver
+%%% The erlang process that communicates with the external process
 %%% on the node.
 %%% @end
 %%% Created : 30 Sep 2009 by Bjorn Dahlman <>
@@ -14,7 +14,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/2, stop/0, foo/1, bar/1]).
+-export([start_link/4, stop/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -28,25 +28,21 @@
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Starts the server
+%% Starts the server. Path is the path to the external program, Op
+%% is the first argument, Arg1 is the second and Arg2 is the third
+%% argument. So the os call will look like "Path Op Arg1 Arg2".
 %%
-%% @spec start_link(Directory, SharedLib) -> {ok, Pid} |
-%%                                              ignore |
-%%                                           {error, Error}
+%% @spec start_link(Path, Op, Arg1, Arg2) -> {ok, Pid} |
+%%                                  ignore |
+%%                               {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(Directory, SharedLib) ->
-    case erl_ddll:load_driver(Directory, SharedLib) of
-        ok -> ok;
-        {error, already_loaded} -> ok;
-        _ -> exit({error, could_not_load_driver})
-    end,
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [SharedLib], []).
+start_link(Path, Op, Arg1, Arg2) ->
+    gen_server:start_link({local, ?SERVER},?MODULE, [Path, Op, Arg1, Arg2], []).
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Stops the process. Will also terminate the port driver
-%% associated.
+%% Stops the server.
 %%
 %% @spec stop() -> void()
 %% @end
@@ -54,30 +50,6 @@ start_link(Directory, SharedLib) ->
 
 stop() ->
     gen_server:cast(?SERVER, stop).
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Calls the function foo with the argument X in the associated port
-%% driver. Returns the return value of the port driver function foo.
-%%
-%% @spec foo(X::int()) -> int()
-%% @end
-%%--------------------------------------------------------------------
-
-foo(X) ->
-    gen_server:call(?SERVER, {foo, X}).
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Calls the function bar with the argument X in the associated port
-%% driver. Returns the return value of the port driver function bar.
-%%
-%% @spec bar(X::int()) -> int()
-%% @end
-%%--------------------------------------------------------------------
-
-bar(Y) ->
-    gen_server:call(?SERVER, {bar, Y}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -94,8 +66,10 @@ bar(Y) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([SharedLib]) ->
-    Port = open_port({spawn, SharedLib}, []),
+init([Path, Op, Arg1, Arg2]) ->
+    Port = open_port({spawn_executable, Path},
+		     [use_stdio,
+		      {args, [Op, Arg1, Arg2]}]),
     {ok, Port}.
 
 %%--------------------------------------------------------------------
@@ -112,12 +86,8 @@ init([SharedLib]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call(Request, _From, State) ->
-    State ! {self(), {command, encode(Request)}},
-    receive
-	{State, {data, Data}} ->
-	    Reply = decode(Data)
-    end,
+handle_call(_Request, _From, State) ->
+    Reply = no_reply,
     {reply, Reply, State}.
 
 %%--------------------------------------------------------------------
@@ -130,8 +100,9 @@ handle_call(Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
+handle_cast(stop, State) ->
+    {stop, normal, State};
 handle_cast(_Msg, State) ->
-%%    State ! {self(), {command, encode(Request)}},
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -144,7 +115,8 @@ handle_cast(_Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(_Info, State) ->
+handle_info(Info, State) ->
+    io:format("~ts~n", [element(2, element(2, Info))]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -158,8 +130,7 @@ handle_info(_Info, State) ->
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(_Reason, State) ->
-    State ! {self(), close},
+terminate(_Reason, _State) ->
     ok.
 
 %%--------------------------------------------------------------------
@@ -172,32 +143,3 @@ terminate(_Reason, State) ->
 %%--------------------------------------------------------------------
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
-
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Encodes a message according to a C enum, a function name is translated
-%% into the corresponding number that it is represented by in the C port.
-%%
-%% @spec encode({Fn::atom(), Arg::term()}) -> [Fn | [Arg]]
-%%      Fn = foo | bar
-%%      Argument = term()
-%% @end
-%%--------------------------------------------------------------------
-
-encode({foo, X}) -> [0, X];
-encode({bar, Y}) -> [1, Y].
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Decodes a message received from the port driver.
-%%
-%% @spec decode([X::term()]) -> X::term()
-%%      X = term()
-%% @end
-%%--------------------------------------------------------------------
-
-decode([Int]) -> Int.

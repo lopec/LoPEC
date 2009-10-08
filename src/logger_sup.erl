@@ -40,8 +40,8 @@ start_link() ->
 %% Whenever a supervisor is started using supervisor:start_link/[2,3],
 %% this function is called by the new process to find out about
 %% restart strategy, maximum restart frequency and child
-%% specifications. It also starts an event manager named logger
-%% and registers the terminalLogger to this manager.
+%% specifications. It also starts an event manager named
+%% logger_manager and registers the terminalLogger to this manager.
 %%
 %% @spec init(Args) -> {ok, {SupFlags, [ChildSpec]}} |
 %%                     ignore |

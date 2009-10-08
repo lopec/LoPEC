@@ -2,7 +2,11 @@
 %%% @author Fredrik Andersson <sedrik@consbox.se>
 %%% @copyright (C) 2009, Fredrik Andersson
 %%% @doc logger holds an API for logging messages on the server.
-%%% @TODO Document more
+%%% It uses @see error_logger for info, warning and error messages. Don't use
+%%% it for debugging messages, if needed a debugging function can be added to
+%%% the API later on. Currently no nice formatting of the message is done it's
+%%% simply treated as single whole message and will be printed that way. please
+%%% make sure to add ~n to all strings that are logged.
 %%%
 %%% @end
 %%% Created : 29 Sep 2009 by Fredrik Andersson <sedrik@consbox.se>
@@ -83,8 +87,8 @@ warning(Msg) ->
 %% @end
 %%--------------------------------------------------------------------
 init(LoggerName) ->
-    gen_event:add_handler(LoggerName, terminalLogger, []),
-    gen_event:add_handler(LoggerName, fileLogger, [logfile]),
+    error_logger:logfile({open, logfile}),
+    error_logger:tty(false),
     info("logger was started"),
     {ok, #state{loggerName = LoggerName}}.
 
@@ -115,9 +119,15 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast(Msg, State) ->
-    gen_event:notify(State#state.loggerName, Msg),
-    {noreply, State}. %TODO implement if needed
+handle_cast({error, Msg}, State) ->
+    error_logger:error_msg("~p~n", [Msg]),
+    {noreply, State};
+handle_cast({info, Msg}, State) ->
+    error_logger:info_msg("~p~n", [Msg]),
+    {noreply, State};
+handle_cast({warning, Msg}, State) ->
+    error_logger:warning_msg("~p~n", [Msg]),
+    {noreply, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -144,7 +154,8 @@ handle_info(_Info, State) ->
 %% @end
 %%--------------------------------------------------------------------
 terminate(Reason, State) ->
-    info({"logger was stopped with the reason", Reason, State}),
+    info({"logger was stopped~n Reason : ~p~n State: ~p~n", Reason, State}),
+    error_logger:logfile(close),
     ok.
 
 %%--------------------------------------------------------------------

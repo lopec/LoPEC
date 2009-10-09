@@ -22,9 +22,9 @@
 -behaviour(gen_server).
 -define(SERVER, db_server).
 
--ifdef(test).
+%-ifdef(test).
 -export([delete_tables/0]).
--endif.
+%-endif.
 
 
 %% APIs for management of the databases
@@ -91,7 +91,7 @@ stop() ->
 create_tables() ->
     gen_server:call(?SERVER, create_tables).
 
--ifdef(test).
+%-ifdef(test).
 %%--------------------------------------------------------------------
 %% @doc
 %%
@@ -106,7 +106,7 @@ delete_tables() ->
     mnesia:delete_table(task),
     mnesia:delete_table(assigned_task),
     tables_deleted.
--endif.
+%-endif.
 
 %%====================================================================
 %% BUSINESS FUNCTIONS
@@ -144,20 +144,17 @@ remove_reservation(TaskId) ->
 %% Calls the server to add a job to the job table with the given
 %% properties. The server returns the generated id of the job.
 %% The JobType specifies what type of job it is, e.g. ray_tracer, etc.
-%% 
+%%
 %% @spec add_job(
 %% { JobType::atom(),
-%%   CallbackPath::string(),
-%%   ReplyId::integer(),
 %%   Priority::integer()
 %% }) -> 
 %%   JobId::integer() | {error,Error}
 %%   JobType = any() 
 %% @end
 %%--------------------------------------------------------------------
-add_job({JobType, CallbackPath, ReplyId, Priority}) ->
-    gen_server:call(?SERVER, {add_job, JobType, CallbackPath, undefined,
-			      ReplyId, Priority}).
+add_job({JobType, Priority}) ->
+    gen_server:call(?SERVER, {add_job, JobType, undefined, Priority}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -184,7 +181,6 @@ set_job_input_path(JobId, InputPath) ->
 %% @spec add_task(
 %%   { JobId::integer(), 
 %%     TaskType::atom(), 
-%%     CallbackPath::string(),
 %%     InputPath::string(), 
 %%     Priority::integer()
 %%    }) ->
@@ -192,10 +188,10 @@ set_job_input_path(JobId, InputPath) ->
 %%                 TaskType = mapping | reducing
 %% @end
 %%--------------------------------------------------------------------
-add_task({JobId, TaskType, CallbackPath, InputPath, Priority}) ->
+add_task({JobId, TaskType, InputPath, Priority}) ->
     gen_server:call(?SERVER, {add_task, JobId, 
-					TaskType, CallbackPath, 
-					InputPath, available, Priority}).
+			      TaskType, InputPath, 
+			      available, Priority}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -340,6 +336,7 @@ init(_Args) ->
 %    ok = application:load(mnesia),
 %    ok = application:set_env(mnesia, dir, DBdir),
     application:start(mnesia),
+%    mnesia:set_debug_level(none),
     {ok, NodeList}.
 
 %%--------------------------------------------------------------------
@@ -374,11 +371,11 @@ handle_call(create_tables, _From, State) ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-handle_call({add_job, JobType, CallbackPath, InputPath, ReplyId, Priority}, 
+handle_call({add_job, JobType, InputPath, Priority}, 
 	    _From, State) ->
     JobId = generate_id(),
-    add_job_on_server(JobId, JobType, CallbackPath, InputPath, available, 
-		      undefined, ReplyId, Priority),
+    add_job_on_server(JobId, JobType, InputPath, available, 
+		      undefined, Priority),
     {reply, JobId, State};
 
 %%--------------------------------------------------------------------
@@ -395,11 +392,9 @@ handle_call({set_job_input_path, JobId, InputPath}, _From, State) ->
 		remove_element_on_server(JobId, job),
 		add_job_on_server(Job#job.job_id,
 				  Job#job.job_type,
-				  Job#job.callback_path,
 				  InputPath,
 				  Job#job.current_state,
 				  Job#job.current_progress,
-				  Job#job.reply_id,
 				  Job#job.priority)
 	end,
     mnesia:transaction(F),
@@ -413,11 +408,11 @@ handle_call({set_job_input_path, JobId, InputPath}, _From, State) ->
 %% 
 %% @end
 %%--------------------------------------------------------------------
-handle_call({add_task, JobId, TaskType, CallbackPath, InputPath, CurrentState, 
+handle_call({add_task, JobId, TaskType, InputPath, CurrentState, 
 	     Priority}, _From, State) ->
     TaskId = generate_id(),
-    add_task_on_server(TaskId, JobId, TaskType, CallbackPath, InputPath, 
-	     CurrentState, Priority),
+    add_task_on_server(TaskId, JobId, TaskType, InputPath, 
+		       CurrentState, Priority),
     % Also add the relations the task will have, namely which job and which
     % node (undefined when first inserting the task) it is assigned to.
     add_assigned_task_on_server(TaskId, JobId, undefined),
@@ -437,7 +432,6 @@ handle_call({get_task, NodeId}, _From, State) ->
 		MatchHead = #task{task_id = '$1',
  				  job_id = '_',
  				  task_type = '_',
- 				  callback_path = '_',
  				  input_path = '_',
  				  current_state = available,
  				  priority = '_'},
@@ -455,7 +449,6 @@ handle_call({get_task, NodeId}, _From, State) ->
 	    add_task_on_server(Task#task.task_id, 
 			       Task#task.job_id, 
 			       Task#task.task_type,
-			       Task#task.callback_path,
 			       Task#task.input_path, 
 			       reserved,
 			       Task#task.priority),
@@ -494,8 +487,7 @@ handle_call({set_task_state, TaskId, NewState}, _From, State) ->
 		add_task_on_server(TaskId, 
 			 Task#task.job_id, 
 			 Task#task.task_type,
-		         Task#task.callback_path,
-			 Task#task.input_path, 
+		         Task#task.input_path, 
 			 NewState,
 			 Task#task.priority)
 	end,
@@ -672,16 +664,14 @@ generate_id() ->
 %%
 %% @end
 %%--------------------------------------------------------------------
-add_job_on_server(JobId, JobType, CallbackPath, InputPath, CurrentState, 
-		  CurrentProgress, ReplyId, Priority) ->
+add_job_on_server(JobId, JobType, InputPath, CurrentState, 
+		  CurrentProgress, Priority) ->
     F = fun() ->
 		mnesia:write(#job{job_id = JobId,
 				  job_type = JobType,
-				  callback_path = CallbackPath,
 				  input_path = InputPath,
 				  current_state = CurrentState,
 				  current_progress = CurrentProgress,
-				  reply_id = ReplyId,
 				  priority = Priority})
 	end,
     mnesia:transaction(F).
@@ -699,13 +689,12 @@ add_job_on_server(JobId, JobType, CallbackPath, InputPath, CurrentState,
 %%                      {aborted, Reason} | ok
 %% @end
 %%--------------------------------------------------------------------
-add_task_on_server(TaskId, JobId, TaskType, CallbackPath, InputPath, 
-	 CurrentState, Priority) ->
+add_task_on_server(TaskId, JobId, TaskType, InputPath, 
+		   CurrentState, Priority) ->
     F = fun() ->
 		mnesia:write(#task{task_id = TaskId,
 				   job_id = JobId,
 				   task_type = TaskType,
-				   callback_path = CallbackPath,
 				   input_path = InputPath,
 				   current_state = CurrentState,
 				   priority = Priority})

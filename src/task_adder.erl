@@ -14,12 +14,10 @@
 
 
 %% API
--export([start_link/0, receive_details/1]).
+-export([start_link/0, accept_job/1, create_task/1]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
-
--define(SERVER, task_adder_server).
 
 %%%===================================================================
 %%% API
@@ -33,31 +31,51 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
-%template default
-%TODO: we may want task adder process to be nameless, to avoid any
-%possibility of conflict
-
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Passes given task data to the handle_call function
+%% JobSpec:
+%%  {   new_job,
+%%      <job_type> - which computational program to run
+%%      <data_path>, - path to datafile in storage 
+%%      <script_cmd> - command to run split script
+%%      <split_script_path>, - path to split_script in storage
+%%      <priortity> - not implemented at the moment 
+%%    }
 %%
-%% @spec receive_details(Data) -> term()
+%% The first task of the job would be to run split script on node.
+%% Format of that command is "<script_cmd> <split_script_path>".
 %% @end
 %%--------------------------------------------------------------------
-receive_details(Data) ->
-    gen_server:call(?SERVER, {task_details, Data}).
+accept_job(JobSpec) ->
+    gen_server:call(?MODULE, {create_job, JobSpec}).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% TaskSpec:
+%%  {   add_task,
+%%      <JobId>
+%%      <Tasktype> - map, reduce or split atoms accepted at the moment 
+%%      <data_path>, - path to datafile in storage 
+%%      <callback_path>, - path to implementing library/function in storage
+%%      <priortity> - not implemented at the moment
+%%    }
+%%
+%% The first task of the job would be to run split script on node.
+%% Format of that command is "<script_cmd> <split_script_path>".
+%% @end
+%%--------------------------------------------------------------------
+create_task(TaskSpec) ->
+    gen_server:call(?MODULE, {create_task, TaskSpec}).
 
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @private
 %% @doc
-%% Initiates the server
+%% Initiates the server.
 %%
 %% @spec init(Args) -> {ok, State} 
 %% @end
@@ -65,9 +83,7 @@ receive_details(Data) ->
 init([]) ->
     {ok, waiting_for_task_details}.
 
-
 %%--------------------------------------------------------------------
-%% @private
 %% @doc
 %%
 %% Adds given data to the DB. The result of this operation is sent as
@@ -77,12 +93,12 @@ init([]) ->
 %%                                   {reply, Reply, State} 
 %% @end
 %%--------------------------------------------------------------------
-% TODO: must check that db:add_task reports it if there's an error. Or
-% crashes, either works..
-handle_call({task_details, Data},
-            {_From, _Tag},
-            waiting_for_task_details) ->
-    {reply, db:add_task(Data), waiting_for_task_details}; 
+handle_call({create_task, TaskSpec}, _From, State) ->
+    NewTaskId = db:add_task(TaskSpec),
+    {reply, NewTaskId, State}; 
+handle_call({create_job, JobSpec}, _From, State) ->
+    NewJobId = db:add_job(JobSpec),
+    {reply, NewJobId, State}; 
 handle_call(Request, From, State) ->
     logger:error("task_adder:handle_call got an invalid call!~n"
                  "--Request: ~p~n"
@@ -91,6 +107,11 @@ handle_call(Request, From, State) ->
     Reply = ok,
     {noreply, Reply, State}.
 
+
+
+%%%===================================================================
+%%% Not implemented stuff
+%%%===================================================================
 
 %%--------------------------------------------------------------------
 %% @private
@@ -158,8 +179,3 @@ code_change(OldVsn, State, Extra) -> %template default
                  "--State: ~p~n"
                  "--Extra: ~p~n", [OldVsn, State, Extra]),
     {ok, State}.
-
-
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================

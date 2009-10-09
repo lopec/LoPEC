@@ -656,10 +656,10 @@ generate_id() ->
 %%
 %% Adds a job to the database.
 %%
-%% add_job_on_server(JobId::integer(), JobType::atom(), CallbackPath::string()
+%% add_job_on_server(JobId::integer(), JobType::atom(),
 %%                   InputPath::integer(), CurrentState::atom(),
-%%                   CurrentProgress::integer(), ReplyId::string(),
-%%                   Priority::integer()) -> {aborted, Reason} |{atomic, ok}
+%%                   CurrentProgress::integer(), Priority::integer()) -> 
+%%             {aborted, Reason} |{atomic, ok}
 %%             JobType = any() 
 %%
 %% @end
@@ -683,9 +683,8 @@ add_job_on_server(JobId, JobType, InputPath, CurrentState,
 %% Adds a task to the task table.
 %% 
 %% @spec add_task_on_server(TaskId::integer(), JobId::integer(), 
-%%                          TaskType::atom(), CallbackPath::string(), 
-%%                          InputPath::string(), CurrentState::atom(),
-%%                          Priority::integer()) -> 
+%%                          TaskType::atom(), InputPath::string(), 
+%%                          CurrentState::atom(), Priority::integer()) -> 
 %%                      {aborted, Reason} | ok
 %% @end
 %%--------------------------------------------------------------------

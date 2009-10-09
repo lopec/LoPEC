@@ -34,8 +34,8 @@
 %%--------------------------------------------------------------------
 accept_message(Msg) ->
     %Debugging output
-    logger ! {event, self(),
-        io_lib:format("Msg received: ~w", [Msg])},
+    %% logger ! {event, self(),
+    %%     io_lib:format("Msg received: ~w", [Msg])},
     
     gen_server:cast({global, ?MODULE}, Msg).
 
@@ -100,8 +100,8 @@ handle_call(_Request, _From, _State) ->
 %% This might be obsolete later, depending on comm protocol
 handle_cast({new_node, Node}, _) ->
     io:format("New Node ~n", []),
-    logger ! {event, self(), 
-        io_lib:format("New Node", [])},
+    %logger ! {event, self(), 
+    %    io_lib:format("New Node", [])},
     case lists:member(Node, nodes()) of
         false ->
             net_adm:ping(Node);
@@ -111,8 +111,8 @@ handle_cast({new_node, Node}, _) ->
     {noreply, []};
 handle_cast(UnrecognisedMessage, _) ->
     io:format("UnrecognisedMessage: ~w ~n", [UnrecognisedMessage]),
-    logger ! {event, self(), 
-        io_lib:format("UnrecognisedMessage: ~w", [UnrecognisedMessage])},
+    %logger ! {event, self(), 
+    %    io_lib:format("UnrecognisedMessage: ~w", [UnrecognisedMessage])},
     {noreply, []}.
 
 %% --------------------------------------------------------------------
@@ -123,20 +123,20 @@ handle_cast(UnrecognisedMessage, _) ->
 %% --------------------------------------------------------------------
 handle_info({nodeup, Node}, _) ->
     io:format("Welcome new node: ~w~n", [Node]),
-    logger ! {event, self(), 
-        io_lib:format("Welcome new node: ~w", [Node])},
+    %logger ! {event, self(), 
+    %    io_lib:format("Welcome new node: ~w", [Node])},
     {noreply, []};
 handle_info({nodedown, Node}, _) ->
     % Stub needed to contact Task List API
     % tasklist:free_tasks(Node),
     io:format("Node ~w just died. :()~n", [Node]),
-    logger ! {event, self(),
-        io_lib:format("Node ~w just died. :()~n", [Node])},
+    %logger ! {event, self(),
+    %    io_lib:format("Node ~w just died. :()~n", [Node])},
     {noreply, []};
 handle_info(UnrecognisedMessage, _) ->
     io:format("~nUnrecognisedMessage: ~w ~n", [UnrecognisedMessage]),
-    logger ! {event, self(), 
-        io_lib:format("UnrecognisedMessage: ~w", [UnrecognisedMessage])},
+    %logger ! {event, self(), 
+    %    io_lib:format("UnrecognisedMessage: ~w", [UnrecognisedMessage])},
     {noreply, []}.
 
 %% --------------------------------------------------------------------

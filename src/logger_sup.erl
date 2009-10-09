@@ -52,7 +52,7 @@ init(no_args) ->
     %gen_event:start_link({local, logger}),
     {ok,{{rest_for_one, 1, 60},
             [   child(gen_event, worker, {local, logger_manager}),
-                child(logger, worker, logger_manager)
+                child(logger, worker, no_args)
             ]}}.
 
 %%%===================================================================

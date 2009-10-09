@@ -14,8 +14,10 @@
 -module(logger).
 -behaviour(gen_server).
 
+-include("../include/loggerState.hrl").
+
 %% API
--export([start_link/1,
+-export([start_link/0,
         error/1,
         info/1,
         warning/1
@@ -25,7 +27,6 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
         terminate/2, code_change/3]).
 
--record(state, {loggerName}).
 
 %%%===================================================================
 %%% API
@@ -34,12 +35,13 @@
 %%--------------------------------------------------------------------
 %% @doc
 %% Starts the server
+%% takes two arguments, the
 %%
-%% @spec start_link(LoggerName) -> {ok, Pid} | ignore | {error, Error}
+%% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(LoggerName) ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, LoggerName, []).
+start_link() ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, no_args, []).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -86,11 +88,17 @@ warning(Msg) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init(LoggerName) ->
-    error_logger:logfile({open, logfile}),
-    error_logger:tty(false),
+init(no_args) ->
+    error_logger:logfile({open, node()}),
+    error_logger:tty(true),
+    %TODO receive node info from argument
+    State = #state{logProcess = ?MODULE, logNode = 'logger@localhost'},
+    case State#state.logNode == node() of
+        true -> ok;
+        false -> error_logger:add_report_handler(externalLogger, State)
+    end,
     info("logger was started"),
-    {ok, #state{loggerName = LoggerName}}.
+    {ok, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -120,13 +128,22 @@ handle_call(_Request, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({error, Msg}, State) ->
-    error_logger:error_msg("~p~n", [Msg]),
+    error_logger:error_report(Msg),
+    {noreply, State};
+handle_cast({error, From, Msg}, State) ->
+    error_logger:error_report([From, Msg]),
     {noreply, State};
 handle_cast({info, Msg}, State) ->
-    error_logger:info_msg("~p~n", [Msg]),
+    error_logger:info_report(Msg),
+    {noreply, State};
+handle_cast({info, From, Msg}, State) ->
+    error_logger:info_report([From, Msg]),
+    {noreply, State};
+handle_cast({warning, From, Msg}, State) ->
+    error_logger:warning_report([From, Msg]),
     {noreply, State};
 handle_cast({warning, Msg}, State) ->
-    error_logger:warning_msg("~p~n", [Msg]),
+    error_logger:warning_report(Msg),
     {noreply, State}.
 
 %%--------------------------------------------------------------------

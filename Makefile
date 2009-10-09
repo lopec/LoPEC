@@ -14,7 +14,7 @@ clean:
 	-rm $(OBJECTS)
 
 test:
-	erl -noshell -pa ebin -eval 'eunit:test("ebin",[verbose])' -s init stop
+	erl -sname test -noshell -pa ebin -eval 'eunit:test("ebin",[verbose])' -s init stop
 
 logger:
 	erlc $(ERLC_FLAGS) src/logger/*.erl -o $(PWD)/ebin/

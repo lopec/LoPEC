@@ -22,15 +22,19 @@
 -behaviour(gen_server).
 -define(SERVER, db_server).
 
+-ifdef(test).
+-export([delete_tables/0]).
+-endif.
+
+
 %% APIs for management of the databases
--export([start/0, start_link/0, stop/0, create_tables/0,
-	 delete_tables/0]).
+-export([start/0, start_link/0, stop/0, create_tables/0]).
 
 %% Business functions
 -export([mark_done/1, assign_task/2, remove_reservation/1, free_tasks/1]).
 
 %% APIs for external access to the job table
--export([add_job/1]).
+-export([add_job/1, set_job_input_path/2]).
 
 %% APIs for external access to the task table
 -export([add_task/1, get_task/1, get_task_state/1, list_tasks/0, 
@@ -87,6 +91,7 @@ stop() ->
 create_tables() ->
     gen_server:call(?SERVER, create_tables).
 
+-ifdef(test).
 %%--------------------------------------------------------------------
 %% @doc
 %%
@@ -101,6 +106,7 @@ delete_tables() ->
     mnesia:delete_table(task),
     mnesia:delete_table(assigned_task),
     tables_deleted.
+-endif.
 
 %%====================================================================
 %% BUSINESS FUNCTIONS
@@ -142,7 +148,6 @@ remove_reservation(TaskId) ->
 %% @spec add_job(
 %% { JobType::atom(),
 %%   CallbackPath::string(),
-%%   InputPath::string(), 
 %%   ReplyId::integer(),
 %%   Priority::integer()
 %% }) -> 
@@ -150,9 +155,20 @@ remove_reservation(TaskId) ->
 %%   JobType = any() 
 %% @end
 %%--------------------------------------------------------------------
-add_job({JobType, CallbackPath, InputPath, ReplyId, Priority}) ->
-    gen_server:call(?SERVER, {add_job, JobType, CallbackPath, InputPath,
+add_job({JobType, CallbackPath, ReplyId, Priority}) ->
+    gen_server:call(?SERVER, {add_job, JobType, CallbackPath, undefined,
 			      ReplyId, Priority}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Sets the input path of the given job.
+%% 
+%% @spec set_job_input_path(JobId, InputPath) -> ok | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+set_job_input_path(JobId, InputPath) ->
+    gen_server:call(?SERVER, {set_job_input_path, JobId, InputPath}).
 
 %%====================================================================
 %% TASK TABLE APIs
@@ -364,6 +380,30 @@ handle_call({add_job, JobType, CallbackPath, InputPath, ReplyId, Priority},
     add_job_on_server(JobId, JobType, CallbackPath, InputPath, available, 
 		      undefined, ReplyId, Priority),
     {reply, JobId, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Sets the input path of a job.
+%%
+%% @end
+%%--------------------------------------------------------------------
+handle_call({set_job_input_path, JobId, InputPath}, _From, State) ->
+    F = fun() ->
+		Job = get_element_on_server(JobId, job),
+		remove_element_on_server(JobId, job),
+		add_job_on_server(Job#job.job_id,
+				  Job#job.job_type,
+				  Job#job.callback_path,
+				  InputPath,
+				  Job#job.current_state,
+				  Job#job.current_progress,
+				  Job#job.reply_id,
+				  Job#job.priority)
+	end,
+    mnesia:transaction(F),
+    {reply, ok, State};
 
 %%--------------------------------------------------------------------
 %% @private

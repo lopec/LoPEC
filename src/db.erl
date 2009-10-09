@@ -132,8 +132,8 @@ mark_done(TaskId) ->
 %% @end
 %%--------------------------------------------------------------------
 remove_reservation(TaskId) ->
-    set_task_state(TaskId, available),
-    assign_task(TaskId, undefined).
+    assign_task(TaskId, undefined),
+    set_task_state(TaskId, available).
 
 %%====================================================================
 %% JOB TABLE APIs

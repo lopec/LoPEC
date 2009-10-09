@@ -37,18 +37,16 @@ start_link() ->
 %% @doc
 %% JobSpec:
 %%  {   new_job,
-%%      <job_type> - which computational program to run/ Name of directory with files 
-%%      <priority> - not implemented at the moment 
+%%      'job_type' - which computational program to run/ Name of directory with files 
+%%      'priority' - not implemented at the moment 
 %%    }
 %%
 %% The first task of the job would be to run split script on node.
-%% Format of that command is "<script_cmd> <split_script_path>".
+%% Format of that command is "'script_cmd' 'split_script_path'".
 %% @end
 %%--------------------------------------------------------------------
 accept_job(JobSpec) ->
     gen_server:call(?MODULE, {create_job, JobSpec}).
-
-
 
 %%%===================================================================
 %%% gen_server callbacks

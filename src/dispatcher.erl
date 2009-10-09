@@ -14,7 +14,7 @@
 -include("../include/db.hrl").
 
 %% API
--export([start_link/0, get_task/2,report_task_done/1]).
+-export([start_link/0, get_task/2,report_task_done/2, create_task/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -36,6 +36,22 @@ start_link() ->
 
 %%--------------------------------------------------------------------
 %% @doc
+%% TaskSpec:
+%%  {   new_task,
+%%      <JobId>,
+%%      <Tasktype> - map, reduce, finalise or split atoms accepted at the moment 
+%%      <priority> - not implemented at the moment
+%%    }
+%%
+%% The first task of the job would be to run split script on node.
+%% Format of that command is "<script_cmd> <split_script_path>".
+%% @end
+%%--------------------------------------------------------------------
+create_task(TaskSpec) ->
+    gen_server:call(?MODULE, {create_task, TaskSpec}).
+
+%%--------------------------------------------------------------------
+%% @doc
 %% Returns the first available task.
 %% If no tasks are available, just lets request to time out.
 %%
@@ -50,8 +66,8 @@ get_task(NodeId, PID) ->
 %% posted on storage before calling this method.
 %% @end
 %%--------------------------------------------------------------------
-report_task_done(TaskId) ->
-    gen_server:call(?MODULE, {task_done, TaskId}).
+report_task_done(TaskId, TaskSpec) ->
+    gen_server:call(?MODULE, {task_done, TaskId, TaskSpec}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -91,16 +107,16 @@ handle_cast(Msg, State) ->
 %%                                   {reply, ok, State} 
 %% @end
 %%--------------------------------------------------------------------
-handle_call({task_done, TaskId}, _From, State) ->
-    Status = db:get_task_state(TaskId),
-    logger ! {event, self(), 
-              io_lib:format("before done ~p is ~p!", [TaskId, Status])},
-    
+handle_call({task_done, TaskId, no_task}, _From, State) ->
     db:mark_done(TaskId),
-    logger ! {event, self(), 
-              io_lib:format("after done ~p is ~p!", [TaskId, db:get_task_state(TaskId)])},
-    Reply = ok,
-    {reply, Reply, State}.
+    {reply, ok, State};
+handle_call({task_done, TaskId, TaskSpec}, _From, State) ->
+    db:mark_done(TaskId),
+    NewTaskId = db:add_task(TaskSpec),
+    {reply, NewTaskId, State};
+handle_call({create_task, TaskSpec}, _From, State) ->
+    NewTaskId = db:add_task(TaskSpec),
+    {reply, NewTaskId, State}.
 
 %%%===================================================================
 %%% Internal functions
@@ -117,23 +133,17 @@ handle_call({task_done, TaskId}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 find_task(RequesterPID, NodeId) ->
-    case db:get_task(NodeId) of
+    FreeTask = db:get_task(NodeId),
+    case FreeTask of
         % If no task found - let the request time out and try again
         % Therefore we just terminate
         no_task -> 
             ok;
         Task ->
             % Get ready with integration testing!
-            %global:send(ecg_server, {new_node, NodeId}),
+            ecg_server:accept_message({new_node, NodeId}),
             RequesterPID ! {task_response, Task, self()},
-            receive
-                {task_accepted, TaskId} ->
-                    db:assign_task(TaskId, NodeId);
-                Msg ->
-                    io:format("Wrong message received: ~w", [Msg])
-            after 1000 ->
-                    db:remove_reservation(Task#task.task_id)
-            end
+            db:assign_task(Task#task.task_id, NodeId)
     end.
 
 %%%===================================================================

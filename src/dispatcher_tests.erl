@@ -42,6 +42,7 @@ task_allocation_test() ->
 %%     end_per_test_case().
     ok.
 
+%TODO explain this test
 timeout_test() ->
     init_per_test_case(),
     dispatcher:get_task(node(), self()),
@@ -72,4 +73,65 @@ task_completed_test() ->
 %%     end_per_test_case().
     ok.
 end_test() ->
-    db:stop().
+    db:stop(),
+    dispatcher:terminate().
+
+
+%%%-------------------------------------------------------------------
+%%% @author Axel <>
+%%% @copyright (C) 2009, Axel
+%%% @doc
+%%% Contains the unit tests for the task adder
+%%% @end
+%%% Created : 1 Oct 2009 by Axel <>
+%%%-------------------------------------------------------------------
+%% -module(task_adder_tests).
+%% -include("../include/db.hrl").
+%% -include_lib("eunit/include/eunit.hrl").
+%% 
+%% init_per_test_case() ->    
+%%     db:create_tables().
+%% 
+%% end_per_test_case() ->
+%%     db:delete_tables().
+%% 
+%% init_test() ->
+%%     db:start(),
+%%     task_adder:start_link().
+%% 
+%% task_job_ID_exists_test() ->
+%%     ok.
+%% 
+%% proper_type_test() ->
+%%     ok.
+%% 
+%% priority_test() ->
+%%     ok.
+%% 
+%% add_job_test() ->
+%%     init_per_test_case(),
+%%     JobSpec = {new_job, "./raytracer.job", 0},
+%%     task_adder:accept_job(JobSpec),
+%%     receive
+%%         {reply, _Data} ->
+%%             ok;
+%%         Other ->
+%%             exit("Failed to add Job~n. Got ~p~n", [Other])
+%%     end,
+%%     end_per_test_case().
+%%     
+%% create_task_test() ->
+%%     init_per_test_case(),
+%%     TaskSpec = {new_task,  jobID, split, 0},
+%%     task_adder:accept_job(TaskSpec),
+%%     receive
+%%         {reply, _Data} ->
+%%             ok;
+%%         Other ->
+%%             exit("Failed to add Job~n. Got ~p~n", [Other])
+%%     end,
+%%     end_per_test_case().
+%% 
+%% end_test() ->
+%%     db:stop(),
+%%     task_adder:terminate().

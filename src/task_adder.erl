@@ -14,7 +14,7 @@
 
 
 %% API
--export([start_link/0, accept_job/1, create_task/1]).
+-export([start_link/0, accept_job/1]).
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
@@ -37,11 +37,8 @@ start_link() ->
 %% @doc
 %% JobSpec:
 %%  {   new_job,
-%%      <job_type> - which computational program to run
-%%      <data_path>, - path to datafile in storage 
-%%      <script_cmd> - command to run split script
-%%      <split_script_path>, - path to split_script in storage
-%%      <priortity> - not implemented at the moment 
+%%      <job_type> - which computational program to run/ Name of directory with files 
+%%      <priority> - not implemented at the moment 
 %%    }
 %%
 %% The first task of the job would be to run split script on node.
@@ -51,23 +48,7 @@ start_link() ->
 accept_job(JobSpec) ->
     gen_server:call(?MODULE, {create_job, JobSpec}).
 
-%%--------------------------------------------------------------------
-%% @doc
-%% TaskSpec:
-%%  {   add_task,
-%%      <JobId>
-%%      <Tasktype> - map, reduce or split atoms accepted at the moment 
-%%      <data_path>, - path to datafile in storage 
-%%      <callback_path>, - path to implementing library/function in storage
-%%      <priortity> - not implemented at the moment
-%%    }
-%%
-%% The first task of the job would be to run split script on node.
-%% Format of that command is "<script_cmd> <split_script_path>".
-%% @end
-%%--------------------------------------------------------------------
-create_task(TaskSpec) ->
-    gen_server:call(?MODULE, {create_task, TaskSpec}).
+
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -93,9 +74,6 @@ init([]) ->
 %%                                   {reply, Reply, State} 
 %% @end
 %%--------------------------------------------------------------------
-handle_call({create_task, TaskSpec}, _From, State) ->
-    NewTaskId = db:add_task(TaskSpec),
-    {reply, NewTaskId, State}; 
 handle_call({create_job, JobSpec}, _From, State) ->
     NewJobId = db:add_job(JobSpec),
     {reply, NewJobId, State}; 
@@ -106,8 +84,6 @@ handle_call(Request, From, State) ->
                  "--State: ~p~n", [Request, From, State]),
     Reply = ok,
     {noreply, Reply, State}.
-
-
 
 %%%===================================================================
 %%% Not implemented stuff

@@ -77,14 +77,6 @@ end_test() ->
     dispatcher:terminate().
 
 
-%%%-------------------------------------------------------------------
-%%% @author Axel <>
-%%% @copyright (C) 2009, Axel
-%%% @doc
-%%% Contains the unit tests for the task adder
-%%% @end
-%%% Created : 1 Oct 2009 by Axel <>
-%%%-------------------------------------------------------------------
 %% -module(task_adder_tests).
 %% -include("../include/db.hrl").
 %% -include_lib("eunit/include/eunit.hrl").

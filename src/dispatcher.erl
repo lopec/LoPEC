@@ -38,13 +38,13 @@ start_link() ->
 %% @doc
 %% TaskSpec:
 %%  {   new_task,
-%%      <JobId>,
-%%      <Tasktype> - map, reduce, finalise or split atoms accepted at the moment 
-%%      <priority> - not implemented at the moment
+%%      'JobId',
+%%      'Tasktype' - map, reduce, finalise or split atoms accepted at the moment 
+%%      'priority' - not implemented at the moment
 %%    }
 %%
 %% The first task of the job would be to run split script on node.
-%% Format of that command is "<script_cmd> <split_script_path>".
+%% Format of that command is "'script_cmd' 'split_script_path'".
 %% @end
 %%--------------------------------------------------------------------
 create_task(TaskSpec) ->
@@ -124,12 +124,12 @@ handle_call({create_task, TaskSpec}, _From, State) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%%
+%% @TODO fix this comment
 %% Sends a message to given PID with the first found task in the DB,
 %% and tells the ECG to register this new node with that PID. If no
 %% task is found, it terminates and lets request time out.
 %%
-%% @spec find_task(From) -> ok
+%% @spec find_task(RequesterPID, NodeId) -> ok
 %% @end
 %%--------------------------------------------------------------------
 find_task(RequesterPID, NodeId) ->

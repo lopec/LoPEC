@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 29 Sep 2009 by Fredrik Andersson <sedrik@consbox.se>
 %%%-------------------------------------------------------------------
--module(logger_sup).
+-module(chronicler_sup).
 -behaviour(supervisor).
 
 %% API
@@ -49,11 +49,11 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init(no_args) ->
-    %gen_event:start_link({local, logger}),
-    {ok,{{rest_for_one, 1, 60},
-            [   child(gen_event, worker, {local, logger_manager}),
-                child(logger, worker, logger_manager)
-            ]}}.
+    Spec = {ok,{{one_for_one, 1, 60},
+            [   child(gen_event, worker, {local, chronicler_manager}),
+                child(chronicler_server, worker, chronicler_manager)
+            ]}},
+    Spec.
 
 %%%===================================================================
 %%% Internal functions
@@ -68,11 +68,23 @@ init(no_args) ->
 %% @end
 %%--------------------------------------------------------------------
 child(Module,supervisor, no_args) ->
-    {Module, {Module, start_link, []},
-        permanent, infinity, supervisor, [Module]};
+    {   Module, 
+        {Module, start_link, []},
+        permanent,
+        infinity,
+        supervisor,
+        [Module]};
 child(Module,Role, no_args) ->
-    {Module, {Module, start_link, []},
-        permanent, brutal_kill, Role, [Module]};
+    {   Module, 
+        {Module, start_link, []},
+        permanent, 
+        brutal_kill, 
+        Role, 
+        [Module]};
 child(Module, Role, Args) ->
-    {Module, {Module, start_link, [Args]},
-        permanent, brutal_kill, Role, [Module]}.
+    {   Module,
+        {Module, start_link, [Args]},
+        permanent,
+        brutal_kill,
+        Role,
+        [Module]}.

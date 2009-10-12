@@ -7,14 +7,15 @@
 %%% @end
 %%% Created : 29 Sep 2009 by Fredrik Andersson <sedrik@consbox.se>
 %%%-------------------------------------------------------------------
--module(logger).
+-module(chronicler_server).
 -behaviour(gen_server).
 
 %% API
 -export([start_link/1,
-        error/1,
-        info/1,
-        warning/1
+         error/1,
+         info/1,
+         warning/1,
+         debug/1
     ]).
 
 %% gen_server callbacks
@@ -39,7 +40,17 @@ start_link(LoggerName) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Logs a error message
+%% Logs a debug message
+%%
+%% @spec debug(Msg) -> ok
+%% @end
+%%--------------------------------------------------------------------
+debug(Msg) ->
+    gen_server:cast(?MODULE, {debug, Msg}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Logs an error message
 %%
 %% @spec error(Msg) -> ok
 %% @end
@@ -49,7 +60,7 @@ error(Msg) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Logs a info message
+%% Logs an info message
 %%
 %% @spec info(Msg) -> ok
 %% @end
@@ -90,24 +101,7 @@ init(LoggerName) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Handling call messages
-%%
-%% @spec handle_call(Request, From, State) ->
-%%                                   {reply, Reply, State} |
-%%                                   {reply, Reply, State, Timeout} |
-%%                                   {noreply, State} |
-%%                                   {noreply, State, Timeout} |
-%%                                   {stop, Reason, Reply, State} |
-%%                                   {stop, Reason, State}
-%% @end
-%%--------------------------------------------------------------------
-handle_call(_Request, _From, State) ->
-    {noreply, State}. %no implementation as of now
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%% Handling casted messages
+%% Handling casted messages. All messages are handled in the same manner
 %%
 %% @spec handle_cast(Msg, State) -> {noreply, State} |
 %%                                  {noreply, State, Timeout} |
@@ -116,20 +110,22 @@ handle_call(_Request, _From, State) ->
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
     gen_event:notify(State#state.loggerName, Msg),
-    {noreply, State}. %TODO implement if needed
+    {noreply, State}.
+
+%%%===================================================================
+%%% Not implemented functionality
+%%%===================================================================
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Handling all non call/cast messages
+%% Convert process state when code is changed
 %%
-%% @spec handle_info(Info, State) -> {noreply, State} |
-%%                                   {noreply, State, Timeout} |
-%%                                   {stop, Reason, State}
+%% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(_Info, State) ->
-    {noreply, State}. %TODO implement if needed
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -148,14 +144,29 @@ terminate(_Reason, _State) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Convert process state when code is changed
+%% Handling all non call/cast messages
 %%
-%% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
+%% @spec handle_info(Info, State) -> {noreply, State} |
+%%                                   {noreply, State, Timeout} |
+%%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
+handle_info(_Info, State) ->
+    {noreply, State}.
 
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Handling call messages
+%%
+%% @spec handle_call(Request, From, State) ->
+%%                                   {reply, Reply, State} |
+%%                                   {reply, Reply, State, Timeout} |
+%%                                   {noreply, State} |
+%%                                   {noreply, State, Timeout} |
+%%                                   {stop, Reason, Reply, State} |
+%%                                   {stop, Reason, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_call(_Request, _From, State) ->
+    {noreply, State}.

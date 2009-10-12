@@ -50,8 +50,8 @@ init(_Args) ->
 %%                          remove_handler
 %% @end
 %%--------------------------------------------------------------------
-handle_event(ErrorMsg, State) ->
-    io:format("***Error*** ~p~n", [ErrorMsg]),
+handle_event({Type, ErrorMsg}, State) ->
+    io:format("~p: ~p~n", [Type, ErrorMsg]),
     {ok, State}.
 
 %%--------------------------------------------------------------------

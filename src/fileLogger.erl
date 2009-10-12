@@ -48,9 +48,9 @@ init(File) ->
 %%                          remove_handler
 %% @end
 %%--------------------------------------------------------------------
-handle_event(ErrorMsg, Fd) ->
-    io:format(Fd, "***Error*** ~p~n", [ErrorMsg]),
-    {ok, Fd}.
+handle_event({Type, ErrorMsg}, FileDescriptor) ->
+    io:format(FileDescriptor, "~p: ~p~n", [Type, ErrorMsg]),
+    {ok, FileDescriptor}.
 
 %%--------------------------------------------------------------------
 %% @private

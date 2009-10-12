@@ -35,7 +35,7 @@ start_link() ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% JobSpec:
+%% JobSpec
 %%  {   new_job,
 %%      'job_type' - which computational program to run/ Name of directory with files 
 %%      'priority' - not implemented at the moment 

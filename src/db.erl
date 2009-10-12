@@ -23,9 +23,8 @@
 -define(SERVER, db_server).
 
 %-ifdef(test).
--export([delete_tables/0]).
+-export([delete_tables/0, get_job_info/1, get_job/0]).
 %-endif.
-
 
 %% APIs for management of the databases
 -export([start/0, start_link/0, stop/0, create_tables/0]).
@@ -106,6 +105,21 @@ delete_tables() ->
     mnesia:delete_table(task),
     mnesia:delete_table(assigned_task),
     tables_deleted.
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Retrieves a whole job record given a JobId
+%% 
+%% @spec get_job_info(JobId::integer()) -> Job | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+get_job_info(JobId) ->
+    gen_server:call(?SERVER, {get_job_info, JobId}).
+
+get_job() ->
+    gen_server:call(?SERVER, {get_job}).
+
 %-endif.
 
 %%====================================================================
@@ -361,6 +375,46 @@ handle_call(create_tables, _From, State) ->
 				      record_info(fields, assigned_task)}|Opts]),
 
     {reply, tables_created, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Gets a whole job record given an id.
+%%
+%% @end
+%%--------------------------------------------------------------------
+handle_call({get_job_info, JobId}, _From, State) ->
+    Job = get_element_on_server(JobId, job),
+    {reply, Job, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Gets a jobId.
+%%
+%% @end
+%%--------------------------------------------------------------------
+handle_call({get_job}, _From, State) ->
+      F = fun() ->
+		  MatchHead = #job{job_id = '$1', 
+				   job_type = '_',
+				   input_path = '_', 
+				   current_state = '_', 
+				   current_progress = '_', 
+				   priority = '_'},
+		  Result = '$1',
+		  mnesia:select(job, [{MatchHead, [], [Result]}], 1, read)
+	  end,
+    Result = mnesia:transaction(F),
+    
+    case Result of
+	{atomic, {[First], _Cont}} ->
+	    {reply, First, State};
+ 	{atomic, '$end_of_table'} ->
+ 	    {reply, no_job, State}
+    end;
 
 %%--------------------------------------------------------------------
 %% @private

@@ -21,6 +21,7 @@
 	 terminate/2, code_change/3]).
 
 -define(SERVER, ?MODULE). 
+-define(taskFetcher, ?FETCHER).
 
 %%%===================================================================
 %%% API
@@ -68,7 +69,7 @@ stop() ->
 %%--------------------------------------------------------------------
 init([Path, Op, Arg1, Arg2]) ->
     Port = open_port({spawn_executable, Path},
-		     [use_stdio,
+		     [use_stdio, exit_status,
 		      {args, [Op, Arg1, Arg2]}]),
     {ok, Port}.
 
@@ -101,6 +102,7 @@ handle_call(_Request, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(stop, State) ->
+    %gen_server:cast(?FETCHER, {self(), halt}),
     {stop, normal, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -117,7 +119,11 @@ handle_cast(_Msg, State) ->
 %%--------------------------------------------------------------------
 handle_info({_Pid, {data, Data}}, State) ->
     io:format("~ts~n", [Data]),
-    {noreply, State}.
+    {noreply, State};
+handle_info({Pid, {exit_status, Status}}, State) ->
+    io:format("Process ~p exited with signal: ~p~n", [Pid, Status]),
+    %gen_server:cast(?FETCHER, {self(), done}),
+    {stop, normal, State}.
 
 %%--------------------------------------------------------------------
 %% @private

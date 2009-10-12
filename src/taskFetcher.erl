@@ -21,6 +21,8 @@
         terminate/2,
         code_change/3]).
 
+-define(dynamicSupervisor, ?DYNSUP).
+
 -record(state, {server, jobs = []}).
 
 %%%===================================================================
@@ -96,7 +98,10 @@ handle_call({request, job}, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast(_Msg, State) ->
+handle_cast({_Pid, _ExitStatus}, State) ->
+    {Job, NewState} = get_job(State),
+    %%ChildSpec = Job, %% ....
+    %%supervisor:start_child(?DYNSUP, ChildSpec),
     {noreply, State}.
 
 %%--------------------------------------------------------------------

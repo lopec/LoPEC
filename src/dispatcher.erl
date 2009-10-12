@@ -19,7 +19,8 @@
          report_task_done/2, 
          create_task/1, 
          report_task_done/1,
-         add_job/1
+         add_job/1,
+         free_tasks/1
         ]).
 
 %% gen_server callbacks
@@ -52,6 +53,15 @@ start_link() ->
 %%--------------------------------------------------------------------
 create_task(TaskSpec) ->
     gen_server:call(?MODULE, {create_task, TaskSpec}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% 
+%% Frees all tasks assigned to Node in master task list
+%% @end
+%%--------------------------------------------------------------------
+free_tasks(NodeId) ->
+    gen_server:call(?MODULE, {free_tasks, NodeId}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -116,6 +126,8 @@ init([]) ->
 handle_cast({task_request, NodeId, From}, _State) ->
     spawn(?MODULE, find_task, [From, NodeId]),
     {noreply, []};
+handle_cast({free_tasks, NodeId}, _State) ->
+    db:free_tasks(NodeId);
 handle_cast(Msg, State) ->
     io:format("Wrong message received: ~w", [Msg]),
     {noreply, State}.
@@ -125,7 +137,8 @@ handle_cast(Msg, State) ->
 %%
 %% @spec handle_call(Request, From, State) ->
 %%                                   {reply, ok, State} |
-%%                                   {reply, TaskId, State} |
+%%                                   {reply, NewTaskId, State} |
+%%                                   {reply, NewJobId, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_call({task_done, TaskId, no_task}, _From, State) ->

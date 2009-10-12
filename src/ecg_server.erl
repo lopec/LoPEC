@@ -127,8 +127,7 @@ handle_info({nodeup, Node}, _) ->
     %    io_lib:format("Welcome new node: ~p", [Node])},
     {noreply, []};
 handle_info({nodedown, Node}, _) ->
-    % Stub needed to contact Task List API
-    % tasklist:free_tasks(Node),
+    dispatcher:free_tasks(Node),
     io:format("Node ~p just died. :()~n", [Node]),
     %logger ! {event, self(),
     %    io_lib:format("Node ~p just died. :()~n", [Node])},

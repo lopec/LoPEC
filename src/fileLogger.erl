@@ -48,8 +48,10 @@ init(File) ->
 %%                          remove_handler
 %% @end
 %%--------------------------------------------------------------------
-handle_event({Type, ErrorMsg}, FileDescriptor) ->
-    io:format(FileDescriptor, "~p: ~p~n", [Type, ErrorMsg]),
+handle_event({Type, Timestamp, NodeId, ErrorMsg}, FileDescriptor) ->
+    Time = logger_dh_date:format("H:i:s", Timestamp),
+    io:format(FileDescriptor, "~p: [~p] ~p - ~p~n", 
+              [Type, Time, NodeId, ErrorMsg]),
     {ok, FileDescriptor}.
 
 %%--------------------------------------------------------------------

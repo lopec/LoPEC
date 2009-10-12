@@ -50,8 +50,10 @@ init(_Args) ->
 %%                          remove_handler
 %% @end
 %%--------------------------------------------------------------------
-handle_event({Type, ErrorMsg}, State) ->
-    io:format("~p: ~p~n", [Type, ErrorMsg]),
+handle_event({Type, Timestamp, NodeId, ErrorMsg}, State) ->
+    Time = logger_dh_date:format("H:i:s", Timestamp),
+    io:format("~p: [~p] ~p - ~p~n", 
+              [Type, Time, NodeId, ErrorMsg]),
     {ok, State}.
 
 %%--------------------------------------------------------------------

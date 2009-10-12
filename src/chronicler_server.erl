@@ -46,7 +46,7 @@ start_link(LoggerName) ->
 %% @end
 %%--------------------------------------------------------------------
 debug(Msg) ->
-    gen_server:cast(?MODULE, {debug, Msg}).
+    gen_server:cast(?MODULE, {debug, erlang:localtime(), node(), Msg}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -56,7 +56,7 @@ debug(Msg) ->
 %% @end
 %%--------------------------------------------------------------------
 error(Msg) ->
-    gen_server:cast(?MODULE, {error, Msg}).
+    gen_server:cast(?MODULE, {error, erlang:localtime(), node(), Msg}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -66,7 +66,7 @@ error(Msg) ->
 %% @end
 %%--------------------------------------------------------------------
 info(Msg) ->
-    gen_server:cast(?MODULE, {info, Msg}).
+    gen_server:cast(?MODULE, {info, erlang:localtime(), node(), Msg}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -76,7 +76,7 @@ info(Msg) ->
 %% @end
 %%--------------------------------------------------------------------
 warning(Msg) ->
-    gen_server:cast(?MODULE, {warning, Msg}).
+    gen_server:cast(?MODULE, {warning, erlang:localtime(), node(), Msg}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -102,7 +102,14 @@ init(LoggerName) ->
 %% @private
 %% @doc
 %% Handling casted messages. All messages are handled in the same manner
-%%
+%% Message structure:
+%% {
+%%      logLevel = [debug, info, warning, error]
+%%      time - moment when log request was received.
+%%      NodeId - node that called for log request
+%%      MessageText - text to be loggerd.
+%% }
+
 %% @spec handle_cast(Msg, State) -> {noreply, State} |
 %%                                  {noreply, State, Timeout} |
 %%                                  {stop, Reason, State}

@@ -14,7 +14,8 @@ run_test_() ->
 testing_ecg() ->
     Nodes = [compnode1, compnode2, compnode666],
 
-    error_logger:info_msg("Starting: ~w~nThey should all come up and die.~n",
+    error_logger:info_msg("Starting: ~p~n"
+                          "They should all come up and die.~n",
                           [Nodes]),
     [slave:start_link("localhost", CompNode) || CompNode <- Nodes],
 

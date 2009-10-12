@@ -50,5 +50,5 @@ init(no_args) ->
           },
     
     % Returning supervisor specification
-    %io:format("Send ECG Specification ~w ~n", [ECG]),
+    %io:format("Send ECG Specification ~p ~n", [ECG]),
     {ok,{{one_for_one,1,10}, [ECG]}}.

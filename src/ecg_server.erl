@@ -35,7 +35,7 @@
 accept_message(Msg) ->
     %Debugging output
     %% logger ! {event, self(),
-    %%     io_lib:format("Msg received: ~w", [Msg])},
+    %%     io_lib:format("Msg received: ~p", [Msg])},
     
     gen_server:cast({global, ?MODULE}, Msg).
 
@@ -110,9 +110,9 @@ handle_cast({new_node, Node}, _) ->
     end,
     {noreply, []};
 handle_cast(UnrecognisedMessage, _) ->
-    io:format("UnrecognisedMessage: ~w ~n", [UnrecognisedMessage]),
+    io:format("UnrecognisedMessage: ~p ~n", [UnrecognisedMessage]),
     %logger ! {event, self(), 
-    %    io_lib:format("UnrecognisedMessage: ~w", [UnrecognisedMessage])},
+    %    io_lib:format("UnrecognisedMessage: ~p", [UnrecognisedMessage])},
     {noreply, []}.
 
 %% --------------------------------------------------------------------
@@ -122,21 +122,21 @@ handle_cast(UnrecognisedMessage, _) ->
 %% Returns: {noreply, State}
 %% --------------------------------------------------------------------
 handle_info({nodeup, Node}, _) ->
-    io:format("Welcome new node: ~w~n", [Node]),
+    io:format("Welcome new node: ~p~n", [Node]),
     %logger ! {event, self(), 
-    %    io_lib:format("Welcome new node: ~w", [Node])},
+    %    io_lib:format("Welcome new node: ~p", [Node])},
     {noreply, []};
 handle_info({nodedown, Node}, _) ->
     % Stub needed to contact Task List API
     % tasklist:free_tasks(Node),
-    io:format("Node ~w just died. :()~n", [Node]),
+    io:format("Node ~p just died. :()~n", [Node]),
     %logger ! {event, self(),
-    %    io_lib:format("Node ~w just died. :()~n", [Node])},
+    %    io_lib:format("Node ~p just died. :()~n", [Node])},
     {noreply, []};
 handle_info(UnrecognisedMessage, _) ->
-    io:format("~nUnrecognisedMessage: ~w ~n", [UnrecognisedMessage]),
+    io:format("~nUnrecognisedMessage: ~p ~n", [UnrecognisedMessage]),
     %logger ! {event, self(), 
-    %    io_lib:format("UnrecognisedMessage: ~w", [UnrecognisedMessage])},
+    %    io_lib:format("UnrecognisedMessage: ~p", [UnrecognisedMessage])},
     {noreply, []}.
 
 %% --------------------------------------------------------------------

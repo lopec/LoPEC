@@ -13,6 +13,3 @@
 child_test() ->
     {ok, {_, ChildSpecs}} = master_sup:init(no_args),
     ok = supervisor:check_childspecs(ChildSpecs).
-
-
-

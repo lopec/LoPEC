@@ -14,7 +14,13 @@
 -include("../include/db.hrl").
 
 %% API
--export([start_link/0, get_task/2,report_task_done/2, create_task/1]).
+-export([start_link/0, 
+         get_task/2,
+         report_task_done/2, 
+         create_task/1, 
+         report_task_done/1,
+         add_job/1
+        ]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -37,18 +43,28 @@ start_link() ->
 %%--------------------------------------------------------------------
 %% @doc
 %% TaskSpec:
-%%  {   new_task,
-%%      'JobId',
+%%  {   'JobId',
 %%      'Tasktype' - map, reduce, finalise or split atoms accepted at the moment 
 %%      'priority' - not implemented at the moment
 %%    }
-%%
-%% The first task of the job would be to run split script on node.
-%% Format of that command is "'script_cmd' 'split_script_path'".
+%% Returns TaskId of newly created task
 %% @end
 %%--------------------------------------------------------------------
 create_task(TaskSpec) ->
     gen_server:call(?MODULE, {create_task, TaskSpec}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% TaskSpec:
+%%  {   
+%%      'JobType' - map, reduce, finalise or split atoms accepted at the moment 
+%%      'priority' - not implemented at the moment
+%%    }
+%% Returns JobId of newly created job
+%% @end
+%%--------------------------------------------------------------------
+add_job(JobSpec) ->
+    gen_server:call(?MODULE, {create_job, JobSpec}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -64,10 +80,14 @@ get_task(NodeId, PID) ->
 %% @doc
 %% Marks the task as being completely done. The results should be
 %% posted on storage before calling this method.
+%% Also, node can ask to generate another task by providing TaskSpec
 %% @end
 %%--------------------------------------------------------------------
+report_task_done(TaskId) ->
+    gen_server:call(?MODULE, {task_done, TaskId, no_task}).
 report_task_done(TaskId, TaskSpec) ->
     gen_server:call(?MODULE, {task_done, TaskId, TaskSpec}).
+
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -104,7 +124,8 @@ handle_cast(Msg, State) ->
 %% @doc
 %%
 %% @spec handle_call(Request, From, State) ->
-%%                                   {reply, ok, State} 
+%%                                   {reply, ok, State} |
+%%                                   {reply, TaskId, State} |
 %% @end
 %%--------------------------------------------------------------------
 handle_call({task_done, TaskId, no_task}, _From, State) ->
@@ -116,7 +137,10 @@ handle_call({task_done, TaskId, TaskSpec}, _From, State) ->
     {reply, NewTaskId, State};
 handle_call({create_task, TaskSpec}, _From, State) ->
     NewTaskId = db:add_task(TaskSpec),
-    {reply, NewTaskId, State}.
+    {reply, NewTaskId, State};
+handle_call({create_job, JobSpec}, _From, State) ->
+    NewJobId = db:add_job(JobSpec),
+    {reply, NewJobId, State}.
 
 %%%===================================================================
 %%% Internal functions

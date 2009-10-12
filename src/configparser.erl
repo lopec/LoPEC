@@ -1,6 +1,6 @@
 %% Made by Burbas
 -module(configparser).
--export([start_link/0, stop/0, init/1, handle_call/3, terminate/2, read_config/2]).
+-export([start_link/0, init/1, handle_call/3, terminate/2, read_config/2]).
 -export([code_change/3, handle_cast/2, handle_info/2, parse/2]).
 -behaviour(gen_server).
 
@@ -17,16 +17,6 @@
 %%--------------------------------------------------------------------
 start_link() ->
    gen_server:start({local, ?MODULE}, ?MODULE, [], []).
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Stops the genserver
-%%
-%% @spec stop() -> void()
-%% @end
-%%--------------------------------------------------------------------
-stop() ->
-    gen_server:cast(?MODULE, stop).
 
 
 %%--------------------------------------------------------------------

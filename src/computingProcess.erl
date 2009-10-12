@@ -115,8 +115,8 @@ handle_cast(_Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(Info, State) ->
-    io:format("~ts~n", [element(2, element(2, Info))]),
+handle_info({_Pid, {data, Data}}, State) ->
+    io:format("~ts~n", [Data]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------

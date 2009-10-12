@@ -23,7 +23,7 @@ test: $(OBJECTS)
 
 port:
 	mkdir tests
-	gcc -o tests/port_test src/port/port.c
+	gcc -o tests/port_test examples/port_example.c
 
 docs: 
 	erl -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS)])" -s init stop

@@ -32,7 +32,6 @@ start_link() ->
 %% created and the input file will be moved to this new structure. 
 %% When this is done a new split-task is created.
 %%
-%% @spec task_finished(PID) -> {ok}
 %% @end
 %%------------------------------------------------------------------------------
 new_job(TaskType, InputData) ->

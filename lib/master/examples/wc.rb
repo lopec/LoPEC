@@ -48,6 +48,20 @@ def reduce(input, output)
   end
 end
 
+def finalize(input, output)
+  File.open(output + "/word_count", "w") do | output_file |
+    Dir.foreach(input) do | word_file |
+      if word_file != "." and word_file != ".." then
+        File.open(input + "/" + word_file, "r") do | input_file |
+          count = input_file.gets
+          output_file.puts("#{word_file}: #{count}")
+        end
+      end
+    end
+  end
+  puts("FINALIZING_DONE")
+end
+
 command = ARGV[0]
 input   = ARGV[1]
 output  = ARGV[2]
@@ -60,7 +74,7 @@ when "map"
 when "reduce"
   reduce(input, output)
 when "finalize"
-  puts("NO_FINALIZING_PLZ")
+  finalize(input, output)
 else
   puts("lol wut")
 end

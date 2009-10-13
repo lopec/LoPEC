@@ -19,27 +19,35 @@ end_per_test_case() ->
     db:delete_tables().
 
 init_test() ->
+    application:start(chronicler),
+    application:start(ecg),
     db:start(),
     dispatcher:start_link().
+
+%% Just tests general DB behaviour, so it does not blow up.
+db_test() ->
+    init_per_test_case(),
+    JobId = dispatcher:add_job({raytracer, 0}),
+    TaskSpec = {JobId, split, "", 0},
+    TaskId =  dispatcher:create_task(TaskSpec),
+    FreeTask = db:get_task(node()),
+    JobType = (db:get_job_info(FreeTask#task.job_id))#job.job_type,
+    end_per_test_case().
 
 task_allocation_test() ->
     init_per_test_case(),
     JobId = db:add_job({raytracer, 0}),
-            io:format("Task received: ~p", [JobId]),
     TaskSpec = {JobId, split, "", 0},
-            io:format("Task received: ~p", [TaskSpec]),
-    FId =  dispatcher:create_task(TaskSpec),
-            io:format("Task received: ~p", [FId]),
-%%     dispatcher:get_task(node(), self()),
-%%     receive
-%%         {task_response, Task} ->
-%%             io:format("Task received: ~p", [Task]),
-%%             ?assert(Task#task_tmp.task_id =:= FId),
-%%             ?assertEqual(split, Task#task_tmp.job_type),
-%%             ?assertEqual(255, Task#task_tmp.job_id);
-%%         Msg ->
-%%             io:format("Wrong message received: ~p", [Msg])            
-%%     end,
+    TaskId =  dispatcher:create_task(TaskSpec),
+    dispatcher:get_task(node(), self()),
+    receive
+        {task_response, Task} ->
+            ?assert(Task#task_tmp.task_id =:= TaskId),
+            ?assertEqual(split, Task#task_tmp.task_type),
+            ?assertEqual(JobId, Task#task_tmp.job_id);
+        Msg ->
+            chronicler:error(io_lib:format("Wrong message received: ~p", [Msg]))            
+    end,
     end_per_test_case().
 
 %% This test case is used to verify that request times out
@@ -64,12 +72,6 @@ task_completed_test() ->
     dispatcher:report_task_done(AId),
     Status = db:get_task_state(AId),
     ?assertEqual(done, Status),
-    end_per_test_case().
-    
-create_job_test() ->
-    init_per_test_case(),
-    JobId = db:add_job({raytracer, 0}),
-    io:format("JobId: ~p", [JobId]),
     end_per_test_case().
 
 end_test() ->

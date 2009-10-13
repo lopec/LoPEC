@@ -192,7 +192,8 @@ find_task(RequesterPID, NodeId) ->
         no_task -> 
             ok;
         Task ->
-            {_, JobType, _, _, _, _} = db:get_job_info(Task#task.job_id),
+            Job = db:get_job_info(Task#task.job_id),
+            JobType = Job#job.job_type,
             AssignedTask = #task_tmp {task_id = Task#task.task_id,
                             job_id = Task#task.job_id,
                             task_type = Task#task.task_type,

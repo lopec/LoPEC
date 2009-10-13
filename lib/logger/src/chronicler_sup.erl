@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 29 Sep 2009 by Fredrik Andersson <sedrik@consbox.se>
 %%%-------------------------------------------------------------------
--module(chronicler_sup).
+-module(logger_sup).
 -behaviour(supervisor).
 
 %% API
@@ -40,8 +40,8 @@ start_link() ->
 %% Whenever a supervisor is started using supervisor:start_link/[2,3],
 %% this function is called by the new process to find out about
 %% restart strategy, maximum restart frequency and child
-%% specifications. It also starts an event manager named
-%% logger_manager and registers the terminalLogger to this manager.
+%% specifications. It also starts an event manager named logger
+%% and registers the terminalLogger to this manager.
 %%
 %% @spec init(Args) -> {ok, {SupFlags, [ChildSpec]}} |
 %%                     ignore |
@@ -49,11 +49,11 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init(no_args) ->
-    Spec = {ok,{{one_for_one, 1, 60},
-            [   child(gen_event, worker, {local, chronicler_manager}),
-                child(chronicler_server, worker, chronicler_manager)
-            ]}},
-    Spec.
+    %gen_event:start_link({local, logger}),
+    {ok,{{rest_for_one, 1, 60},
+            [   child(gen_event, worker, {local, logger_manager}),
+                child(logger, worker, no_args)
+            ]}}.
 
 %%%===================================================================
 %%% Internal functions
@@ -68,23 +68,11 @@ init(no_args) ->
 %% @end
 %%--------------------------------------------------------------------
 child(Module,supervisor, no_args) ->
-    {   Module, 
-        {Module, start_link, []},
-        permanent,
-        infinity,
-        supervisor,
-        [Module]};
+    {Module, {Module, start_link, []},
+        permanent, infinity, supervisor, [Module]};
 child(Module,Role, no_args) ->
-    {   Module, 
-        {Module, start_link, []},
-        permanent, 
-        brutal_kill, 
-        Role, 
-        [Module]};
+    {Module, {Module, start_link, []},
+        permanent, brutal_kill, Role, [Module]};
 child(Module, Role, Args) ->
-    {   Module,
-        {Module, start_link, [Args]},
-        permanent,
-        brutal_kill,
-        Role,
-        [Module]}.
+    {Module, {Module, start_link, [Args]},
+        permanent, brutal_kill, Role, [Module]}.

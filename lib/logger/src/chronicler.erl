@@ -1,36 +1,190 @@
 %%%-------------------------------------------------------------------
-%%% @author Vasilij Savin <>
-%%% @copyright (C) 2009, Vasilij Savin
-%%% @doc
-%%% Application code for local-based logger subsystem
+%%% @author Fredrik Andersson <sedrik@consbox.se>
+%%% @copyright (C) 2009, Fredrik Andersson
+%%% @doc logger holds an API for logging messages on the server.
+%%% It uses @see error_logger for info, warning and error messages. Don't use
+%%% it for debugging messages, if needed a debugging function can be added to
+%%% the API later on. Currently no nice formatting of the message is done it's
+%%% simply treated as single whole message and will be printed that way. please
+%%% make sure to add ~n to all strings that are logged.
+%%%
 %%% @end
-%%% Created : Oct 12, 2009 by Vasilij Savin <>
+%%% Created : 29 Sep 2009 by Fredrik Andersson <sedrik@consbox.se>
 %%%-------------------------------------------------------------------
+-module(logger).
+-behaviour(gen_server).
 
--module(chronicler).
--behaviour(application).
--export([ start/2, stop/1]).
+-include("../include/loggerState.hrl").
 
-%% ====================================================================!
-%% External functions
-%% ====================================================================!
-%% --------------------------------------------------------------------
-%% Func: start/2
-%% Returns: {ok, Pid}        |
-%%          {ok, Pid, State} |
-%%          {error, Reason}
-%% --------------------------------------------------------------------
-start(_Type, _StartArgs) ->
-    case chronicler_sup:start_link() of
-	{ok, Pid} ->
-	    {ok, Pid};
-	Error ->
-	    Error
-    end.
+%% API
+-export([start_link/0,
+        error/1,
+        info/1,
+        warning/1
+    ]).
 
-%% --------------------------------------------------------------------
-%% Func: stop/1
-%% Returns: any
-%% --------------------------------------------------------------------
-stop(_State) ->
+%% gen_server callbacks
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+        terminate/2, code_change/3]).
+
+
+%%%===================================================================
+%%% API
+%%%===================================================================
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Starts the server
+%%
+%% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+start_link() ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, no_args, []).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Logs a error message
+%%
+%% @spec error(Msg) -> ok
+%% @end
+%%--------------------------------------------------------------------
+error(Msg) ->
+    gen_server:cast(?MODULE, {error, Msg}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Logs a info message
+%%
+%% @spec info(Msg) -> ok
+%% @end
+%%--------------------------------------------------------------------
+info(Msg) ->
+    gen_server:cast(?MODULE, {info, Msg}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Logs a warning message
+%%
+%% @spec warning(Msg) -> ok
+%% @end
+%%--------------------------------------------------------------------
+warning(Msg) ->
+    gen_server:cast(?MODULE, {warning, Msg}).
+
+%%%===================================================================
+%%% gen_server callbacks
+%%%===================================================================
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Initiates the server
+%%
+%% @spec init(Args) -> {ok, State} |
+%%                     {ok, State, Timeout} |
+%%                     ignore |
+%%                     {stop, Reason}
+%% @end
+%%--------------------------------------------------------------------
+init(no_args) ->
+    error_logger:logfile({open, node()}),
+    error_logger:tty(true),
+    %TODO receive node info from argument
+    State = #state{logProcess = ?MODULE, logNode = 'logger@localhost'},
+    case State#state.logNode == node() of
+        true -> ok;
+        false -> error_logger:add_report_handler(externalLogger, State)
+    end,
+    info("logger was started"),
+    {ok, State}.
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Handling call messages
+%%
+%% @spec handle_call(Request, From, State) ->
+%%                                   {reply, Reply, State} |
+%%                                   {reply, Reply, State, Timeout} |
+%%                                   {noreply, State} |
+%%                                   {noreply, State, Timeout} |
+%%                                   {stop, Reason, Reply, State} |
+%%                                   {stop, Reason, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_call(_Request, _From, State) ->
+    {noreply, State}. %no implementation as of now
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Handling casted messages
+%%
+%% @spec handle_cast(Msg, State) -> {noreply, State} |
+%%                                  {noreply, State, Timeout} |
+%%                                  {stop, Reason, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_cast({error, Msg}, State) ->
+    error_logger:error_report(Msg),
+    {noreply, State};
+handle_cast({error, From, Msg}, State) ->
+    error_logger:error_report([From, Msg]),
+    {noreply, State};
+handle_cast({info, Msg}, State) ->
+    error_logger:info_report(Msg),
+    {noreply, State};
+handle_cast({info, From, Msg}, State) ->
+    error_logger:info_report([From, Msg]),
+    {noreply, State};
+handle_cast({warning, From, Msg}, State) ->
+    error_logger:warning_report([From, Msg]),
+    {noreply, State};
+handle_cast({warning, Msg}, State) ->
+    error_logger:warning_report(Msg),
+    {noreply, State}.
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Handling all non call/cast messages
+%%
+%% @spec handle_info(Info, State) -> {noreply, State} |
+%%                                   {noreply, State, Timeout} |
+%%                                   {stop, Reason, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_info(_Info, State) ->
+    {noreply, State}. %TODO implement if needed
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% This function is called by a gen_server when it is about to
+%% terminate. It should be the opposite of Module:init/1 and do any
+%% necessary cleaning up. When it returns, the gen_server terminates
+%% with Reason. The return value is ignored.
+%%
+%% @spec terminate(Reason, State) -> void()
+%% @end
+%%--------------------------------------------------------------------
+terminate(Reason, State) ->
+    info({"logger was stopped~n Reason : ~p~n State: ~p~n", Reason, State}),
+    error_logger:logfile(close),
     ok.
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Convert process state when code is changed
+%%
+%% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
+%% @end
+%%--------------------------------------------------------------------
+code_change(_OldVsn, State, _Extra) ->
+    {ok, State}.
+
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================

@@ -6,7 +6,7 @@ add_job_and_task_test() ->
     db:start(),
     db:create_tables(),
     
-    logger:init(no_args),
+    %logger:init(no_args),
 
     Job1 = {ray_tracer, 15},
     JobId1 = db:add_job(Job1),

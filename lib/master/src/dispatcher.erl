@@ -129,7 +129,6 @@ report_task_done(TaskId, TaskSpec) ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
-    register (logger, spawn_link(logger_ext, start, ["test.logging"])),
     {ok, []}.
 
 %%--------------------------------------------------------------------
@@ -178,7 +177,6 @@ handle_call({create_job, JobSpec}, _From, State) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% @TODO fix this comment
 %% Sends a message to given PID with the first found task in the DB,
 %% and tells the ECG to register this new node with that PID. If no
 %% task is found, it terminates and lets request time out.
@@ -194,9 +192,14 @@ find_task(RequesterPID, NodeId) ->
         no_task -> 
             ok;
         Task ->
-            % Get ready with integration testing!
+            {_, JobType, _, _, _, _} = db:get_job_info(Task#task.job_id),
+            AssignedTask = #task_tmp {task_id = Task#task.task_id,
+                            job_id = Task#task.job_id,
+                            task_type = Task#task.task_type,
+                            input_file = Task#task.input_path,
+                            job_type = JobType},
+            RequesterPID ! {task_response, AssignedTask},
             ecg_server:accept_message({new_node, NodeId}),
-            RequesterPID ! {task_response, Task, self()},
             db:assign_task(Task#task.task_id, NodeId)
     end.
 

@@ -18,3 +18,11 @@
 -record(assigned_task, {task_id,
 			job_id,
 			node_id}).
+
+%% TODO The task record used between dispatcher and TaskFetcher until task record
+%% is updated (will be done next sprint).
+-record(task_tmp, {task_id,
+           job_id,
+           task_type,
+           input_file,
+           job_type}).

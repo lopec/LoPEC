@@ -2,10 +2,12 @@
 %%% @author Axel <axelandren@gmail.com>, Vasilij Savin 
 %%% @copyright (C) 2009, Axel
 %%% @doc
+%%% 
 %%% Receives task requests from a node, and returns the first
-%%% available task to it. If there is no available task, it
-%%% does not return anything, so the request times out.
-%%% Also listens to reports from nodes and marks tasks as completed.
+%%% available task to it. If there is no available task, it does not
+%%% return anything, so the request times out.  Also listens to
+%%% reports from nodes and marks tasks as completed.
+%%% 
 %%% @end
 %%% Created : 30 Sep 2009 by Axel <axelandren@gmail.com>
 %%%-------------------------------------------------------------------
@@ -49,6 +51,7 @@ start_link() ->
 %%                   accepted at the moment (without quote marks '')
 %%      'priority' - not yet implemented
 %%    }
+%% 
 %% @spec create_task(TaskSpec) -> TaskID
 %% @end
 %%--------------------------------------------------------------------
@@ -57,8 +60,8 @@ create_task(TaskSpec) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% 
 %% Frees all tasks assigned to Node in master task list
+%%
 %% @spec free_tasks(NodeID) -> true | false | NumberOfRowsFreed
 %% @end
 %%--------------------------------------------------------------------
@@ -73,6 +76,7 @@ free_tasks(NodeId) ->
 %%                  accepted at the moment (without quote marks '')
 %%      'priority' - not implemented at the moment
 %%    }
+%%
 %% @spec add_job(JobSpec) -> JobID
 %% @end
 %%--------------------------------------------------------------------
@@ -84,7 +88,7 @@ add_job(JobSpec) ->
 %% Returns the first available task.
 %% If no tasks are available, just lets request to time out.
 %%
-%% @spec get_task(NodeID, PID) -> {noreply, State} | TaskRecord
+%% @spec get_task(NodeID, PID) -> {noreply, State} 
 %% @end
 %%--------------------------------------------------------------------
 get_task(NodeId, PID) ->
@@ -92,17 +96,23 @@ get_task(NodeId, PID) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%%
 %% Marks the task as being completely done. The results should be
-%% posted on storage before calling this method.  Also, node can ask
-%% to generate another task by providing TaskSpec
-%%
+%% posted on storage before calling this method. 
+%% 
 %% @spec report_task_done(TaskID) -> {reply, ok, State}
-%%     
 %% @end
 %%--------------------------------------------------------------------
 report_task_done(TaskId) ->
     gen_server:call(?MODULE, {task_done, TaskId, no_task}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Like report_task_done/1 except the node can ask to generate another
+%% task by providing a TaskSpec
+%%
+%% @spec report_task_done(TaskID, TaskSpec) -> {reply, ok, State}
+%% @end
+%%--------------------------------------------------------------------
 report_task_done(TaskId, TaskSpec) ->
     gen_server:call(?MODULE, {task_done, TaskId, TaskSpec}).
 
@@ -124,7 +134,6 @@ init([]) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%%
 %% Expects task requests from nodes, and passes such requests to the
 %% find_task function.
 %%
@@ -197,7 +206,7 @@ find_task(RequesterPID, NodeId) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Not implemented, not expecting any calls to this function.
+%% (Template default)
 %% This function is called by a gen_server when it is about to
 %% terminate. It should be the opposite of Module:init/1 and do any
 %% necessary cleaning up. When it returns, the gen_server terminates
@@ -212,7 +221,7 @@ terminate(_Reason, _State) -> %template default
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Not implemented, not expecting any calls to this function.
+%% (Template default)
 %% Convert process state when code is changed
 %%
 %% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
@@ -224,7 +233,7 @@ code_change(_OldVsn, State, _Extra) -> %template default
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Not implemented, not expecting any calls to this function.
+%% (Template default)
 %%
 %% @spec handle_info(Info, State) -> {noreply, State} 
 %% @end

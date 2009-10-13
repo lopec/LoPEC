@@ -2,8 +2,10 @@
 APPNAME = master
 ERLC_FLAGS= -I include +debug_info
 SOURCES= $(wildcard src/*.erl)
+TESTFILES= $(wildcard test/*.erl)
 HEADERS= $(wildcard include/*.hrl)
 OBJECTS= $(SOURCES:src/%.erl=ebin/%.beam)
+TESTOBJECTS= $(TESTFILES:test/%.erl=test/%.beam)
 
 all: $(OBJECTS) permissions test docs
 
@@ -13,11 +15,14 @@ permissions:
 ebin/%.beam : src/%.erl $(HEADERS) Makefile
 	erlc $(ERLC_FLAGS) -o ebin/ $<
 
-clean:
-	-rm $(OBJECTS)
+test/%.beam : test/%.erl $(HEADERS) Makefile
+	erlc $(ERLC_FLAGS) -o test/ $<
 
-test:
-	erl -sname test -noshell -pa ebin -eval 'eunit:test("ebin",[verbose])' -s init stop
+clean:
+	-rm ebin/*.beam test/*.beam
+
+test: $(OBJECTS) $(TESTOBJECTS)
+	erl -sname test -noshell -pa ebin -pa test -eval 'eunit:test("test",[verbose])' -s init stop
 
 logger:
 	erlc $(ERLC_FLAGS) src/logger/*.erl -o $(PWD)/ebin/

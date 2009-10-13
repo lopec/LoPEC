@@ -23,7 +23,7 @@
 -define(SERVER, db_server).
 
 %-ifdef(test).
--export([delete_tables/0, get_job_info/1, get_job/0]).
+-export([delete_tables/0, get_job_info/1, get_job/0, list_jobs/0]).
 %-endif.
 
 %% APIs for management of the databases
@@ -119,6 +119,9 @@ get_job_info(JobId) ->
 
 get_job() ->
     gen_server:call(?SERVER, {get_job}).
+
+list_jobs() ->
+    gen_server:call(?SERVER, {list_jobs}).
 
 %-endif.
 
@@ -453,6 +456,13 @@ handle_call({set_job_input_path, JobId, InputPath}, _From, State) ->
 	end,
     mnesia:transaction(F),
     {reply, ok, State};
+
+handle_call({list_jobs}, _From, State) ->
+    F = fun() ->
+		mnesia:all_keys(job)
+	end,
+    {atomic, Result} = mnesia:transaction(F),
+    {reply, Result, State};
 
 %%--------------------------------------------------------------------
 %% @private

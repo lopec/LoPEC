@@ -1,13 +1,13 @@
 %%%-------------------------------------------------------------------
-%%% @author Axel, Vasilij Savin <>
+%%% @author Axel <axelandren@gmail.com>, Vasilij Savin 
 %%% @copyright (C) 2009, Axel
 %%% @doc
 %%% Receives task requests from a node, and returns the first
 %%% available task to it. If there is no available task, it
-%%% does not return and let request time out.
+%%% does not return anything, so the request times out.
 %%% Also listens to reports from nodes and marks tasks as completed.
 %%% @end
-%%% Created : 30 Sep 2009 by Axel <>
+%%% Created : 30 Sep 2009 by Axel <axelandren@gmail.com>
 %%%-------------------------------------------------------------------
 -module(dispatcher).
 -behaviour(gen_server).
@@ -45,10 +45,11 @@ start_link() ->
 %% @doc
 %% TaskSpec:
 %%  {   'JobId',
-%%      'Tasktype' - map, reduce, finalise or split atoms accepted at the moment 
-%%      'priority' - not implemented at the moment
+%%      'Tasktype' - atoms 'map', 'reduce', 'finalise' or 'split' are
+%%                   accepted at the moment (without quote marks '')
+%%      'priority' - not yet implemented
 %%    }
-%% Returns TaskId of newly created task
+%% @spec create_task(TaskSpec) -> TaskID
 %% @end
 %%--------------------------------------------------------------------
 create_task(TaskSpec) ->
@@ -58,6 +59,7 @@ create_task(TaskSpec) ->
 %% @doc
 %% 
 %% Frees all tasks assigned to Node in master task list
+%% @spec free_tasks(NodeID) -> true | false | NumberOfRowsFreed
 %% @end
 %%--------------------------------------------------------------------
 free_tasks(NodeId) ->
@@ -65,12 +67,13 @@ free_tasks(NodeId) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% TaskSpec:
+%% JobSpec:
 %%  {   
-%%      'JobType' - map, reduce, finalise or split atoms accepted at the moment 
+%%      'JobType' - atoms 'map', 'reduce', 'finalise' or 'split' are
+%%                  accepted at the moment (without quote marks '')
 %%      'priority' - not implemented at the moment
 %%    }
-%% Returns JobId of newly created job
+%% @spec add_job(JobSpec) -> JobID
 %% @end
 %%--------------------------------------------------------------------
 add_job(JobSpec) ->
@@ -81,6 +84,7 @@ add_job(JobSpec) ->
 %% Returns the first available task.
 %% If no tasks are available, just lets request to time out.
 %%
+%% @spec get_task(NodeID, PID) -> {noreply, State} | TaskRecord
 %% @end
 %%--------------------------------------------------------------------
 get_task(NodeId, PID) ->
@@ -88,9 +92,13 @@ get_task(NodeId, PID) ->
 
 %%--------------------------------------------------------------------
 %% @doc
+%%
 %% Marks the task as being completely done. The results should be
-%% posted on storage before calling this method.
-%% Also, node can ask to generate another task by providing TaskSpec
+%% posted on storage before calling this method.  Also, node can ask
+%% to generate another task by providing TaskSpec
+%%
+%% @spec report_task_done(TaskID) -> {reply, ok, State}
+%%     
 %% @end
 %%--------------------------------------------------------------------
 report_task_done(TaskId) ->
@@ -120,7 +128,7 @@ init([]) ->
 %% Expects task requests from nodes, and passes such requests to the
 %% find_task function.
 %%
-%% @spec handle_cast(Msg, State) -> {noreply, State} 
+%% @spec handle_cast(Msg, State) -> {noreply, State} | db:free_tasks()
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({task_request, NodeId, From}, _State) ->

@@ -21,7 +21,7 @@ clean:
 	rm ebin/*.beam test/*.beam
 
 test: $(TESTOBJECTS)
-	erl -noshell -pa ebin -pa tests -eval 'eunit:test("test",[verbose])' -s init stop
+	erl -noshell -pa ebin -pa test -eval 'eunit:test("test",[verbose])' -s init stop
 
 docs: 
 	erl -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS)])" -s init stop

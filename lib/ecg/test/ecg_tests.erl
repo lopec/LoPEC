@@ -8,6 +8,7 @@ run_test() ->
     ok,
     {setup,
      fun () -> application:start(ecg) end,
+     %% A dummy functions to satisfy the number of terms in test.
      fun (_) -> ok end,
      fun (_) -> testing_ecg() end}.
 
@@ -18,11 +19,15 @@ testing_ecg() ->
      error_logger:info_msg("Starting: ~p~n"
                            "They should all come up and die.~n",
                            [Nodes]),
+     %% For each element in Nodes, start a slave with the name
+     %% equivalent to that element.
      [slave:start_link("localhost", CompNode) || CompNode <- Nodes],
 
      ecg_server:accept_message({badMsg, [b, s,s]}),
      ecg_server:accept_message({stuff, [w, s,ss]}),
 
+     %% For each element in Nodes, stop the Node associated with
+     %% that element.
      [slave:stop(CompNode) || CompNode <- Nodes].
 
 

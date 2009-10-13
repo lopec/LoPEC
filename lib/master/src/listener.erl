@@ -47,7 +47,7 @@ new_job(TaskType, InputData) ->
 %%------------------------------------------------------------------------------
 is_valid_jobtype(JobType) ->
     {ok, Root} = 
-        config_parser:read_config("/etc/clusterbusters.conf", cluster_root),
+        configparser:read_config("/etc/clusterbusters.conf", cluster_root),
     JobTypeString = atom_to_list(JobType),
     ProgramFile = Root++"programs/"++JobTypeString++"/script.sh",
     Result = file:rename(ProgramFile, ProgramFile),
@@ -95,7 +95,7 @@ handle_call({new_job, JobType, InputData}, _From, State) ->
     {JobId} = dispatcher:add_job({JobType, 0}),
     % Read the structurepath from configfile
     {ok, Root} = 
-        config_parser:read_config("/etc/clusterbusters.conf", cluster_root),
+        configparser:read_config("/etc/clusterbusters.conf", cluster_root),
     % Make the directory-structure
     JobIdString = lists:flatten(io_lib:format("~p", [JobId])),
     filelib:ensure(Root ++ "tmp/" ++ JobIdString ++ "/map"),

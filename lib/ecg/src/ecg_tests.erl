@@ -2,7 +2,7 @@
 %% Created: Sep 29, 2009
 %% Description: TODO: Add description to ecg_tests
 -module(ecg_tests).
--include("global.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
 run_test_() ->
     {setup,

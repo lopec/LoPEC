@@ -1,5 +1,5 @@
 -module(db_tests).
--include("global.hrl").
+-include_lib("eunit/include/eunit.hrl").
 -include("../include/db.hrl").
 
 add_job_and_task_test() ->

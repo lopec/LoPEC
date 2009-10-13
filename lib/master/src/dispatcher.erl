@@ -49,6 +49,7 @@ start_link() ->
 %%  {   'JobId',
 %%      'Tasktype' - atoms 'map', 'reduce', 'finalise' or 'split' are
 %%                   accepted at the moment (without quote marks '')
+%%      'input_path' - input file name
 %%      'priority' - not yet implemented
 %%    }
 %% 

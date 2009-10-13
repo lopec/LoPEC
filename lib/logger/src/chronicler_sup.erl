@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 29 Sep 2009 by Fredrik Andersson <sedrik@consbox.se>
 %%%-------------------------------------------------------------------
--module(logger_sup).
+-module(chronicler_sup).
 -behaviour(supervisor).
 
 %% API
@@ -52,7 +52,7 @@ init(no_args) ->
     %gen_event:start_link({local, logger}),
     {ok,{{rest_for_one, 1, 60},
             [   child(gen_event, worker, {local, logger_manager}),
-                child(logger, worker, no_args)
+                child(chronicler, worker, no_args)
             ]}}.
 
 %%%===================================================================

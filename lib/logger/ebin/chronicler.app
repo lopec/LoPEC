@@ -1,14 +1,12 @@
-{application, logger,
+{application, chronicler,
     [{description, "Clusterbusters logger application"},
     {vsn, "0.1"},
     {modules, [
-        logger_app,
-        logger_sup,
-        logger,
-        terminalLogger,
-        fileLogger
+        chronicler_app,
+        chronicler_sup,
+        chronicler
             ]},
     {registered, []},
     {applications, [kernel, stdlib]},
-    {mod, {logger_app,[]}}
+    {mod, {chronicler_app,[]}}
     ]}.

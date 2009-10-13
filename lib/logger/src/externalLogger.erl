@@ -10,7 +10,7 @@
 -module(externalLogger).
 -behaviour(gen_event).
 
--include("../include/loggerState.hrl").
+-include("../include/chroniclerState.hrl").
 
 -export([init/1,
         handle_event/2,

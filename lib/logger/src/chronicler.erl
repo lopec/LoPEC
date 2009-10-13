@@ -11,10 +11,10 @@
 %%% @end
 %%% Created : 29 Sep 2009 by Fredrik Andersson <sedrik@consbox.se>
 %%%-------------------------------------------------------------------
--module(logger).
+-module(chronicler).
 -behaviour(gen_server).
 
--include("../include/loggerState.hrl").
+-include("../include/chroniclerState.hrl").
 
 %% API
 -export([start_link/0,

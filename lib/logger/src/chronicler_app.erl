@@ -6,7 +6,7 @@
 %%% @end
 %%% Created : 29 Sep 2009 by Fredrik Andersson <sedrik@consbox.se>
 %%%-------------------------------------------------------------------
--module(logger_app).
+-module(chronicler_app).
 -behaviour(application).
 
 %% Application callbacks
@@ -28,7 +28,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start(_Type, _Args) ->
-    logger_sup:start_link().
+    chronicler_sup:start_link().
 
 %%--------------------------------------------------------------------
 %% @doc

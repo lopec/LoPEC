@@ -21,6 +21,7 @@
 %% External functions
 %% ====================================================================
 start_link() ->
+    chronicler:info(io_lib:format("Starting ECG Supervisor~n", [])),
     supervisor:start_link({local, ?MODULE}, ?MODULE, no_args).
 
 %% ====================================================================
@@ -40,7 +41,6 @@ init(no_args) ->
     % ShutdownTime
     % Type: worker | supervisor
     % Used modules
-    io:format("Creating ECG Child Specification~n", []),
     ECG = {  ecg_server,
              {ecg_server,start_link,[]},
              permanent,
@@ -50,5 +50,4 @@ init(no_args) ->
           },
     
     % Returning supervisor specification
-    %io:format("Send ECG Specification ~p ~n", [ECG]),
     {ok,{{one_for_one,1,10}, [ECG]}}.

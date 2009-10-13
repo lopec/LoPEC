@@ -33,10 +33,6 @@
 %% @end
 %%--------------------------------------------------------------------
 accept_message(Msg) ->
-    %Debugging output
-    %% logger ! {event, self(),
-    %%     io_lib:format("Msg received: ~p", [Msg])},
-    
     gen_server:cast({global, ?MODULE}, Msg).
 
 %%%===================================================================
@@ -49,6 +45,7 @@ accept_message(Msg) ->
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
+    chronicler:info(io_lib:format("Starting ECG Server~n", [])),
     gen_server:start_link({global, ?MODULE}, ?MODULE, [], []).
 
 
@@ -73,7 +70,7 @@ start_link() ->
 %%--------------------------------------------------------------------
 init(_) ->
     net_kernel:monitor_nodes(true),
-    %logger ! {event, self(), "ECG is up and running!"},
+    chronicler:info(io_lib:format("ECG is up and running!", [])),
     {ok, #state{}}.
 
 %% --------------------------------------------------------------------
@@ -99,9 +96,7 @@ handle_call(_Request, _From, _State) ->
 %% We need to establish connection to new node, if not yet connected
 %% This might be obsolete later, depending on comm protocol
 handle_cast({new_node, Node}, _) ->
-    io:format("New Node ~n", []),
-    %logger ! {event, self(), 
-    %    io_lib:format("New Node", [])},
+    chronicler:info(io_lib:format("New Node ~n", [])),
     case lists:member(Node, nodes()) of
         false ->
             net_adm:ping(Node);
@@ -110,9 +105,8 @@ handle_cast({new_node, Node}, _) ->
     end,
     {noreply, []};
 handle_cast(UnrecognisedMessage, _) ->
-    io:format("UnrecognisedMessage: ~p ~n", [UnrecognisedMessage]),
-    %logger ! {event, self(), 
-    %    io_lib:format("UnrecognisedMessage: ~p", [UnrecognisedMessage])},
+    chronicler:info(io_lib:format
+                   ("UnrecognisedMessage: ~p ~n", [UnrecognisedMessage])),
     {noreply, []}.
 
 %% --------------------------------------------------------------------
@@ -122,20 +116,18 @@ handle_cast(UnrecognisedMessage, _) ->
 %% Returns: {noreply, State}
 %% --------------------------------------------------------------------
 handle_info({nodeup, Node}, _) ->
-    io:format("Welcome new node: ~p~n", [Node]),
-    %logger ! {event, self(), 
-    %    io_lib:format("Welcome new node: ~p", [Node])},
+    
+    chronicler:info(io_lib:format
+                   ("Welcome new node: ~p~n", [Node])),
     {noreply, []};
 handle_info({nodedown, Node}, _) ->
     dispatcher:free_tasks(Node),
-    io:format("Node ~p just died. :()~n", [Node]),
-    %logger ! {event, self(),
-    %    io_lib:format("Node ~p just died. :()~n", [Node])},
+    chronicler:info(io_lib:format
+                   ("Node ~p just died. :(~n", [Node])),
     {noreply, []};
 handle_info(UnrecognisedMessage, _) ->
-    io:format("~nUnrecognisedMessage: ~p ~n", [UnrecognisedMessage]),
-    %logger ! {event, self(), 
-    %    io_lib:format("UnrecognisedMessage: ~p", [UnrecognisedMessage])},
+    chronicler:info(io_lib:format
+                   ("~nUnrecognisedMessage: ~p ~n", [UnrecognisedMessage])),
     {noreply, []}.
 
 %% --------------------------------------------------------------------

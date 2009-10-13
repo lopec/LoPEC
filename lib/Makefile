@@ -1,4 +1,4 @@
-clean:
+all:
 	$(MAKE) -C common all
 	$(MAKE) -C logger all
 	$(MAKE) -C ecg all

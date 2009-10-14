@@ -1,16 +1,17 @@
 %%%-----------------------------------------------------------------------------
 %%% @author Burbas
 %%% @doc
-%%% Listener - The link between our cluster and the user
+%%% Listener - The link between our cluster and the user. Process that listens
+%%% for new jobs from user. 
 %%% @end
 %%% Created : 12 Okt 2009 by Burbas
 %%%-----------------------------------------------------------------------------
 -module(listener).
 -behaviour(gen_server).
 
--export([start_link/0, new_job/2, is_valid_jobtype/1]).
--export([init/1, handle_call/3]).
--export([handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+-export([new_job/2, is_valid_jobtype/1]).
+-export([start_link/0, init/1, handle_call/3, handle_cast/2, handle_info/2, 
+        terminate/2, code_change/3]).
 
 %%%=============================================================================
 %%% API
@@ -28,16 +29,17 @@ start_link() ->
 
 %%------------------------------------------------------------------------------
 %% @doc
-%% When a new job is reported a series of new directorys will be 
+%% When a new job is reported a series of new directories will be 
 %% created and the input file will be moved to this new structure. 
 %% When this is done a new split-task is created.
 %%
 %% @end
 %%------------------------------------------------------------------------------
-new_job(TaskType, InputData) ->
-    gen_server:call(?MODULE, {new_job, TaskType, InputData}).
+new_job(JobType, InputData) ->
+    gen_server:call(?MODULE, {new_job, JobType, InputData}).
 
 %%------------------------------------------------------------------------------
+%% @private
 %% @doc
 %% Checks if JobType is a valid jobtype. This is done by checking if there exist
 %% a "script.sh"-file in the CLUSTERROOT/programs/JobType/
@@ -50,6 +52,7 @@ is_valid_jobtype(JobType) ->
         configparser:read_config("/etc/clusterbusters.conf", cluster_root),
     JobTypeString = atom_to_list(JobType),
     ProgramFile = Root++"programs/"++JobTypeString++"/script.sh",
+    % Because there is no function to check if file exists.
     Result = file:rename(ProgramFile, ProgramFile),
     case Result of
         ok -> {ok};
@@ -80,32 +83,34 @@ init(_Args) ->
 %% Handling call messages
 %%
 %% @spec handle_call(Request, From, State) ->
-%%                                   {reply, Reply, State} |
-%%                                   {reply, Reply, State, Timeout} |
-%%                                   {noreply, State} |
-%%                                   {noreply, State, Timeout} |
-%%                                   {stop, Reason, Reply, State} |
-%%                                   {stop, Reason, State}
+%%                                   {reply, JobId, State} |
+%%                                   {reply, shutdown, State}
 %% @end
 %%------------------------------------------------------------------------------
 handle_call({stop}, _From, State) ->
-    {ok, normal, State};
+    {reply, shutdown, State};
 handle_call({new_job, JobType, InputData}, _From, State) ->
-    % Call the taskadder
-    {JobId} = dispatcher:add_job({JobType, 0}),
+    JobId = dispatcher:add_job({JobType, 0}),
     % Read the structurepath from configfile
     {ok, Root} = 
         configparser:read_config("/etc/clusterbusters.conf", cluster_root),
+%%     chronicler:info("Root: " ++ Root),
     % Make the directory-structure
     JobIdString = lists:flatten(io_lib:format("~p", [JobId])),
-    filelib:ensure(Root ++ "tmp/" ++ JobIdString ++ "/map"),
-    filelib:ensure(Root ++ "tmp/" ++ JobIdString ++ "/reduce"),
-    filelib:ensure(Root ++ "tmp/" ++ JobIdString ++ "/input"), 
+%%     chronicler:info(JobIdString),
+%%     chronicler:info(Root ++ "tmp/" ++ JobIdString ++ "/map/"),
+    filelib:ensure_dir(Root ++ "tmp/" ++ JobIdString ++ "/map/"),
+%%     chronicler:info(Root ++ "tmp/" ++ JobIdString ++ "/reduce/"),
+    filelib:ensure_dir(Root ++ "tmp/" ++ JobIdString ++ "/reduce/"),
+%%     chronicler:info(Root ++ "tmp/" ++ JobIdString ++ "/input/"),
+    filelib:ensure_dir(Root ++ "tmp/" ++ JobIdString ++ "/input/"), 
     % Move the files to the right thing
+    chronicler:info("Input file:" ++ InputData),
+    chronicler:info(Root ++ "tmp/" ++ JobIdString ++ "/input/data.dat"),
     file:rename(InputData, Root ++ "tmp/" ++ JobIdString ++ "/input/data.dat"),
-    % Call the taskadder with new information
-    dispatcher:add_task({JobId, split, Root++"tmp/"++JobIdString++"/input/data.dat"}),
-    {reply, created_job, State}.
+    dispatcher:create_task({JobId, split, 
+                            Root++"tmp/"++JobIdString++"/input/data.dat", 0}),
+    {reply, JobId, State}.
 
 %%------------------------------------------------------------------------------
 %% @private

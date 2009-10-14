@@ -1,9 +1,9 @@
 %% The job record.
 -record(job, {job_id, 
 	      job_type,
-	      input_path, 
+	      input_path, % to be removed later, not used
 	      current_state, 
-	      current_progress, 
+	      current_progress,  % not implemented now
 	      priority}).
 
 %% The task record.

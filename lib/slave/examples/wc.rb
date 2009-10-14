@@ -67,6 +67,7 @@ input   = ARGV[1]
 output  = ARGV[2]
 
 begin
+  puts("LOG I will #{command} #{input} to #{output} now plz.")
   case command
   when "split"
     split(input, output)

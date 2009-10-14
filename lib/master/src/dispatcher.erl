@@ -46,14 +46,16 @@ start_link() ->
 %%--------------------------------------------------------------------
 %% @doc
 %% Adds specified task to the database task list.
-%% TaskSpec:
-%%  {   'JobId',
-%%      'Tasktype' - atoms 'map', 'reduce', 'finalise' or 'split' are
-%%                   accepted at the moment (without quote marks '')
-%%      'input_path' - input file name
-%%      'priority' - not yet implemented
-%%    }
-%% 
+%% <pre>
+%% TaskSpec is a tuple:
+%% {
+%%     JobId,
+%%     Tasktype,  % atoms 'map', 'reduce', 'finalise' or 'split' are
+%%                  accepted at the moment (without quote marks '')
+%%     input_path,% input file name
+%%     priority   % not yet implemented
+%% }
+%% </pre>
 %% @spec create_task(TaskSpec) -> TaskID
 %% @end
 %%--------------------------------------------------------------------
@@ -73,13 +75,14 @@ free_tasks(NodeId) ->
 %%--------------------------------------------------------------------
 %% @doc
 %% Adds specified job to the database job list.
-%% JobSpec:
-%%  {   
-%%      'JobType' - atoms 'map', 'reduce', 'finalise' or 'split' are
-%%                  accepted at the moment (without quote marks '')
-%%      'priority' - not implemented at the moment
-%%    }
-%%
+%% <pre>
+%% JobSpec is a tuple:
+%% {   
+%%     JobType, % atoms 'map', 'reduce', 'finalise' or 'split' are
+%%                accepted at the moment (without quote marks '')
+%%     priority % not implemented at the moment
+%% }
+%% </pre>
 %% @spec add_job(JobSpec) -> JobID
 %% @end
 %%--------------------------------------------------------------------

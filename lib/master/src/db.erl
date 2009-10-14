@@ -645,6 +645,19 @@ handle_call({list_node_tasks, NodeId}, _From, State) ->
 %% @private
 %% @doc
 %%
+%% Catches all other handle_call-messages.
+%% 
+%% @end
+%%--------------------------------------------------------------------
+handle_call(Msg, State) ->
+    chronicler:debug(io_lib:format(
+		       "db:Received unknown call message: ~p~n", [Msg])),
+    {noreply, State}.
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
 %% Stops the mnesia application.
 %% 
 %% 
@@ -663,7 +676,9 @@ handle_cast(stop, State) ->
 %% 
 %% @end
 %%--------------------------------------------------------------------
-handle_cast(_Msg, State) ->
+handle_cast(Msg, State) ->
+    chronicler:debug(io_lib:format(
+		       "db:Received unknown cast message: ~p~n", [Msg])),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -674,7 +689,9 @@ handle_cast(_Msg, State) ->
 %% 
 %% @end
 %%--------------------------------------------------------------------
-handle_info(_Info, State) ->
+handle_info(Info, State) ->
+    chronicler:debug(io_lib:format(
+		       "db:Received unknown info message: ~p~n", [Info])),
     {noreply, State}.
 
 %%--------------------------------------------------------------------

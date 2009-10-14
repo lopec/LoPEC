@@ -7,7 +7,7 @@
         chronicler,
         externalLogger
             ]},
-    {registered, []},
+    {registered, [externalLoggerPID]},
     {applications, [kernel, stdlib]},
     {mod, {chronicler_app,[]}}
     ]}.

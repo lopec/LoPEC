@@ -48,10 +48,11 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init(no_args) ->
-    {ok,{ {one_for_one, 1, 60},
-            [child(taskSupervisor, supervisor, no_args)
-            ]
-        }
+    {ok,{{one_for_one, 1, 60},
+	 [child(taskSupervisor, supervisor, no_args),
+	  child(dynamicSupervisor, supervisor, no_args)
+	 ]
+	}
     }.
 
 %%%===================================================================

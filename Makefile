@@ -38,3 +38,9 @@ slave_tar: slave_script
 	erl -pa lib/slave/ebin -pa lib/logger/ebin -pa lib/common/ebin \
 	    -eval "systools:make_tar(\"releases/slave/start_slave\")" \
 	    -s init stop
+
+testing_script: master slave
+	erl -pa lib/master/ebin -pa lib/ecg/ebin -pa lib/logger/ebin \
+	    -pa lib/common/ebin -pa lib/slave/ebin \
+	    -eval "systools:make_script(\"releases/testing/start_testing\", [local])" \
+	    -s init stop

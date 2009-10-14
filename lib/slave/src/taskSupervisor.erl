@@ -49,7 +49,7 @@ start_link() ->
 %%--------------------------------------------------------------------
 init(no_args) ->
     {ok,{{one_for_one, 1, 60},
-            [   child(taskFetcher, worker, [taskFetcher_tests]) %TODO change this to server address!
+            [   child(taskFetcher, worker, [])
             ]}}.
 
 %%%===================================================================

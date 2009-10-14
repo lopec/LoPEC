@@ -1,8 +1,8 @@
 %%%-------------------------------------------------------------------
-%%% @author Fredrik Andersson <sedrik@consbox.se>
-%%% @copyright (C) 2009, Fredrik Andersson
-%%% @doc The taskFetcher is responsible for fetching the jobs and upon reguest
-%%% hand them to the computing processes.
+%%% @author Bjorn Dahlman & Fredrik Andersson <sedrik@consbox.se>
+%%% @copyright (C) 2009, Bjorn Dahlman & Fredrik Andersson
+%%% @doc
+%%% The taskFetcher is responsible for fetching and adding tasks.
 %%% @end
 %%% Created : 29 Sep 2009 by Fredrik Andersson <sedrik@consbox.se>
 %%%-------------------------------------------------------------------
@@ -10,8 +10,8 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/1,
-        request_job/0]).
+-export([start_link/0,
+	new_task/3]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -21,9 +21,9 @@
         terminate/2,
         code_change/3]).
 
--define(dynamicSupervisor, ?DYNSUP).
-
--record(state, {server, jobs = []}).
+-define(DYNSUP, dynamicSupervisor).
+-define(WORKER, computingProcess).
+-define(TIMEOUT, 1000).
 
 %%%===================================================================
 %%% API
@@ -33,24 +33,21 @@
 %% @doc
 %% Starts the server
 %%
-%% @spec start_link(Server) -> {ok, Pid} | ignore | {error, Error}
+%% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(Server) ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, Server, []).
+start_link() ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, no_args, []).
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Returns a Job upon request.
+%% Saves a new job to the database
 %%
-%% @spec request_job() -> Job | {error, Error}
+%% @spec new_task(Id, Type, Path) -> Task | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-request_job() ->
-    case gen_server:call(?MODULE, {request, job}) of
-        {job, Job} -> Job;
-        _Other -> {error, crash_and_burn}
-    end.
+new_task(Id, Type, Path) ->
+    gen_server:call(?MODULE, {request, new_task, Id, Type, Path}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -67,8 +64,9 @@ request_job() ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init(Server) ->
-    {ok, #state{server = Server}}.
+init(no_args) ->
+    timer:send_interval(1000, poll),
+    {ok, no_task}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -84,9 +82,12 @@ init(Server) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({request, job}, _From, State) ->
-    {Job, NewState} = get_job(State),
-    {reply, {job, Job}, NewState}.
+handle_call({request, task}, _From, State) ->
+    request_task(),
+    {reply, State, State};
+handle_call({request, new_task, Id, Type, Path}, _From, State) ->
+    Reply = give_task(Id, Type, Path),
+    {reply, Reply, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -98,11 +99,11 @@ handle_call({request, job}, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({_Pid, _ExitStatus}, State) ->
-    {Job, NewState} = get_job(State),
-    %%ChildSpec = Job, %% ....
-    %%supervisor:start_child(?DYNSUP, ChildSpec),
-    {noreply, State}.
+handle_cast({_Pid, _ExitStatus}, _State) ->
+    supervisor:terminate_child(?DYNSUP, ?WORKER),
+    supervisor:delete_child(?DYNSUP, ?WORKER),
+    request_task(),
+    {noreply, no_task}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -114,7 +115,13 @@ handle_cast({_Pid, _ExitStatus}, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(_Info, State) ->
+handle_info(poll, no_task) ->
+    request_task(),
+    {noreply, no_task};
+handle_info({task_response, Task}, _State) ->
+    start_task(Task),
+    {noreply, task};
+handle_info(_Reason, State) ->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -147,21 +154,43 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 
 %%--------------------------------------------------------------------
-%% @private
 %% @doc
-%% Returns a free job, if no free jobs exists the master will be contacted to
-%% request more jobs.
+%% Returns a free task, if no free tasks exists the master will be contacted to
+%% request more tasks.
 %%
-%% @spec get_job(State) -> {Job, NewState}
+%% @spec request_task() -> {Task, NewState}
 %% @end
 %%--------------------------------------------------------------------
-get_job(State) ->
-    case State#state.jobs of
-        [] ->
-            Server = State#state.server,
-            NewJobs = Server:get_jobs(),
-            NewState = State#state{jobs=NewJobs}, %TODO fetch jobs from master instead
-            get_job(NewState);
-        [Job|T] ->
-            {Job, State#state{jobs = T}}
-    end.
+request_task() ->
+    dispatcher:get_task(node(), self()).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Creates a new task in the database.
+%%
+%% @spec give_task(Id, Type, Path) -> {Task, NewState}
+%% @end
+%%--------------------------------------------------------------------
+
+give_task(Id, Type, Path) ->
+    dispatcher:create_task({Id, Type, Path, 1}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Starts a already fetched task on the node.
+%%
+%% @spec start_task({TaskId, JobId, Op, Path, Name}) -> ChildSpec
+%% @end
+%%--------------------------------------------------------------------
+
+start_task({_Lool, _TaskId, JobId, Op, Path, Name}) ->
+    ChildSpec = {?WORKER,
+		 {?WORKER,
+		  start_link,
+		  [Name, Op, JobId, Path]},
+		 transient,
+		 1,
+		 worker,
+		 [?WORKER]},
+    supervisor:start_child(?DYNSUP, ChildSpec),
+    ChildSpec.

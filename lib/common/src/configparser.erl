@@ -16,7 +16,7 @@ parse(_Key, []) ->
   {error, not_found};
 parse(Key, [{Key, Value} | _Config]) ->
   {ok, Value};
-parse(Key, [{_Other, _Value} | Config]) ->
+parse(Key, [_Other | Config]) ->
   parse(Key, Config).
 
 read_config(File, Key) ->

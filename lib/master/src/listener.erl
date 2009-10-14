@@ -80,7 +80,7 @@ handle_call({new_job, JobType, InputData}, _From, State) ->
     filelib:ensure_dir(Root ++ "tmp/" ++ JobIdString ++ "/reduce/"),
     filelib:ensure_dir(Root ++ "tmp/" ++ JobIdString ++ "/input/"), 
     % Move the files to the right thing
-    file:rename(InputData, Root ++ "tmp/" ++ JobIdString ++ "/input/data.dat"),
+    file:copy(InputData, Root ++ "tmp/" ++ JobIdString ++ "/input/data.dat"),
     dispatcher:create_task({JobId, split, 
                             Root++"tmp/"++JobIdString++"/input/data.dat", 0}),
     {reply, JobId, State}.

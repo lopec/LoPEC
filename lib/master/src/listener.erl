@@ -67,8 +67,6 @@ init(_Args) ->
 %%                                   {reply, shutdown, State}
 %% @end
 %%------------------------------------------------------------------------------
-handle_call({stop}, _From, State) ->
-    {reply, shutdown, State};
 handle_call({new_job, JobType, InputData}, _From, State) ->
     JobId = dispatcher:add_job({JobType, 0}),
     % Read the structurepath from configfile

@@ -21,7 +21,7 @@
         error/1,
         info/1,
         warning/1,
-	debug/1,
+	debug/1
     ]).
 
 %% gen_server callbacks

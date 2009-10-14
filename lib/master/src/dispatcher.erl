@@ -3,10 +3,9 @@
 %%% @copyright (C) 2009, Axel
 %%% @doc
 %%% 
-%%% Receives task requests from a node, and returns the first
-%%% available task to it. If there is no available task, it does not
-%%% return anything, so the request times out.  Also listens to
-%%% reports from nodes and marks tasks as completed.
+%%% Interfaces with the database. Can take requests for tasks, marking
+%%% a task as done, adding tasks or jobs, and free tasks assigned to
+%%% nodes (by un-assigning them).
 %%% 
 %%% @end
 %%% Created : 30 Sep 2009 by Axel <axelandren@gmail.com>

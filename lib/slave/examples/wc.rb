@@ -1,11 +1,5 @@
 #!/usr/bin/env ruby
 
-begin
-
-at_exit do
-  puts("LOG exiting now!")
-end
-
 require 'fileutils'
 
 def split(input, output)
@@ -17,8 +11,6 @@ def split(input, output)
     end
     split_count += 1
     puts("NEW_SPLIT #{split_name}")
-    $stdout.flush
-    sleep(1)
   end
 end
 
@@ -37,8 +29,6 @@ def map(input, output)
       word_file.puts("#{value}")
     end
     puts("NEW_REDUCE_TASK #{key}")
-    $stdout.flush
-    sleep(1)
   end
 end
 
@@ -55,8 +45,6 @@ def reduce(input, output)
   File.open(output + "/" + word, "w") do | output_file |
     output_file.puts("#{word_count}")
     puts("NEW_REDUCE_RESULT #{word}")
-    $stdout.flush
-    sleep(1)
   end
 end
 
@@ -72,15 +60,15 @@ def finalize(input, output)
     end
   end
   puts("FINALIZING_DONE")
-  $stdout.flush
-  sleep(1)
 end
 
 command = ARGV[0]
 input   = ARGV[1]
 output  = ARGV[2]
 
-puts("LOG I will #{command} #{input} to #{output} now plz.")
+puts("LOG I will #{command} #{input} to #{output} now kthxbye.")
+
+begin
 
 case command
 when "split"
@@ -97,6 +85,4 @@ end
 
 rescue
   puts("ERROR #{$!}")
-ensure
-  $stdout.flush
 end

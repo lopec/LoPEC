@@ -18,7 +18,7 @@ test/%.beam : test/%.erl $(HEADERS) Makefile
 	erlc $(ERLC_FLAGS) -o test/ $<
 
 clean:
-	-rm ebin/*.beam test/*.beam
+	-rm -f ebin/*.beam test/*.beam
 
 test: $(TESTOBJECTS)
 	erl -noshell -pa ebin -pa test -eval 'eunit:test("test",[verbose])' -s init stop

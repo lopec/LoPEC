@@ -2,4 +2,5 @@
  [{kernel,"2.13.2"},
   {stdlib,"1.16.2"},
   {chronicler, "0.1"},
+  {common, "0.1"},
   {slave, "0.1"}]}.

@@ -7,6 +7,6 @@
         clientSupervisor
             ]},
     {registered, []},
-    {applications, [kernel, stdlib, chronicler]},
+    {applications, [kernel, stdlib, chronicler, common]},
     {mod, {clientApp,[]}}
     ]}.

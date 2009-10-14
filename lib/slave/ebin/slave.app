@@ -4,13 +4,9 @@
     {vsn, "0.1"},
     {modules, [
         clientApp,
-        clientSupervisor,
-        heartbeat,
-        terminalLogger,
-        fileLogger,
-        logger
+        clientSupervisor
             ]},
     {registered, []},
-    {applications, [kernel, stdlib]},
+    {applications, [kernel, stdlib, chronicler]},
     {mod, {clientApp,[]}}
     ]}.

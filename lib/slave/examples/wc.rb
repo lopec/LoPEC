@@ -82,4 +82,6 @@ begin
   end
 rescue
   puts("ERROR #{$!}")
+ensure
+  $stdout.flush
 end

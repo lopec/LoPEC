@@ -39,6 +39,12 @@ task_allocation_test() ->
     JobId = db:add_job({raytracer, 0}),
     TaskSpec = {JobId, split, "", 0},
     TaskId =  dispatcher:create_task(TaskSpec),
+    
+    chronicler:info("GET TASK STARTS HERE"),
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+    %% The most buggy piece of cluster, unfortunately most critical too.
+    %% Do not touch it, unles you REALLY know what you are doing.
+    %% If something in cluster is not working, this is potentially reason.
     dispatcher:get_task(node(), self()),
     receive
         {task_response, Task} ->
@@ -48,6 +54,7 @@ task_allocation_test() ->
         Msg ->
             chronicler:error(io_lib:format("Wrong message received: ~p", [Msg]))            
     end,
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     end_per_test_case().
 
 %% This test case is used to verify that request times out

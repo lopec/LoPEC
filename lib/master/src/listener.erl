@@ -38,26 +38,6 @@ start_link() ->
 new_job(JobType, InputData) ->
     gen_server:call(?MODULE, {new_job, JobType, InputData}).
 
-%%------------------------------------------------------------------------------
-%% @private
-%% @doc
-%% Checks if JobType is a valid jobtype. This is done by checking if there exist
-%% a "script.sh"-file in the CLUSTERROOT/programs/JobType/
-%%
-%% @spec is_valid_jobtype(JobType) -> {ok} | {error, Reason}
-%% @end
-%%------------------------------------------------------------------------------
-is_valid_jobtype(JobType) ->
-    {ok, Root} = 
-        configparser:read_config("/etc/clusterbusters.conf", cluster_root),
-    JobTypeString = atom_to_list(JobType),
-    ProgramFile = Root++"programs/"++JobTypeString++"/script.sh",
-    % Because there is no function to check if file exists.
-    Result = file:rename(ProgramFile, ProgramFile),
-    case Result of
-        ok -> {ok};
-        {error, Reason} -> {error, Reason}
-    end.
 
 %%%=============================================================================
 %%% gen_server callbacks
@@ -163,3 +143,28 @@ handle_info(_Info, State) ->
 %%------------------------------------------------------------------------------
 code_change(_OldVersion,State, _Extra) ->
     {ok, State}.
+
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================
+
+%%------------------------------------------------------------------------------
+%% @private
+%% @doc
+%% Checks if JobType is a valid jobtype. This is done by checking if there exist
+%% a "script.sh"-file in the CLUSTERROOT/programs/JobType/
+%%
+%% @spec is_valid_jobtype(JobType) -> {ok} | {error, Reason}
+%% @end
+%%------------------------------------------------------------------------------
+is_valid_jobtype(JobType) ->
+    {ok, Root} = 
+        configparser:read_config("/etc/clusterbusters.conf", cluster_root),
+    JobTypeString = atom_to_list(JobType),
+    ProgramFile = Root++"programs/"++JobTypeString++"/script.sh",
+    % Because there is no function to check if file exists.
+    Result = file:rename(ProgramFile, ProgramFile),
+    case Result of
+        ok -> {ok};
+        {error, Reason} -> {error, Reason}
+    end.

@@ -526,7 +526,7 @@ handle_call({get_task, NodeId}, _From, State) ->
 
  	    {reply, Task, State};
  	{atomic, '$end_of_table'} ->
-	    chronicler:debug(io_lib:format("db:Retrieving no_task~n", [])),
+	    %chronicler:debug(io_lib:format("db:Retrieving no_task~n", [])),
  	    {reply, no_task, State}
     end;
 

@@ -4,7 +4,8 @@
     {modules, [
         chronicler_app,
         chronicler_sup,
-        chronicler
+        chronicler,
+        externalLogger
             ]},
     {registered, []},
     {applications, [kernel, stdlib]},

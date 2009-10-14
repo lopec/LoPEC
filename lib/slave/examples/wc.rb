@@ -66,15 +66,19 @@ command = ARGV[0]
 input   = ARGV[1]
 output  = ARGV[2]
 
-case command
-when "split"
-  split(input, output)
-when "map"
-  map(input, output)
-when "reduce"
-  reduce(input, output)
-when "finalize"
-  finalize(input, output)
-else
-  puts("lol wut")
+begin
+  case command
+  when "split"
+    split(input, output)
+  when "map"
+    map(input, output)
+  when "reduce"
+    reduce(input, output)
+  when "finalize"
+    finalize(input, output)
+  else
+    puts("ERROR I can only split, map, reduce, and finalize!")
+  end
+rescue
+  puts("ERROR #{$!}")
 end

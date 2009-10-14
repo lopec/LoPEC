@@ -72,6 +72,17 @@ info(Msg) ->
 warning(Msg) ->
     gen_server:cast(?MODULE, {warning, Msg}).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Logs a debug message
+%%
+%% @TODO implement using something else than error_logger
+%% @spec warning(Msg) -> ok
+%% @end
+%%--------------------------------------------------------------------
+debug(Msg) ->
+    gen_server:cast(?MODULE, {info, Msg}).
+
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================

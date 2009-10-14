@@ -100,6 +100,7 @@ create_tables() ->
 %% @end
 %%--------------------------------------------------------------------
 delete_tables() ->
+    chronicler:info(io_lib:format("db:Deleting tables~n", [])),
     mnesia:delete_schema(node()),
     mnesia:delete_table(job),
     mnesia:delete_table(task),
@@ -349,11 +350,10 @@ list_node_tasks(NodeId) ->
 %%--------------------------------------------------------------------
 init(_Args) ->
     NodeList = [node()],
+    application:start(chronicler),
     mnesia:create_schema([node()]),  
-%    ok = application:load(mnesia),
-%    ok = application:set_env(mnesia, dir, DBdir),
     application:start(mnesia),
-%    mnesia:set_debug_level(none),
+    chronicler:info(io_lib:format("db:Database started~n", [])),
     {ok, NodeList}.
 
 %%--------------------------------------------------------------------
@@ -376,7 +376,7 @@ handle_call(create_tables, _From, State) ->
     {atomic, ok} = mnesia:create_table(
 		     assigned_task, [{attributes, 
 				      record_info(fields, assigned_task)}|Opts]),
-
+    chronicler:info(io_lib:format("db:Tables created~n", [])),
     {reply, tables_created, State};
 
 %%--------------------------------------------------------------------
@@ -433,6 +433,7 @@ handle_call({add_job, JobType, InputPath, Priority},
     JobId = generate_id(),
     add_job_on_server(JobId, JobType, InputPath, available, 
 		      undefined, Priority),
+    chronicler:debug(io_lib:format("db:Added job: ~p~n", [JobId])),
     {reply, JobId, State};
 
 %%--------------------------------------------------------------------
@@ -480,6 +481,7 @@ handle_call({add_task, JobId, TaskType, InputPath, CurrentState,
     % Also add the relations the task will have, namely which job and which
     % node (undefined when first inserting the task) it is assigned to.
     add_assigned_task_on_server(TaskId, JobId, undefined),
+    chronicler:debug(io_lib:format("db:Added task: ~p~n", [TaskId])),
     {reply, TaskId, State};
 
 %%--------------------------------------------------------------------
@@ -519,8 +521,12 @@ handle_call({get_task, NodeId}, _From, State) ->
 	    add_assigned_task_on_server(Task#task.task_id,
 					Task#task.job_id,
 					NodeId),
+	    chronicler:debug(io_lib:format(
+			      "db:Retrieving task: ~p~n", [Task#task.task_id])),
+
  	    {reply, Task, State};
  	{atomic, '$end_of_table'} ->
+	    chronicler:debug(io_lib:format("db:Retrieving no_task~n", [])),
  	    {reply, no_task, State}
     end;
 
@@ -646,6 +652,7 @@ handle_call({list_node_tasks, NodeId}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_cast(stop, State) ->
     application:stop(mnesia),
+    chronicler:info(io_lib:format("db:Stopping database~n", [])),
     {stop, normal, State};
 
 %%--------------------------------------------------------------------

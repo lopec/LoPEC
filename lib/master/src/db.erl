@@ -23,7 +23,7 @@
 -define(SERVER, db_server).
 
 %-ifdef(test).
--export([delete_tables/0, get_job_info/1, get_job/0, list_jobs/0]).
+-export([delete_tables/0, get_job_info/1, get_job/0, list_jobs/0, get_task_info/1]).
 %-endif.
 
 %% APIs for management of the databases

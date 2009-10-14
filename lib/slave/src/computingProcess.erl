@@ -41,26 +41,23 @@
 start_link(Path, Op, JobId, InputPath) ->
     StringId = integer_to_list(JobId),
     {ok, Root} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
-    Prog = Root ++ "programs/" ++ Path,
+    Prog = Root ++ "programs/" ++ atom_to_list(Path),
     case Op of
-	"split" ->
+	split ->
 	    LoadPath = Root ++ "tmp/" ++ StringId ++ "/" ++ InputPath,
 	    SavePath = Root ++ "tmp/" ++ StringId ++ "/map/";
-	"map" ->
+	map ->
 	    LoadPath = Root ++ "tmp/" ++ StringId ++ "/map/" ++ InputPath,
 	    SavePath = Root ++ "tmp/" ++ StringId ++ "/reduce/";
-	"reduce" ->
+	reduce ->
 	    LoadPath = Root ++ "tmp/" ++ StringId ++ "/reduce/" ++ InputPath,
 	    SavePath = Root ++ "tmp/" ++ StringId ++ "/results/";
-	"finalize" ->
+	finalize ->
 	    LoadPath = Root ++ "tmp/" ++ StringId ++ "/results/",
-	    SavePath = Root ++ "results/" ++ StringId;
-	_True ->
-	    LoadPath = "lol",
-	    SavePath = "lol"
+	    SavePath = Root ++ "results/" ++ StringId
     end,
     gen_server:start_link({local, ?SERVER},?MODULE,
-			  [Prog, Op, LoadPath, SavePath, JobId], []).
+			  [Prog, atom_to_list(Op), LoadPath, SavePath, JobId], []).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -157,8 +154,8 @@ handle_info({Pid, {exit_status, Status}}, State) ->
     chronicler:info(io_lib:format("Process ~p exited with signal: ~p~n", [Pid, Status])),
     gen_server:cast(?FETCHER, {self(), done}),
     {stop, normal, State};
-handle_info(_Stuff, State) ->
-    chronicler:info(io_lib:format("FINALIZE: Done~n")),
+handle_info(Data, State) ->
+    chronicler:info(io_lib:format("Something: ~ts~n", [Data])),
     {noreply, State}.
 
 %%--------------------------------------------------------------------

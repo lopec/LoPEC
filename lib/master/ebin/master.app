@@ -4,6 +4,6 @@
     {vsn, "0.2"},
     {modules, [master_node, master_sup, dispatcher]},
     {registered, [dispatcher]},
-    {applications, [kernel, stdlib, ecg]},
+    {applications, [kernel, stdlib, chronicler, ecg]},
     {mod, {master_node, []}}
     ]}.

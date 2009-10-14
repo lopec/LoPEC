@@ -2,6 +2,10 @@
 
 begin
 
+at_exit do
+  puts("LOG exiting now!")
+end
+
 require 'fileutils'
 
 def split(input, output)
@@ -87,5 +91,4 @@ rescue
   puts("ERROR #{$!}")
 ensure
   $stdout.flush
-  sleep(4)
 end

@@ -63,11 +63,11 @@ create_task(TaskSpec) ->
 %% @doc
 %% Frees all tasks assigned to Node in master task list
 %%
-%% @spec free_tasks(NodeID) -> true | false | NumberOfRowsFreed
+%% @spec free_tasks(NodeID) -> ok
 %% @end
 %%--------------------------------------------------------------------
 free_tasks(NodeId) ->
-    gen_server:call(?MODULE, {free_tasks, NodeId}).
+    gen_server:cast(?MODULE, {free_tasks, NodeId}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -146,7 +146,7 @@ handle_cast({task_request, NodeId, From}, _State) ->
 handle_cast({free_tasks, NodeId}, _State) ->
     db:free_tasks(NodeId);
 handle_cast(Msg, State) ->
-    io:format("Wrong message received: ~w", [Msg]),
+    io:format("Wrong message received: ~p", [Msg]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------

@@ -11,6 +11,11 @@
 -include("../include/db.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
+%% The way to run this test only, merge 3 lines below and run in console
+%% erl -sname test 
+%% -pa ../../common/ebin -pa ../../ecg/ebin -pa ../../logger/ebin -pa ../ebin 
+%% -run listener_tests test
+
 init_per_test_case() ->    
     db:create_tables().
 
@@ -24,21 +29,11 @@ init_test() ->
     dispatcher:start_link(),
     listener:start_link().
 
-%% Just tests general DB behaviour, so it does not blow up.
-%% db_test() ->
-%%     init_per_test_case(),
-%%     JobId = dispatcher:add_job({raytracer, 0}),
-%%     TaskSpec = {JobId, split, "", 0},
-%%     TaskId =  dispatcher:create_task(TaskSpec),
-%%     FreeTask = db:get_task(node()),
-%%     JobType = (db:get_job_info(FreeTask#task.job_id))#job.job_type,
-%%     end_per_test_case().
-
 job_creation_test() ->
     init_per_test_case(),
+    %testing if job is created properly
     JobId = listener:new_job(raytracer, 
-                             "/home/chabbrik/Desktop/ClusterBusters/input.file"),
-%%     chronicler:info("JobID in test:" ++ JobId),
+                             "/home/chabbrik/Desktop/ClusterBusters/Busters/input.file"),
     Job = db:get_job_info(JobId),
     chronicler:info(Job),
     ?assertEqual(JobId, Job#job.job_id),
@@ -46,32 +41,23 @@ job_creation_test() ->
 
     {ok, Root} = 
         configparser:read_config("/etc/clusterbusters.conf", cluster_root),
-%%     chronicler:info(Root),
+    
+    %Testing if task was properly created
     JobIdString = lists:flatten(io_lib:format("~p", [JobId])),
-    ProgramFile = Root ++ "tmp/" ++ JobIdString ++ "/input/data.dat",
-       chronicler:info(ProgramFile),
-    ?assertEqual(ok, file:rename(ProgramFile, ProgramFile)),
     TaskList = db:list_tasks(JobId),
     ?assertMatch([A], TaskList),
     Task = db:get_task_info(hd(TaskList)),
     ?assertEqual(split, Task#task.task_type),
     ?assertEqual(JobId, Task#task.job_id),
-
-%%     db:get_task(NodeId)
-%%     TaskSpec = {JobId, split, "", 0},
-%%     TaskId =  dispatcher:create_task(TaskSpec),
-%%     dispatcher:get_task(node(), self()),
-%%     receive
-%%         {task_response, Task} ->
-%%             ?assert(Task#task_tmp.task_id =:= TaskId),
-%%             ?assertEqual(split, Task#task_tmp.task_type),
-%%             ?assertEqual(JobId, Task#task_tmp.job_id);
-%%         Msg ->
-%%             chronicler:error(io_lib:format("Wrong message received: ~p", [Msg]))            
-%%     end,
+    % Testing if input file was created
+    % If assertion fails, check the path.
+    % This test is ugly, as it depends on hard-coded path and will fail 
+    % for the rest.
+    %% TODO refactor this piece
+    ProgramFile = Root ++ "tmp/" ++ JobIdString ++ "/input/data.dat",
+    chronicler:info(ProgramFile),
+    ?assertEqual(ok, file:rename(ProgramFile, ProgramFile)),
     end_per_test_case().
-
-
 
 end_test() ->
     db:stop(),

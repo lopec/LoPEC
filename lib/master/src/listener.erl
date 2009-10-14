@@ -74,19 +74,12 @@ handle_call({new_job, JobType, InputData}, _From, State) ->
     % Read the structurepath from configfile
     {ok, Root} = 
         configparser:read_config("/etc/clusterbusters.conf", cluster_root),
-%%     chronicler:info("Root: " ++ Root),
     % Make the directory-structure
     JobIdString = lists:flatten(io_lib:format("~p", [JobId])),
-%%     chronicler:info(JobIdString),
-%%     chronicler:info(Root ++ "tmp/" ++ JobIdString ++ "/map/"),
     filelib:ensure_dir(Root ++ "tmp/" ++ JobIdString ++ "/map/"),
-%%     chronicler:info(Root ++ "tmp/" ++ JobIdString ++ "/reduce/"),
     filelib:ensure_dir(Root ++ "tmp/" ++ JobIdString ++ "/reduce/"),
-%%     chronicler:info(Root ++ "tmp/" ++ JobIdString ++ "/input/"),
     filelib:ensure_dir(Root ++ "tmp/" ++ JobIdString ++ "/input/"), 
     % Move the files to the right thing
-    chronicler:info("Input file:" ++ InputData),
-    chronicler:info(Root ++ "tmp/" ++ JobIdString ++ "/input/data.dat"),
     file:rename(InputData, Root ++ "tmp/" ++ JobIdString ++ "/input/data.dat"),
     dispatcher:create_task({JobId, split, 
                             Root++"tmp/"++JobIdString++"/input/data.dat", 0}),

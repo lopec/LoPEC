@@ -78,7 +78,7 @@ warning(Msg) ->
 %% Logs a debug message
 %%
 %% @TODO implement using something else than error_logger
-%% @spec warning(Msg) -> ok
+%% @spec debug(Msg) -> ok
 %% @end
 %%--------------------------------------------------------------------
 debug(Msg) ->

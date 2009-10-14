@@ -63,9 +63,6 @@ start_link() ->
 %% --------------------------------------------------------------------
 %% @doc
 %% Boots up ECG - cluster heartbeat listener.
-%% IMPORTANT: 'logger' should be registered process, otherwise
-%% ECG will fail.
-%% 
 %% @end
 %%--------------------------------------------------------------------
 init(_) ->
@@ -106,7 +103,7 @@ handle_cast({new_node, Node}, _) ->
     {noreply, []};
 handle_cast(UnrecognisedMessage, _) ->
     chronicler:info(io_lib:format
-                   ("UnrecognisedMessage: ~p ~n", [UnrecognisedMessage])),
+                   ("Unrecognised cast: ~p ~n", [UnrecognisedMessage])),
     {noreply, []}.
 
 %% --------------------------------------------------------------------
@@ -126,7 +123,7 @@ handle_info({nodedown, Node}, _) ->
     {noreply, []};
 handle_info(UnrecognisedMessage, _) ->
     chronicler:info(io_lib:format
-                   ("~nUnrecognisedMessage: ~p ~n", [UnrecognisedMessage])),
+                   ("Unrecognised info: ~p ~n", [UnrecognisedMessage])),
     {noreply, []}.
 
 %% --------------------------------------------------------------------

@@ -247,7 +247,7 @@ find_task(RequesterPID, NodeId) ->
         Task ->
             Job = db:get_job_info(Task#task.job_id),
 
-	    chronicler:debug(io:format("dispatcher: Received job: ~p~n", 
+	    chronicler:debug(io_lib:format("dispatcher: Received job: ~p~n", 
 				       [Job#job.job_id])),
             JobType = Job#job.job_type,
             AssignedTask = #task_tmp {task_id = Task#task.task_id,

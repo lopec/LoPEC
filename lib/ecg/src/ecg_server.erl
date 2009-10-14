@@ -115,8 +115,7 @@ handle_cast(UnrecognisedMessage, _) ->
 %% net_kernel, when nodes joins cluster or dies.
 %% Returns: {noreply, State}
 %% --------------------------------------------------------------------
-handle_info({nodeup, Node}, _) ->
-    
+handle_info({nodeup, Node}, _) ->    
     chronicler:info(io_lib:format
                    ("Welcome new node: ~p~n", [Node])),
     {noreply, []};

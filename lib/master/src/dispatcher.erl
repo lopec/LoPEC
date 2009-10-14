@@ -1,6 +1,7 @@
 %%%-------------------------------------------------------------------
-%%% @author Axel <axelandren@gmail.com>, Vasilij Savin 
-%%% @copyright (C) 2009, Axel
+%%% @author Axel Andrén, Vasilij Savin
+%%% <axelandren@gmail.com, vasilij@savin.com>
+%%% @copyright (C) 2009, Axel Andrén
 %%% @doc
 %%% 
 %%% Interfaces with the database. Can take requests for tasks, marking
@@ -8,7 +9,7 @@
 %%% nodes (by un-assigning them).
 %%% 
 %%% @end
-%%% Created : 30 Sep 2009 by Axel <axelandren@gmail.com>
+%%% Created : 30 Sep 2009 by Axel Andrén <axelandren@gmail.com>
 %%%-------------------------------------------------------------------
 -module(dispatcher).
 -behaviour(gen_server).
@@ -124,6 +125,7 @@ report_task_done(TaskId, TaskSpec) ->
 %%%===================================================================
 
 %%--------------------------------------------------------------------
+%% @private
 %% @doc
 %% Initiates the server. Currently no special setup is needed.
 %%

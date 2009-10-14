@@ -1,9 +1,23 @@
+build:
+	$(MAKE) -C common build
+	$(MAKE) -C logger build
+	$(MAKE) -C ecg build
+	$(MAKE) -C master build
+	$(MAKE) -C slave build
+
 all:
 	$(MAKE) -C common all
 	$(MAKE) -C logger all
 	$(MAKE) -C ecg all
 	$(MAKE) -C master all
 	$(MAKE) -C slave all
+
+test:
+	$(MAKE) -C common test
+	$(MAKE) -C logger test
+	$(MAKE) -C ecg test
+	$(MAKE) -C master test
+	$(MAKE) -C slave test
 
 clean:
 	$(MAKE) -C common clean

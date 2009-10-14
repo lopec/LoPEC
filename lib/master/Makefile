@@ -7,6 +7,8 @@ HEADERS= $(wildcard include/*.hrl)
 OBJECTS= $(SOURCES:src/%.erl=ebin/%.beam)
 TESTOBJECTS= $(TESTFILES:test/%.erl=test/%.beam)
 
+build: $(OBJECTS)
+
 all: $(OBJECTS) permissions test docs
 
 permissions:

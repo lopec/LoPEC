@@ -1,3 +1,6 @@
+build:
+	$(MAKE) -C lib build
+
 all:
 	$(MAKE) -C lib all
 
@@ -8,14 +11,14 @@ docs:
 	$(MAKE) -C lib docs
 
 master:
-	$(MAKE) -C lib/master all
-	$(MAKE) -C lib/ecg all
-	$(MAKE) -C lib/common all
+	$(MAKE) -C lib/master build
+	$(MAKE) -C lib/ecg build
+	$(MAKE) -C lib/common build
 
 slave:
-	$(MAKE) -C lib/slave all
-	$(MAKE) -C lib/logger all
-	$(MAKE) -C lib/common all
+	$(MAKE) -C lib/slave build
+	$(MAKE) -C lib/logger build
+	$(MAKE) -C lib/common build
 
 master_script: master
 	erl -pa lib/master/ebin -pa lib/ecg/ebin -pa lib/logger/ebin \

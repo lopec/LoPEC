@@ -20,7 +20,8 @@
 -export([start_link/0,
         error/1,
         info/1,
-        warning/1
+        warning/1,
+	debug/1,
     ]).
 
 %% gen_server callbacks

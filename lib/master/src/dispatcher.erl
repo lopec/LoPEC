@@ -45,6 +45,7 @@ start_link() ->
 
 %%--------------------------------------------------------------------
 %% @doc
+%% Adds specified task to the database task list.
 %% TaskSpec:
 %%  {   'JobId',
 %%      'Tasktype' - atoms 'map', 'reduce', 'finalise' or 'split' are
@@ -71,6 +72,7 @@ free_tasks(NodeId) ->
 
 %%--------------------------------------------------------------------
 %% @doc
+%% Adds specified job to the database job list.
 %% JobSpec:
 %%  {   
 %%      'JobType' - atoms 'map', 'reduce', 'finalise' or 'split' are
@@ -134,46 +136,92 @@ init([]) ->
     chronicler:info(io_lib:format("dispatcher: Application started~n", [])),
     {ok, []}.
 
+
+
 %%--------------------------------------------------------------------
 %% @doc
 %% Expects task requests from nodes, and passes such requests to the
 %% find_task function.
 %%
-%% @spec handle_cast(Msg, State) -> {noreply, State} | db:free_tasks()
+%% @spec handle_cast({task_request, NodeId, From}, State) ->
+%%                                                    {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({task_request, NodeId, From}, _State) ->
     spawn(?MODULE, find_task, [From, NodeId]),
     {noreply, []};
+%%--------------------------------------------------------------------
+%% @doc
+%% Un-assigns all tasks assigned to the specified node.
+%%
+%% @spec handle_cast({free_tasks, NodeId}, State) ->  db:free_tasks()
+%% @end
+%%--------------------------------------------------------------------
 handle_cast({free_tasks, NodeId}, _State) ->
     db:free_tasks(NodeId);
+%%--------------------------------------------------------------------
+%% @doc
+%% Logs and discards unexpected messages.
+%%
+%% @spec handle_cast(Msg, State) ->  {noreply, State}
+%% @end
+%%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
     chronicler:debug(io_lib:format(
 		       "dispatcher: Wrong message received: ~p~n", [Msg])),
     {noreply, State}.
 
+
+
 %%--------------------------------------------------------------------
 %% @doc
+%% Marks a specified task as done in the database.
 %%
-%% @spec handle_call(Request, From, State) ->
-%%                                   {reply, ok, State} |
-%%                                   {reply, NewTaskId, State} |
-%%                                   {reply, NewJobId, State}
+%% @spec handle_call({task_done, TaskId, no_task}, From, State) ->
+%%                                   {reply, ok, State} 
 %% @end
 %%--------------------------------------------------------------------
 handle_call({task_done, TaskId, no_task}, _From, State) ->
     db:mark_done(TaskId),
     {reply, ok, State};
+%%--------------------------------------------------------------------
+%% @doc
+%% Marks a specified task as done in the database and adds a
+%% (different) specified task to the database
+%%
+%% @spec handle_call({task_done, TaskId, TaskSpec}, From, State) ->
+%%                                   {reply, NewTaskId, State} 
+%% @end
+%%--------------------------------------------------------------------
 handle_call({task_done, TaskId, TaskSpec}, _From, State) ->
     db:mark_done(TaskId),
     NewTaskId = db:add_task(TaskSpec),
     {reply, NewTaskId, State};
+%%--------------------------------------------------------------------
+%% @doc
+%% Adds a specified task to the database
+%%
+%% @spec handle_call({create_task, TaskSpec}, From, State) ->
+%%                                   {reply, NewTaskID, State} 
+%% @end
+%%--------------------------------------------------------------------
 handle_call({create_task, TaskSpec}, _From, State) ->
     NewTaskId = db:add_task(TaskSpec),
     {reply, NewTaskId, State};
+%%--------------------------------------------------------------------
+%% @doc
+%% Adds a specified job to the database
+%%
+%% @spec handle_call({create_job, JobSpec}, From, State) ->
+%%                                   {reply, NewJobID, State} 
+%% @end
+%%--------------------------------------------------------------------
 handle_call({create_job, JobSpec}, _From, State) ->
     NewJobId = db:add_job(JobSpec),
     {reply, NewJobId, State}.
+
+
+
 
 %%%===================================================================
 %%% Internal functions

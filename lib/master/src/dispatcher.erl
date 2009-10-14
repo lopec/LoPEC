@@ -130,6 +130,8 @@ report_task_done(TaskId, TaskSpec) ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
+    application:start(chronicler),
+    chronicler:info(io_lib:format("dispatcher: Application started~n", [])),
     {ok, []}.
 
 %%--------------------------------------------------------------------
@@ -146,7 +148,8 @@ handle_cast({task_request, NodeId, From}, _State) ->
 handle_cast({free_tasks, NodeId}, _State) ->
     db:free_tasks(NodeId);
 handle_cast(Msg, State) ->
-    io:format("Wrong message received: ~p", [Msg]),
+    chronicler:debug(io_lib:format(
+		       "dispatcher: Wrong message received: ~p~n", [Msg])),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -195,6 +198,9 @@ find_task(RequesterPID, NodeId) ->
             ok;
         Task ->
             Job = db:get_job_info(Task#task.job_id),
+
+	    chronicler:debug(io:format("dispatcher: Received job: ~p~n", 
+				       [Job#job.job_id])),
             JobType = Job#job.job_type,
             AssignedTask = #task_tmp {task_id = Task#task.task_id,
                             job_id = Task#task.job_id,

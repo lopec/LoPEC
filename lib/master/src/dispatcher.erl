@@ -239,7 +239,7 @@ handle_call({create_job, JobSpec}, _From, State) ->
 find_task(RequesterPID, NodeId) ->
     FreeTask = db:get_task(NodeId),
     %chronicler:info(io_lib:format("dispatcher: Received task: ~p~n", 
-                       [FreeTask])),
+    %                   [FreeTask])),
     case FreeTask of
         % If no task found - let the request time out and try again
         % Therefore we just terminate

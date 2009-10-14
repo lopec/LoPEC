@@ -86,8 +86,8 @@ add_job(JobSpec) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Returns the first available task.
-%% If no tasks are available, just lets request to time out.
+%% Sends a message to the caller with the first available task.
+%% If no tasks are available, we just let the request time out.
 %%
 %% @spec get_task(NodeID, PID) -> {noreply, State} 
 %% @end
@@ -177,12 +177,13 @@ handle_call({create_job, JobSpec}, _From, State) ->
 %%%===================================================================
 
 %%--------------------------------------------------------------------
+%% @private
 %% @doc
 %% Sends a message to given PID with the first found task in the DB,
 %% and tells the ECG to register this new node with that PID. If no
 %% task is found, it terminates and lets request time out.
 %%
-%% @spec find_task(RequesterPID, NodeId) -> ok
+%% @spec find_task(RequesterPID, NodeId) -> ok | db:assign_task()
 %% @end
 %%--------------------------------------------------------------------
 find_task(RequesterPID, NodeId) ->

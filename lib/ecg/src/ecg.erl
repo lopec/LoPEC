@@ -19,7 +19,7 @@
 %% Func: start/2
 %% Returns: {ok, Pid}        |
 %%          {ok, Pid, State} |
-%%          {error, Reason}
+%%           Error
 %% --------------------------------------------------------------------
 start(_Type, _StartArgs) ->
     chronicler:info(io_lib:format("Starting ECG Application~n", [])),
@@ -28,6 +28,9 @@ start(_Type, _StartArgs) ->
 	{ok, Pid} ->
 	    {ok, Pid};
 	Error ->
+	    chronicler:info(io_lib:format
+			    ("ECG Application StartUp Error: ~p ~n",
+			     [Error])),
 	    Error
     end.
 

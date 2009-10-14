@@ -61,6 +61,8 @@ handle_event({info_report, _From, Msg}, State) ->
     {ok, State};
 handle_event({warning_report, _From, Msg}, State) ->
     gen_server:cast({global, externalLoggerPID}, {warning, {node(), self()}, Msg}),
+    {ok, State};
+handle_event(_Other, State) ->
     {ok, State}.
 
 %%--------------------------------------------------------------------

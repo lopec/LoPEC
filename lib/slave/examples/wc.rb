@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 
+begin
+
 require 'fileutils'
 
 def split(input, output)
@@ -66,22 +68,24 @@ command = ARGV[0]
 input   = ARGV[1]
 output  = ARGV[2]
 
-begin
-  puts("LOG I will #{command} #{input} to #{output} now plz.")
-  case command
-  when "split"
-    split(input, output)
-  when "map"
-    map(input, output)
-  when "reduce"
-    reduce(input, output)
-  when "finalize"
-    finalize(input, output)
-  else
-    puts("ERROR I can only split, map, reduce, and finalize!")
-  end
+puts("LOG I will #{command} #{input} to #{output} now plz.")
+
+case command
+when "split"
+  split(input, output)
+when "map"
+  map(input, output)
+when "reduce"
+  reduce(input, output)
+when "finalize"
+  finalize(input, output)
+else
+  puts("ERROR I can only split, map, reduce, and finalize!")
+end
+
 rescue
   puts("ERROR #{$!}")
 ensure
   $stdout.flush
+  sleep(4)
 end

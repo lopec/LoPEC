@@ -5,8 +5,7 @@
 %%% It uses @see error_logger for info, warning and error messages. Don't use
 %%% it for debugging messages, if needed a debugging function can be added to
 %%% the API later on. Currently no nice formatting of the message is done it's
-%%% simply treated as single whole message and will be printed that way. please
-%%% make sure to add ~n to all strings that are logged.
+%%% simply treated as single whole message and will be printed that way.
 %%%
 %%% @end
 %%% Created : 29 Sep 2009 by Fredrik Andersson <sedrik@consbox.se>
@@ -103,9 +102,12 @@ init(no_args) ->
     error_logger:logfile({open, node()}),
     error_logger:tty(true),
     %TODO receive node info from argument
+    %TODO state is probably deprecated now, since we use global registering instead
     State = #state{logProcess = ?MODULE, logNode = 'logger@localhost'},
-    case State#state.logNode == node() of
-        true -> ok;
+    case "logger" == lists:takewhile(fun(X)->X /= $@ end, atom_to_list(node())) of
+        true -> info("I am the externalLogger"),
+                global:register_name(externalLoggerPID, self()),
+                ok;
         false -> error_logger:add_report_handler(externalLogger, State)
     end,
     info("logger was started"),

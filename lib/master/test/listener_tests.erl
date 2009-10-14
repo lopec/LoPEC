@@ -15,6 +15,8 @@
 %% erl -sname test 
 %% -pa ../../common/ebin -pa ../../ecg/ebin -pa ../../logger/ebin -pa ../ebin 
 %% -run listener_tests test
+%% erl -sname server -pa common/ebin -pa ecg/ebin -pa logger/ebin -pa master/ebin
+ 
 
 init_per_test_case() ->    
     db:create_tables().

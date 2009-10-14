@@ -43,25 +43,25 @@ init(no_args) ->
     % Type: worker | supervisor
     % Used modules
     io:format("Creating children~n", []),
-    Dispatcher = { dispatcher, 
-                   {dispatcher, start_link, []}, 
-                   permanent,
-                   20,
-                   worker,
-                   [dispatcher]},
-    % Other processes are not yet implemented
-%%     Listener = { dispatcher,
-%%                    {dispatcher, start_link,[]}, 
-%%                    permanent,
-%%                    20,
-%%                    worker,
-%%                    [dispatcher]},
-%%     DbDaemon = { dispatcher,
-%%                    {dispatcher, start_link,[]}, 
-%%                    permanent,
-%%                    20,
-%%                    worker,
-%%                    [dispatcher]},
+    Dispatcher = child(dispatcher, worker, no_args),
+    Listener = child(listener, worker, no_args),    
+    DbDaemon = child(db, worker, no_args),
     
     % Returning supervisor specification
-    {ok,{{one_for_one,1,60}, [Dispatcher]}}.
+    {ok,{{one_for_one,1,60}, [Dispatcher, DbDaemon, Listener]}}.
+
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Simple helper function to make the child specification list easier
+%% to read.
+%%
+%% @spec child(Module, Role, Args) -> {ChildSpec}
+%% @end
+%%--------------------------------------------------------------------
+child(Module,Role, no_args) ->
+    {Module, {Module, start_link, []},
+        permanent, brutal_kill, Role, [Module]}.

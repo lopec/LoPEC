@@ -89,8 +89,8 @@ debug(Msg) ->
 %% Changes the logging level of the logger, available levels are
 %% info, error, warning and debug
 %%
-%% @spec set_logging_level(NewLevel) -> ok.
-%%  Level = list()
+%% @spec set_logging_level(NewLevel) -> ok
+%%  NewLevel = list()
 %% @end
 %%--------------------------------------------------------------------
 set_logging_level(NewLevel) ->
@@ -245,10 +245,7 @@ is_level_logging_on(Level, State) ->
 %% @doc
 %% Calls the correct error_logger reoport function depending on Level.
 %%
-%% @spec error_report_message(info, Msg) -> ok.
-%%       error_report_message(debug, Msg) -> ok.
-%%       error_report_message(error, Msg) -> ok.
-%%       error_report_message(warning, Msg) -> ok.
+%% @spec error_report_message(info, Msg) -> ok
 %% @end
 %%--------------------------------------------------------------------
 error_report_message(info, Msg) ->

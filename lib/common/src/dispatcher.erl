@@ -151,9 +151,9 @@ init([]) ->
 %%                                                    {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({task_request, NodeId, From}, _State) ->
+handle_cast({task_request, NodeId, From}, State) ->
     spawn(?MODULE, find_task, [From, NodeId]),
-    {noreply, []};
+    {noreply, State};
 %%--------------------------------------------------------------------
 %% @doc
 %% Un-assigns all tasks assigned to the specified node.
@@ -175,8 +175,6 @@ handle_cast(Msg, State) ->
     chronicler:debug(io_lib:format(
 		       "dispatcher: Wrong message received: ~p~n", [Msg])),
     {noreply, State}.
-
-
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -224,9 +222,6 @@ handle_call({create_task, TaskSpec}, _From, State) ->
 handle_call({create_job, JobSpec}, _From, State) ->
     NewJobId = db:add_job(JobSpec),
     {reply, NewJobId, State}.
-
-
-
 
 %%%===================================================================
 %%% Internal functions

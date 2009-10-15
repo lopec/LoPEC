@@ -99,3 +99,5 @@ set_functions_test() ->
 
     db:delete_tables(),
     db:stop().
+
+

@@ -270,17 +270,35 @@ get_task(NodeId) ->
 	    Map = gen_server:call(?SERVER, {get_task, map, NodeId}),
 	    case Map of
 		no_task ->
-		    Reduce = gen_server:call(
-			       ?SERVER, {get_task, reduce, NodeId}),
-		    case Reduce of
-			no_task ->
-			    gen_server:call(
-			      ?SERVER, {get_task, finalize, NodeId});
-			ReduceTask -> ReduceTask
+		    DoneMap = gen_server:call(?SERVER, {task_type_done, map}),
+		    case DoneMap of
+			true ->
+			    Reduce = gen_server:call(
+				       ?SERVER, {get_task, reduce, NodeId}),
+			    case Reduce of
+				no_task ->
+				    DoneReduce = gen_server:call(?SERVER, 
+								 {task_type_done,
+								  reduce}),
+				    case DoneReduce of
+					true ->
+					    gen_server:call(
+					      ?SERVER, {get_task, finalize, 
+							NodeId});
+					false ->
+					    no_task
+				    end;
+				ReduceTask -> 
+				    ReduceTask
+			    end;
+			false ->
+			    no_task
 		    end;
-		MapTask -> MapTask
+		MapTask -> 
+		    MapTask
 	    end;
-	SplitTask -> SplitTask
+	SplitTask -> 
+	    SplitTask
     end.
 					
 
@@ -576,6 +594,35 @@ handle_call({exists_task, JobId, TaskType, InputPath}, _From, State) ->
 	    {reply, true, State}
     end;
 
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Finds a task from the task table with TaskType and InputPath
+%% if it exists and returns true, otherwise false.
+%% 
+%% @end
+%%--------------------------------------------------------------------
+handle_call({task_type_done, TaskType}, _From, State) ->
+    F = fun() ->
+		MatchHead = #task{task_id = '$1',
+ 				  job_id = '_',
+ 				  task_type = '$2',
+ 				  input_path = '_',
+ 				  current_state = '$3',
+ 				  priority = '_'},
+	       	Guard1 = {'==', '$2', TaskType},
+		Guard2 = {'==', '$3', done},
+		Result = '$1',
+ 	        mnesia:select(task, [{MatchHead, [Guard1, Guard2], [Result]}], 1, read)
+ 	end,
+    {atomic, Result} = mnesia:transaction(F),
+    case Result of
+	'$end_of_table' ->
+	    {reply, true, State};
+	_Task ->
+	    {reply, false, State}
+    end;
 
 %%--------------------------------------------------------------------
 %% @private

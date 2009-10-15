@@ -237,7 +237,6 @@ code_change(_OldVsn, State, _Extra) ->
 %% @end
 %%--------------------------------------------------------------------
 is_level_logging_on(Level, State) ->
-    io:format("Level: ~p State: ~p", [Level, State]),
     lists:member(Level, State#state.loggingLevel).
 
 %%--------------------------------------------------------------------

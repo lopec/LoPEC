@@ -20,7 +20,8 @@
         error/1,
         info/1,
         warning/1,
-	debug/1
+        debug/1,
+        set_logging_level/1
     ]).
 
 %% gen_server callbacks
@@ -81,7 +82,20 @@ warning(Msg) ->
 %% @end
 %%--------------------------------------------------------------------
 debug(Msg) ->
-    gen_server:cast(?MODULE, {info, Msg}).
+    gen_server:cast(?MODULE, {debug, Msg}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Changes the logging level of the logger, available levels are
+%% info, error, warning and debug
+%%
+%% @spec set_logging_level(NewLevel) -> ok.
+%%  Level = list()
+%% @end
+%%--------------------------------------------------------------------
+set_logging_level(NewLevel) ->
+    gen_server:cast(?MODULE, {new_level, NewLevel}).
+
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -101,15 +115,18 @@ debug(Msg) ->
 init(no_args) ->
     error_logger:logfile({open, node()}),
     error_logger:tty(true),
-    %TODO receive node info from argument
-    %TODO state is probably deprecated now, since we use global registering instead
-    State = #state{logProcess = ?MODULE, logNode = 'logger@localhost'},
+
+    %TODO add module information logging level
+    State = #state{loggingLevel = [error, info, warning, debug]},
+
+    %register the externalLogger if we are not the logger process
     case "logger" == lists:takewhile(fun(X)->X /= $@ end, atom_to_list(node())) of
         true -> info("I am the externalLogger"),
-                global:register_name(externalLoggerPID, self()),
-                ok;
+            global:register_name(externalLoggerPID, self()),
+            ok;
         false -> error_logger:add_report_handler(externalLogger, State)
     end,
+
     info("Chronicle application started"),
     {ok, State}.
 
@@ -133,31 +150,32 @@ handle_call(_Request, _From, State) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Handling casted messages
+%% Handling casted messages, checks to see if Level is in the logging levels of
+%% state
 %%
-%% @spec handle_cast(Msg, State) -> {noreply, State} |
+%% @spec handle_cast(Level, State) -> {noreply, State} |
 %%                                  {noreply, State, Timeout} |
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({error, Msg}, State) ->
-    error_logger:error_report(Msg),
-    {noreply, State};
-handle_cast({error, From, Msg}, State) ->
-    error_logger:error_report([From, Msg]),
-    {noreply, State};
-handle_cast({info, Msg}, State) ->
-    error_logger:info_report(Msg),
-    {noreply, State};
-handle_cast({info, From, Msg}, State) ->
-    error_logger:info_report([From, Msg]),
-    {noreply, State};
-handle_cast({warning, From, Msg}, State) ->
-    error_logger:warning_report([From, Msg]),
-    {noreply, State};
-handle_cast({warning, Msg}, State) ->
-    error_logger:warning_report(Msg),
-    {noreply, State}.
+handle_cast({new_level, NewLevel}, State) ->
+    {noreply, State#state{loggingLevel = NewLevel}};
+handle_cast({Level, Msg}, State) ->
+    case is_level_logging_on(Level, State) of
+        true ->
+            error_report_message(Level, Msg),
+            {noreply, State};
+        false ->
+            {noreply, State}
+    end;
+handle_cast({Level, From, Msg}, State) ->
+    case is_level_logging_on(Level, State) of
+        true ->
+            error_report_message(Level, [From, Msg]),
+            {noreply, State};
+        false ->
+            {noreply, State}
+    end.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -191,6 +209,8 @@ terminate(Reason, State) ->
         true -> ok;
         false -> error_logger:delete_report_handler(externalLogger)
     end,
+
+    %close the logfile
     error_logger:logfile(close),
     ok.
 
@@ -208,3 +228,34 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Checks to see if logging is turned on for Level
+%%
+%% @spec is_level_logging_on(Level, State) -> false | true
+%% @end
+%%--------------------------------------------------------------------
+is_level_logging_on(Level, State) ->
+    io:format("Level: ~p State: ~p", [Level, State]),
+    lists:member(Level, State#state.loggingLevel).
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Calls the correct error_logger reoport function depending on Level.
+%%
+%% @spec error_report_message(info, Msg) -> ok.
+%%       error_report_message(debug, Msg) -> ok.
+%%       error_report_message(error, Msg) -> ok.
+%%       error_report_message(warning, Msg) -> ok.
+%% @end
+%%--------------------------------------------------------------------
+error_report_message(info, Msg) ->
+    error_logger:info_report(Msg);
+error_report_message(debug, Msg) ->
+    error_logger:info_report(Msg);
+error_report_message(error, Msg) ->
+    error_logger:error_report(Msg);
+error_report_message(warning, Msg) ->
+    error_logger:warning_report(Msg).

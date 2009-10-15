@@ -1,1 +1,1 @@
--record(state, {logNode, logProcess}).
+-record(state, {loggingLevel = []}). %TODO add modules level logging

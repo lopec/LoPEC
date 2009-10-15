@@ -9,7 +9,7 @@
 %%% Created : 1 Oct 2009 by Axel <>
 %%%-------------------------------------------------------------------
 -module(dispatcher_tests).
--include("../include/db.hrl").
+-include("../../master/include/db.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 init_per_test_case() ->    

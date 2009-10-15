@@ -45,7 +45,6 @@ accept_message(Msg) ->
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
-    chronicler:info(io_lib:format("Starting ECG Server~n", [])),
     gen_server:start_link({global, ?MODULE}, ?MODULE, [], []).
 
 

@@ -13,7 +13,7 @@
 %%%-------------------------------------------------------------------
 -module(dispatcher).
 -behaviour(gen_server).
--include("../include/db.hrl").
+-include("../../master/include/db.hrl").
 
 %% API
 -export([start_link/0, 
@@ -41,7 +41,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+    gen_server:start_link({global, ?MODULE}, ?MODULE, [], []).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -60,7 +60,7 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 create_task(TaskSpec) ->
-    gen_server:call(?MODULE, {create_task, TaskSpec}).
+    gen_server:call({global, ?MODULE}, {create_task, TaskSpec}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -70,7 +70,7 @@ create_task(TaskSpec) ->
 %% @end
 %%--------------------------------------------------------------------
 free_tasks(NodeId) ->
-    gen_server:cast(?MODULE, {free_tasks, NodeId}).
+    gen_server:cast({global, ?MODULE}, {free_tasks, NodeId}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -87,7 +87,7 @@ free_tasks(NodeId) ->
 %% @end
 %%--------------------------------------------------------------------
 add_job(JobSpec) ->
-    gen_server:call(?MODULE, {create_job, JobSpec}).
+    gen_server:call({global, ?MODULE}, {create_job, JobSpec}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -98,7 +98,7 @@ add_job(JobSpec) ->
 %% @end
 %%--------------------------------------------------------------------
 get_task(NodeId, PID) ->
-    gen_server:cast(?MODULE, {task_request, NodeId, PID}).
+    gen_server:cast({global, ?MODULE}, {task_request, NodeId, PID}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -109,7 +109,7 @@ get_task(NodeId, PID) ->
 %% @end
 %%--------------------------------------------------------------------
 report_task_done(TaskId) ->
-    gen_server:call(?MODULE, {task_done, TaskId, no_task}).
+    gen_server:call({global, ?MODULE}, {task_done, TaskId, no_task}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -120,7 +120,7 @@ report_task_done(TaskId) ->
 %% @end
 %%--------------------------------------------------------------------
 report_task_done(TaskId, TaskSpec) ->
-    gen_server:call(?MODULE, {task_done, TaskId, TaskSpec}).
+    gen_server:call({global, ?MODULE}, {task_done, TaskId, TaskSpec}).
 
 
 %%%===================================================================

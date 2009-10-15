@@ -22,7 +22,7 @@
 %%           Error
 %% --------------------------------------------------------------------
 start(_Type, _StartArgs) ->
-    chronicler:info(io_lib:format("Starting ECG Application~n", [])),
+    chronicler:info(io_lib:format("Started ECG Application~n", [])),
     Result = ecg_sup:start_link(),
     case Result of
 	{ok, Pid} ->

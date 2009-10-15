@@ -21,7 +21,6 @@
 %% External functions
 %% ====================================================================
 start_link() ->
-    chronicler:info(io_lib:format("Starting ECG Supervisor~n", [])),
     supervisor:start_link({local, ?MODULE}, ?MODULE, no_args).
 
 %% ====================================================================

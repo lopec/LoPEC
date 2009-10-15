@@ -24,7 +24,7 @@
 %%          {error, Reason}
 %% --------------------------------------------------------------------
 start(_Type, _StartArgs) ->
-    %io:format("Starting app~n", []),
+    chronicler:info("Master application started~n"),
     case master_sup:start_link() of
 	{ok, Pid} ->
 	    {ok, Pid};

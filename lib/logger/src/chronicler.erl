@@ -110,7 +110,7 @@ init(no_args) ->
                 ok;
         false -> error_logger:add_report_handler(externalLogger, State)
     end,
-    info("logger was started"),
+    info("Chronicle application started"),
     {ok, State}.
 
 %%--------------------------------------------------------------------

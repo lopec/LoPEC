@@ -23,7 +23,7 @@ test/%.beam : test/%.erl $(HEADERS) Makefile
 clean:
 	-rm -f ebin/*.beam test/*.beam
 
-test: $(OBJECTS) $(TESTOBJECTS)
+.PHONY test: $(OBJECTS) $(TESTOBJECTS)
 	erl -sname test -noshell -pa ../common/ebin -pa ../ecg/ebin -pa ../logger/ebin -pa ebin -pa test -eval 'eunit:test("test",[verbose])' -s init stop
 
 logger:

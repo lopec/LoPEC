@@ -185,6 +185,12 @@ handle_info(_Info, State) ->
 %%--------------------------------------------------------------------
 terminate(Reason, State) ->
     info({"logger was stopped~n Reason : ~p~n State: ~p~n", Reason, State}),
+
+    %removes the externalHander if we have registered it.
+    case "logger" == lists:takewhile(fun(X)->X /= $@ end, atom_to_list(node())) of
+        true -> ok;
+        false -> error_logger:delete_report_handler(externalLogger)
+    end,
     error_logger:logfile(close),
     ok.
 

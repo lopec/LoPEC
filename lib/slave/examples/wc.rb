@@ -2,15 +2,23 @@
 
 require 'fileutils'
 
-def split(input, output)
-  split_count = 0
+def split(input, output, split_count)
+  split_files = []
+  (0..(split_count.to_i-1)).each do | i |
+    split_files[i] = File.open(output + "/split#{i}", "w")
+  end
+  i = -1
   File.new(input, "r").each_line do | line |
-    split_name = "split#{split_count}"
-    File.open(output + "/" + split_name, "w") do | split_file |
-      split_file.puts("#{line}")
+    if i >= split_count.to_i - 1 then
+      i = 0
+    else
+      i += 1
     end
-    split_count += 1
-    puts("NEW_SPLIT #{split_name}")
+    split_files[i].puts("#{line}")
+  end
+  split_files.each_index do | i |
+    split_files[i].close
+    puts("NEW_SPLIT split#{i}")
   end
 end
 
@@ -72,7 +80,7 @@ begin
 
 case command
 when "split"
-  split(input, output)
+  split(input, output, ARGV[3])
 when "map"
   map(input, output)
 when "reduce"

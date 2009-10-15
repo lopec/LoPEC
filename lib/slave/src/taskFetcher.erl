@@ -25,6 +25,8 @@
 -define(WORKER, computingProcess).
 -define(TIMEOUT, 1000).
 
+-record(state, {work_state = no_task, timer}).
+
 %%%===================================================================
 %%% API
 %%%===================================================================
@@ -65,8 +67,8 @@ new_task(Id, Type, Path) ->
 %% @end
 %%--------------------------------------------------------------------
 init(no_args) ->
-    timer:send_interval(1000, poll),
-    {ok, no_task}.
+    {ok, TimerRef} = timer:send_interval(1000, poll),
+    {ok, #state{timer = TimerRef}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -99,13 +101,14 @@ handle_call({request, new_task, Id, Type, Path}, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({_Pid, _ExitStatus, {JobId, TaskId}}, State) ->
+handle_cast({_Pid, _ExitStatus, {_JobId, TaskId}}, State) ->
     supervisor:terminate_child(?DYNSUP, ?WORKER),
     supervisor:delete_child(?DYNSUP, ?WORKER),
     dispatcher:report_task_done(TaskId),
     chronicler:info(io_lib:format("ololo: ~p~n", [State])),
+    {ok, Timer} = timer:send_interval(1000, poll),
     request_task(),
-    {noreply, no_task}.
+    {noreply, #state{work_state = no_task, timer = Timer}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -117,12 +120,13 @@ handle_cast({_Pid, _ExitStatus, {JobId, TaskId}}, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(poll, no_task) ->
+handle_info(poll, State = #state{work_state = no_task}) ->
     request_task(),
-    {noreply, no_task};
-handle_info({task_response, Task}, _State) ->
+    {noreply, State};
+handle_info({task_response, Task}, State) ->
     start_task(Task),
-    {noreply, task};
+    timer:cancel(State#state.timer),
+    {noreply, State#state{work_state = task}};
 handle_info(_Reason, State) ->
     {noreply, State}.
 
@@ -174,7 +178,7 @@ request_task() ->
 %% @end
 %%--------------------------------------------------------------------
 
-give_task({JobId, TaskId}, Type, Path) ->
+give_task({JobId, _TaskId}, Type, Path) ->
     dispatcher:create_task({JobId, Type,
 			    "tmp/" ++ integer_to_list(JobId) ++ Path, 1}).
 

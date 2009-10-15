@@ -2,16 +2,14 @@
 -include_lib("eunit/include/eunit.hrl").
 -include("../include/db.hrl").
 
-add_job_and_task_test() ->   
+add_job_and_task_test() ->
     db:start(),
     db:create_tables(),
-    
-    %logger:init(no_args),
 
     Job1 = {ray_tracer, 15},
     JobId1 = db:add_job(Job1),
      
-    Task1 = {JobId1, mapping, './din_pappa', 20},
+    Task1 = {JobId1, reduce, './din_pappa', 20},
     
     % Add one task
     TaskId1 = db:add_task(Task1),
@@ -28,10 +26,10 @@ add_job_and_task_test() ->
     ?assertEqual(JobId1, GetTask1#task.job_id).
 
 add_tasks_test() ->
-    Task2 = {3874, mapping, './din_pappa', 20},
-    Task3 = {598, mapping, './din_pappa', 20},
-    Task4 = {1945, mapping, './din_pappa', 20},
-    Task5 = {5698, mapping, './din_pappa', 20},
+    Task2 = {3874, map, './din_pappa', 20},
+    Task3 = {598, reduce, './din_pappa', 20},
+    Task4 = {1945, finalize, './din_pappa', 20},
+    Task5 = {5698, split, './din_pappa', 20},
 
     % Add some more tasks
     _TaskId2 = db:add_task(Task2),

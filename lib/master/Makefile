@@ -9,7 +9,7 @@ TESTOBJECTS= $(TESTFILES:test/%.erl=test/%.beam)
 
 build: $(OBJECTS)
 
-all: $(OBJECTS) permissions test docs
+all: $(OBJECTS) $(TESTOBJECTS) permissions test docs
 
 permissions:
 	chmod 400 ~/.erlang.cookie

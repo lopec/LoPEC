@@ -11,7 +11,7 @@ DOC_OPTS=
 
 build: $(OBJECTS)
 
-all: $(OBJECTS) port test docs
+all: $(OBJECTS) $(TESTOBJECTS) port test docs
 
 ebin/%.beam : src/%.erl $(HEADERS) Makefile
 	erlc $(ERLC_FLAGS) -o ebin/ $<

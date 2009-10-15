@@ -14,7 +14,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/4, stop/0]).
+-export([start_link/5, stop/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -33,31 +33,32 @@
 %% is the first argument, Arg1 is the second and Arg2 is the third
 %% argument. So the os call will look like "Path Op Arg1 Arg2".
 %%
-%% @spec start_link(Path, Op, Arg1, Arg2) -> {ok, Pid} |
+%% @spec start_link(Path, Op, Arg1, Arg2, LOOOOOOOOOOOOOOOOOOOOOL) -> {ok, Pid} |
 %%                                  ignore |
 %%                               {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(Path, Op, JobId, InputPath) ->
+start_link(Path, Op, JobId, InputPath, TaskId) ->
     StringId = integer_to_list(JobId),
     {ok, Root} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
-    Prog = Root ++ "programs/" ++ atom_to_list(Path),
+    Prog = Root ++ "programs/" ++ atom_to_list(Path) ++ "/script.sh",
     case Op of
 	split ->
-	    LoadPath = Root ++ "tmp/" ++ StringId ++ "/" ++ InputPath,
+	    LoadPath = Root ++ InputPath,
 	    SavePath = Root ++ "tmp/" ++ StringId ++ "/map/";
 	map ->
-	    LoadPath = Root ++ "tmp/" ++ StringId ++ "/map/" ++ InputPath,
+	    LoadPath = Root ++ InputPath,
 	    SavePath = Root ++ "tmp/" ++ StringId ++ "/reduce/";
 	reduce ->
-	    LoadPath = Root ++ "tmp/" ++ StringId ++ "/reduce/" ++ InputPath,
+	    LoadPath = Root ++ InputPath,
 	    SavePath = Root ++ "tmp/" ++ StringId ++ "/results/";
 	finalize ->
-	    LoadPath = Root ++ "tmp/" ++ StringId ++ "/results/",
+	    filelib:ensure_dir(Root ++ "results/" ++ StringId ++ "/" ++ atom_to_list(Path)),
+	    LoadPath = Root ++ InputPath,
 	    SavePath = Root ++ "results/" ++ StringId
     end,
     gen_server:start_link({local, ?SERVER},?MODULE,
-			  [Prog, atom_to_list(Op), LoadPath, SavePath, JobId], []).
+			  [Prog, atom_to_list(Op), LoadPath, SavePath, JobId, TaskId], []).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -85,11 +86,19 @@ stop() ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([Path, Op, LoadPath, SavePath, JobId]) ->
+init([Path, "split", LoadPath, SavePath, JobId, TaskId]) ->
+    {ok, Val} = configparser:read_config("/etc/clusterbusters.conf", split_value),
+    chronicler:info(io_lib:format("Path: ~ts~nOperation: ~ts~nLoadpath: ~ts~nSavepath: ~ts~nJobId: ~p~n", [Path, "split", LoadPath, SavePath, JobId])),
     open_port({spawn_executable, Path},
-	      [use_stdio, exit_status,
+	      [use_stdio, exit_status, {line, 512},
+	       {args, ["split", LoadPath, SavePath, integer_to_list(Val)]}]),
+    {ok, {JobId, TaskId}};
+init([Path, Op, LoadPath, SavePath, JobId, TaskId]) ->
+    chronicler:info(io_lib:format("Path: ~ts~nOperation: ~ts~nLoadpath: ~ts~nSavepath: ~ts~nJobId: ~p~n", [Path, Op, LoadPath, SavePath, JobId])),
+    open_port({spawn_executable, Path},
+	      [use_stdio, exit_status, {line, 512},
 	       {args, [Op, LoadPath, SavePath]}]),
-    {ok, JobId}.
+    {ok, {JobId, TaskId}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -135,27 +144,27 @@ handle_cast(_Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info({_Pid, {data, "NEW_SPLIT " ++ Data}}, State) ->
+handle_info({_Pid, {data, {_Flag, "NEW_SPLIT " ++ Data}}}, State) ->
     chronicler:info(io_lib:format("SPLIT: New map task: ~ts~n", [Data])),
-    taskFetcher:new_job(State, "map", Data),
+    taskFetcher:new_task(State, map, "/map/" ++ Data),
     {noreply, State};
-handle_info({_Pid, {data, "NEW_REDUCE_TASK " ++ Data}}, State) ->
+handle_info({_Pid, {data, {_Flag, "NEW_REDUCE_TASK " ++ Data}}}, State) ->
     chronicler:info(io_lib:format("MAP: New reduce task: ~ts~n", [Data])),
-    taskFetcher:new_job(State, "reduce", Data),
+    taskFetcher:new_task(State, reduce, "/reduce/" ++ Data),
     {noreply, State};
-handle_info({_Pid, {data, "NEW_REDUCE_RESULT " ++ Data}}, State) ->
+handle_info({_Pid, {data, {_Flag, "NEW_REDUCE_RESULT " ++ Data}}}, State) ->
     chronicler:info(io_lib:format("REDUCE: New finalize task: ~ts~n", [Data])),
-    taskFetcher:new_job(State, "finalize", Data),
+    taskFetcher:new_task(State, finalize, "/results/"),
     {noreply, State};
-handle_info({_Pid, {data, "ERROR " ++ Data}}, State) ->
+handle_info({_Pid, {data, {_Flag, "ERROR " ++ Data}}}, State) ->
     chronicler:info(io_lib:format("ERROR: ~ts~n", [Data])),
     {noreply, State};
 handle_info({Pid, {exit_status, Status}}, State) ->
     chronicler:info(io_lib:format("Process ~p exited with signal: ~p~n", [Pid, Status])),
-    gen_server:cast(?FETCHER, {self(), done}),
+    gen_server:cast(?FETCHER, {self(), done, State}),
     {stop, normal, State};
-handle_info(Data, State) ->
-    chronicler:info(io_lib:format("Something: ~ts~n", [Data])),
+handle_info({_Pid, {data, {_Flag, Data}}}, State) ->
+    chronicler:info(io_lib:format("PORT PRINTOUT: ~ts~n", [Data])),
     {noreply, State}.
 
 %%--------------------------------------------------------------------

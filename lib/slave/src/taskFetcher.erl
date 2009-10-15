@@ -99,9 +99,11 @@ handle_call({request, new_task, Id, Type, Path}, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({_Pid, _ExitStatus}, _State) ->
+handle_cast({_Pid, _ExitStatus, {JobId, TaskId}}, State) ->
     supervisor:terminate_child(?DYNSUP, ?WORKER),
     supervisor:delete_child(?DYNSUP, ?WORKER),
+    dispatcher:report_task_done(TaskId),
+    chronicler:info(io_lib:format("ololo: ~p~n", [State])),
     request_task(),
     {noreply, no_task}.
 
@@ -172,8 +174,9 @@ request_task() ->
 %% @end
 %%--------------------------------------------------------------------
 
-give_task(Id, Type, Path) ->
-    dispatcher:create_task({Id, Type, Path, 1}).
+give_task({JobId, TaskId}, Type, Path) ->
+    dispatcher:create_task({JobId, Type,
+			    "tmp/" ++ integer_to_list(JobId) ++ Path, 1}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -183,11 +186,11 @@ give_task(Id, Type, Path) ->
 %% @end
 %%--------------------------------------------------------------------
 
-start_task({_Lool, _TaskId, JobId, Op, Path, Name}) ->
+start_task({_Lool, TaskId, JobId, Op, Path, Name}) ->
     ChildSpec = {?WORKER,
 		 {?WORKER,
 		  start_link,
-		  [Name, Op, JobId, Path]},
+		  [Name, Op, JobId, Path, TaskId]},
 		 transient,
 		 1,
 		 worker,

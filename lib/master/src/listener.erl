@@ -70,17 +70,18 @@ init(_Args) ->
 handle_call({new_job, JobType, InputData}, _From, State) ->
     JobId = dispatcher:add_job({JobType, 0}),
     % Read the structurepath from configfile
-    {ok, Root} = 
+    {ok, Root} =
         configparser:read_config("/etc/clusterbusters.conf", cluster_root),
     % Make the directory-structure
     JobIdString = lists:flatten(io_lib:format("~p", [JobId])),
     filelib:ensure_dir(Root ++ "tmp/" ++ JobIdString ++ "/map/"),
     filelib:ensure_dir(Root ++ "tmp/" ++ JobIdString ++ "/reduce/"),
-    filelib:ensure_dir(Root ++ "tmp/" ++ JobIdString ++ "/input/"), 
+    filelib:ensure_dir(Root ++ "tmp/" ++ JobIdString ++ "/input/"),
+    filelib:ensure_dir(Root ++ "tmp/" ++ JobIdString ++ "/results/"),
     % Move the files to the right thing
     file:copy(InputData, Root ++ "tmp/" ++ JobIdString ++ "/input/data.dat"),
     dispatcher:create_task({JobId, split, 
-                            Root++"tmp/"++JobIdString++"/input/data.dat", 0}),
+                            "tmp/"++JobIdString++"/input/data.dat", 0}),
     {reply, JobId, State}.
 
 %%------------------------------------------------------------------------------

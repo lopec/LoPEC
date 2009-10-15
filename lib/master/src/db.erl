@@ -118,9 +118,26 @@ delete_tables() ->
 get_job_info(JobId) ->
     gen_server:call(?SERVER, {get_job_info, JobId}).
 
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Retrieves a job id.
+%% 
+%% @spec get_job() -> JobId::integer() | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
 get_job() ->
     gen_server:call(?SERVER, {get_job}).
 
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Lists all jobs in the job table.
+%% 
+%% @spec list_jobs() -> List | {error, Error}
+%%               List = [JobId::integer()]
+%% @end
+%%--------------------------------------------------------------------
 list_jobs() ->
     gen_server:call(?SERVER, {list_jobs}).
 
@@ -222,7 +239,25 @@ add_task({JobId, TaskType, InputPath, Priority}) ->
 %% @end
 %%--------------------------------------------------------------------
 get_task(NodeId) ->
-    gen_server:call(?SERVER, {get_task, NodeId}).
+    Split = gen_server:call(?SERVER, {get_task, split, NodeId}),
+    case Split of
+	no_task ->
+	    Map = gen_server:call(?SERVER, {get_task, map, NodeId}),
+	    case Map of
+		no_task ->
+		    Reduce = gen_server:call(
+			       ?SERVER, {get_task, reduce, NodeId}),
+		    case Reduce of
+			no_task ->
+			    gen_server:call(
+			      ?SERVER, {get_task, finalize, NodeId});
+			ReduceTask -> ReduceTask
+		    end;
+		MapTask -> MapTask
+	    end;
+	SplitTask -> SplitTask
+    end.
+					
 
 %%--------------------------------------------------------------------
 %% @private
@@ -493,16 +528,17 @@ handle_call({add_task, JobId, TaskType, InputPath, CurrentState,
 %% 
 %% @end
 %%--------------------------------------------------------------------
-handle_call({get_task, NodeId}, _From, State) ->
+handle_call({get_task, TaskType, NodeId}, _From, State) ->
     F = fun() ->
 		MatchHead = #task{task_id = '$1',
  				  job_id = '_',
- 				  task_type = '_',
+ 				  task_type = '$2',
  				  input_path = '_',
  				  current_state = available,
  				  priority = '_'},
- 		Result = '$1',
- 	        mnesia:select(task, [{MatchHead, [], [Result]}], 1, read)
+		Guard = {'==', '$2', TaskType},
+		Result = '$1',
+ 	        mnesia:select(task, [{MatchHead, [Guard], [Result]}], 1, read)
  	end,
     Result = mnesia:transaction(F),
     case Result of
@@ -639,7 +675,7 @@ handle_call({list_node_tasks, NodeId}, _From, State) ->
 				      [Result]}])
  	end,
     {atomic, Result} = mnesia:transaction(F),
-    {reply, Result, State}.
+    {reply, Result, State};
 
 %%--------------------------------------------------------------------
 %% @private
@@ -649,7 +685,7 @@ handle_call({list_node_tasks, NodeId}, _From, State) ->
 %% 
 %% @end
 %%--------------------------------------------------------------------
-handle_call(Msg, State) ->
+handle_call(Msg, _From, State) ->
     chronicler:debug(io_lib:format(
 		       "db:Received unknown call message: ~p~n", [Msg])),
     {noreply, State}.

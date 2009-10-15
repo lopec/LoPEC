@@ -27,7 +27,8 @@ def map(input, output)
   word_count = Hash.new
   File.new(input, "r").each_line do | line |
     line.split.each do | word |
-      word_count[word] = word_count[word].to_i+1
+      normalized = word.gsub(/[\W]/, '').downcase
+      word_count[normalized] = word_count[normalized].to_i+1
     end
   end
   word_count.each_pair do | key, value |

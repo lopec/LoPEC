@@ -158,11 +158,12 @@ handle_cast({task_request, NodeId, From}, _State) ->
 %% @doc
 %% Un-assigns all tasks assigned to the specified node.
 %%
-%% @spec handle_cast({free_tasks, NodeId}, State) ->  db:free_tasks()
+%% @spec handle_cast({free_tasks, NodeId}, State) ->  {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({free_tasks, NodeId}, _State) ->
-    db:free_tasks(NodeId);
+handle_cast({free_tasks, NodeId}, State) ->
+    db:free_tasks(NodeId),
+    {noreply, State};
 %%--------------------------------------------------------------------
 %% @doc
 %% Logs and discards unexpected messages.

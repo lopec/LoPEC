@@ -7,7 +7,7 @@ HEADERS= $(wildcard include/*.hrl)
 OBJECTS= $(SOURCES:src/%.erl=ebin/%.beam)
 TESTOBJECTS= $(TESTFILES:test/%.erl=test/%.beam)
 
-build: $(OBJECTS)
+build: $(OBJECTS) $(TESTOBJECTS)
 
 all: $(OBJECTS) $(TESTOBJECTS) permissions test docs
 
@@ -23,7 +23,8 @@ test/%.beam : test/%.erl $(HEADERS) Makefile
 clean:
 	-rm -f ebin/*.beam test/*.beam
 
-.PHONY test: $(OBJECTS) $(TESTOBJECTS)
+.PHONY: test
+test: $(OBJECTS) $(TESTOBJECTS)
 	erl -sname test -noshell -pa ../common/ebin -pa ../ecg/ebin -pa ../logger/ebin -pa ebin -pa test -eval 'eunit:test("test",[verbose])' -s init stop
 
 logger:

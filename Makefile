@@ -4,6 +4,9 @@ build:
 all:
 	$(MAKE) -C lib all
 
+test:
+	$(MAKE) -C lib test
+
 clean:
 	$(MAKE) -C lib clean
 

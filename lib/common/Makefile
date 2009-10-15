@@ -9,7 +9,7 @@ TESTOBJECTS= $(TESTFILES:test/%.erl=test/%.beam)
 OBJECTS= $(SOURCES:src/%.erl=ebin/%.beam)
 DOC_OPTS=
 
-build: $(OBJECTS)
+build: $(OBJECTS) $(TESTOBJECTS)
 
 all: $(OBJECTS) $(TESTOBJECTS) test docs
 
@@ -22,7 +22,8 @@ test/%.beam : test/%.erl $(HEADERS) Makefile
 clean:
 	rm -f ebin/*.beam test/*.beam
 
-.PHONY test: $(TESTOBJECTS)
+.PHONY: test
+test: $(OBJECTS) $(TESTOBJECTS)
 	erl -noshell -pa ebin -pa tests -eval 'eunit:test("test",[verbose])' -s init stop
 
 docs: 

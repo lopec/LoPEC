@@ -223,11 +223,36 @@ set_job_input_path(JobId, InputPath) ->
 %%                 TaskType = mapping | reducing
 %% @end
 %%--------------------------------------------------------------------
+add_task({JobId, reduce, InputPath, Priority}) ->
+    Exists = gen_server:call(?SERVER, 
+			     {exists_task, JobId, reduce, InputPath}),
+    case Exists of
+	false ->
+	    gen_server:call(?SERVER, {add_task, JobId, 
+				      reduce, InputPath, 
+				      available, Priority});
+	true ->
+	    ok
+    end;
+
+add_task({JobId, finalize, InputPath, Priority}) ->
+    Exists = gen_server:call(?SERVER, 
+			     {exists_finalize, JobId}),
+    case Exists of
+	false ->
+	    gen_server:call(?SERVER, {add_task, JobId, 
+				      finalize, InputPath, 
+				      available, Priority});
+	true ->
+	    ok
+    end;
+
+
 add_task({JobId, TaskType, InputPath, Priority}) ->
     gen_server:call(?SERVER, {add_task, JobId, 
 			      TaskType, InputPath, 
 			      available, Priority}).
-
+       
 %%--------------------------------------------------------------------
 %% @doc
 %%
@@ -518,6 +543,68 @@ handle_call({add_task, JobId, TaskType, InputPath, CurrentState,
     add_assigned_task_on_server(TaskId, JobId, undefined),
     chronicler:debug(io_lib:format("db:Added task: ~p~n", [TaskId])),
     {reply, TaskId, State};
+
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Finds a task from the task table with TaskType and InputPath
+%% if it exists and returns true, otherwise false.
+%% 
+%% @end
+%%--------------------------------------------------------------------
+handle_call({exists_task, JobId, TaskType, InputPath}, _From, State) ->
+    F = fun() ->
+		MatchHead = #task{task_id = '_',
+ 				  job_id = '$1',
+ 				  task_type = '$2',
+ 				  input_path = '$3',
+ 				  current_state = '_',
+ 				  priority = '_'},
+		Guard1 = {'==', '$1', JobId},
+		Guard2 = {'==', '$2', TaskType},
+		Guard3 = {'==', '$3', InputPath},
+		Result = '$1',
+ 	        mnesia:select(task, [{MatchHead, [Guard1, Guard2, Guard3], [Result]}], 1, read)
+ 	end,
+    {atomic, Result} = mnesia:transaction(F),
+    case Result of
+	'$end_of_table' ->
+	    {reply, false, State};
+	_Task ->
+	    {reply, true, State}
+    end;
+
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Returns true if JobId has a finalize task, otherwise false
+%% 
+%% @end
+%%--------------------------------------------------------------------
+handle_call({exists_finalize, JobId}, _From, State) ->
+    F = fun() ->
+		MatchHead = #task{task_id = '_',
+ 				  job_id = '$1',
+ 				  task_type = '$2',
+ 				  input_path = '_',
+ 				  current_state = '_',
+ 				  priority = '_'},
+		Guard1 = {'==', '$1', JobId},
+		Guard2 = {'==', '$2', finalize},
+		Result = '$1',
+ 	        mnesia:select(task, [{MatchHead, [Guard1, Guard2], [Result]}], 1, read)
+ 	end,
+    {atomic, Result} = mnesia:transaction(F),
+    case Result of
+	'$end_of_table' ->
+	    {reply, false, State};
+	_Task ->
+	    {reply, true, State}
+    end;
 
 %%--------------------------------------------------------------------
 %% @private

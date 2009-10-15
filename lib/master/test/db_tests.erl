@@ -30,12 +30,20 @@ add_tasks_test() ->
     Task3 = {598, reduce, './din_pappa', 20},
     Task4 = {1945, finalize, './din_pappa', 20},
     Task5 = {5698, split, './din_pappa', 20},
+    Task6 = {598, reduce, './din_pappa', 20},
+    Task7 = {1945, finalize, './BLARGHARH', 568},
 
     % Add some more tasks
     _TaskId2 = db:add_task(Task2),
     _TaskId3 = db:add_task(Task3),
     _TaskId4 = db:add_task(Task4),
     _TaskId5 = db:add_task(Task5),
+    _TaskId6 = db:add_task(Task6),
+
+    % Try to add another reduce and a finalize task, which shouldn't be added
+    % since we already have one exactly the same
+    _TaskId6 = db:add_task(Task6),
+    _TaskId7 = db:add_task(Task7),
 
     % There should be five tasks if we list them
     ?assertEqual(5, length(db:list_tasks())).

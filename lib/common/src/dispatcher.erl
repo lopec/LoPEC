@@ -163,18 +163,8 @@ handle_cast({task_request, NodeId, From}, State) ->
 %%--------------------------------------------------------------------
 handle_cast({free_tasks, NodeId}, State) ->
     db:free_tasks(NodeId),
-    {noreply, State};
-%%--------------------------------------------------------------------
-%% @doc
-%% Logs and discards unexpected messages.
-%%
-%% @spec handle_cast(Msg, State) ->  {noreply, State}
-%% @end
-%%--------------------------------------------------------------------
-handle_cast(Msg, State) ->
-    chronicler:debug(io_lib:format(
-		       "dispatcher: Wrong message received: ~p~n", [Msg])),
     {noreply, State}.
+
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -221,7 +211,21 @@ handle_call({create_task, TaskSpec}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({create_job, JobSpec}, _From, State) ->
     NewJobId = db:add_job(JobSpec),
-    {reply, NewJobId, State}.
+    {reply, NewJobId, State};
+%%--------------------------------------------------------------------
+%% @doc
+%% Logs and discards unexpected messages.
+%%
+%% @spec handle_call(Msg, From, State) ->  {noreply, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_call(Msg, From, State) ->
+    chronicler:warning(io_lib:format(
+                         "dispatcher: Wrong message received: ~p~n"
+                         "From: ~p~n", [Msg, From])),
+    {noreply, State}.
+
+
 
 %%%===================================================================
 %%% Internal functions

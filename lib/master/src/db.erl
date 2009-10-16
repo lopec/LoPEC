@@ -23,7 +23,8 @@
 -define(SERVER, db_server).
 
 %-ifdef(test).
--export([delete_tables/0, get_job_info/1, get_job/0, list_jobs/0, get_task_info/1]).
+-export([delete_tables/0, get_job_info/1, get_job/0, list_jobs/0, get_task_info/1,
+	list_task_type/1, check_done/1]).
 %-endif.
 
 %% APIs for management of the databases
@@ -270,16 +271,14 @@ get_task(NodeId) ->
 	    Map = gen_server:call(?SERVER, {get_task, map, NodeId}),
 	    case Map of
 		no_task ->
-		    DoneMap = gen_server:call(?SERVER, {task_type_done, map}),
+		    DoneMap = check_done(list_task_type(map)),
 		    case DoneMap of
 			true ->
 			    Reduce = gen_server:call(
 				       ?SERVER, {get_task, reduce, NodeId}),
 			    case Reduce of
 				no_task ->
-				    DoneReduce = gen_server:call(?SERVER, 
-								 {task_type_done,
-								  reduce}),
+				    DoneReduce = check_done(list_task_type(reduce)),
 				    case DoneReduce of
 					true ->
 					    gen_server:call(
@@ -301,6 +300,19 @@ get_task(NodeId) ->
 	    SplitTask
     end.
 					
+list_task_type(TaskType) ->
+    gen_server:call(?SERVER, {list_task_type, TaskType}).
+
+check_done(ListOfTasks) ->
+    Check = fun(H) ->
+		    case (db:get_task_state(H)) of
+			done ->
+			    true;
+			_NotDone ->
+			    false
+		    end
+	   end,
+    lists:all(Check, ListOfTasks).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -371,6 +383,7 @@ free_tasks(NodeId) ->
 		   set_task_state(H, available)
 	   end,
     lists:foreach(Free, ListOfNodeTasks),
+    chronicler:debug(io_lib:format('db:Released all tasks of node ~p~n', [NodeId])),
     ok.
 
 %%--------------------------------------------------------------------
@@ -603,26 +616,20 @@ handle_call({exists_task, JobId, TaskType, InputPath}, _From, State) ->
 %% 
 %% @end
 %%--------------------------------------------------------------------
-handle_call({task_type_done, TaskType}, _From, State) ->
+handle_call({list_task_type, TaskType}, _From, State) ->
     F = fun() ->
 		MatchHead = #task{task_id = '$1',
  				  job_id = '_',
  				  task_type = '$2',
  				  input_path = '_',
- 				  current_state = '$3',
+ 				  current_state = '_',
  				  priority = '_'},
-	       	Guard1 = {'==', '$2', TaskType},
-		Guard2 = {'==', '$3', done},
+	       	Guard = {'==', '$2', TaskType},
 		Result = '$1',
- 	        mnesia:select(task, [{MatchHead, [Guard1, Guard2], [Result]}], 1, read)
+ 	        mnesia:select(task, [{MatchHead, [Guard], [Result]}])
  	end,
     {atomic, Result} = mnesia:transaction(F),
-    case Result of
-	'$end_of_table' ->
-	    {reply, true, State};
-	_Task ->
-	    {reply, false, State}
-    end;
+    {reply, Result, State};
 
 %%--------------------------------------------------------------------
 %% @private

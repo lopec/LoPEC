@@ -1,18 +1,19 @@
 %%%-------------------------------------------------------------------
-%%% @author Henkan
+%%% @author Henkan <henkethalin@hotmail.com>
 %%% @doc
 %%% db.erl is the database API, and provides the necessary
 %%% functionality for the user to operate on the job and task tables.
 %%%  
-%%% For now, when you want to run the database, you start with
-%%% typing db:start() in your erlang shell. This will setup the schema
-%%% and start the mnesia application. Afterwards, type
-%%% db:create:tables() to create the physical tables on the disc.
-%%% The tables and stuff will be stored in ./Mnesia.nonode@nohost.
+%%% For now, when you want to run the database, you start with typing
+%%% db:start() in your erlang shell. This will setup the schema and
+%%% start the mnesia application. Afterwards, type db:create:tables()
+%%% to create the physical tables on the disc.  The tables and stuff
+%%% will be stored in ./Mnesia.nonode@nohost.
 %%% 
-%%% Note that you only need to create the tables once, afterwards
-%%% you start the database by simply typing db:start(), otherwise
+%%% Note that you only need to create the tables once, afterwards you
+%%% start the database by simply typing db:start(), otherwise
 %%% everything blows up.
+%%%
 %%% @end
 %%% Created : 30 Sep 2009 by Henkan
 %%%-------------------------------------------------------------------
@@ -23,8 +24,8 @@
 -define(SERVER, db_server).
 
 %-ifdef(test).
--export([delete_tables/0, get_job_info/1, get_job/0, list_jobs/0, get_task_info/1,
-	list_task_type/1, check_done/1]).
+-export([delete_tables/0, get_job_info/1, get_job/0, list_jobs/0,
+         get_task_info/1, list_task_type/1, check_done/1]).
 %-endif.
 
 %% APIs for management of the databases
@@ -181,12 +182,9 @@ remove_reservation(TaskId) ->
 %% properties. The server returns the generated id of the job.
 %% The JobType specifies what type of job it is, e.g. ray_tracer, etc.
 %%
-%% @spec add_job(
-%% { JobType::atom(),
-%%   Priority::integer()
-%% }) -> 
-%%   JobId::integer() | {error,Error}
-%%   JobType = any() 
+%% @spec add_job({JobType::atom(),
+%%                Priority::integer()}) -> 
+%%                           JobId::integer() | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 add_job({JobType, Priority}) ->
@@ -821,14 +819,17 @@ handle_call({list_node_tasks, NodeId}, _From, State) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
+%% Logs and discards unexpected messages.
 %%
-%% Catches all other handle_call-messages.
-%% 
+%% @spec handle_call(Msg, From, State) ->  {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call(Msg, _From, State) ->
-    chronicler:debug(io_lib:format(
-		       "db:Received unknown call message: ~p~n", [Msg])),
+handle_call(Msg, From, State) ->
+    chronicler:warning(io_lib:format(
+                         "~w:Received unexpected handle_call call.~n"
+                         "Message: ~p~n"
+                         "From: ~p~n",
+                         [?MODULE, Msg, From])),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -848,27 +849,31 @@ handle_cast(stop, State) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
+%% Logs and discards unexpected messages.
 %%
-%% Catches all other handle_cast-messages.
-%% 
+%% @spec handle_call(Msg, From, State) ->  {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    chronicler:debug(io_lib:format(
-		       "db:Received unknown cast message: ~p~n", [Msg])),
+    chronicler:warning(io_lib:format(
+                         "~w:Received unexpected handle_cast call.~n"
+                         "Message: ~p~n",
+                         [?MODULE, Msg])),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
+%% Logs and discards unexpected messages.
 %%
-%% Handling all non call/cast messages
-%% 
+%% @spec handle_info(Info, State) -> {noreply, State} 
 %% @end
 %%--------------------------------------------------------------------
-handle_info(Info, State) ->
-    chronicler:debug(io_lib:format(
-		       "db:Received unknown info message: ~p~n", [Info])),
+handle_info(Info, State) -> 
+    chronicler:warning(io_lib:format(
+                         "~w:Received unexpected handle_info call.~n"
+                         "Info: ~p~n",
+                         [?MODULE, Info])),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -888,17 +893,24 @@ terminate(_Reason, _State) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%%
 %% Convert process state when code is changed
-%% 
+%% Logs and discards unexpected messages.
+%%
+%% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% @end
 %%--------------------------------------------------------------------
-code_change(_OldVsn, State, _Extra) ->
+code_change(OldVsn, State, Extra) -> 
+    chronicler:warning(io_lib:format(
+                         "~w:Received unexpected code_change call.~n"
+                         "Old version: ~p~n"
+                         "Extra: ~p~n",
+                         [?MODULE, OldVsn, Extra])),
     {ok, State}.
 
-%%--------------------------------------------------------------------
+
+%%%===================================================================
 %%% Internal functions
-%%--------------------------------------------------------------------
+%%%===================================================================
 %%--------------------------------------------------------------------
 %% @private
 %% @doc

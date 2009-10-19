@@ -7,7 +7,7 @@
 %%% TODO: Once logger is up and running, stop function will log when 
 %%% application is stopped.
 %%% @end
-%%% Created : Oct 1, 2009 by Vasilij Savin <vasilij.savin@gmail.com>
+%%% Created : Oct 1, 2009 by Vasilij Savin
 %%%-------------------------------------------------------------------
 
 -module(master_node).

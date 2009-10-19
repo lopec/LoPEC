@@ -1,5 +1,6 @@
 %%%-------------------------------------------------------------------
-%%% @author Vasilij Savin, Gustav Simonsson <gusi7871@student.uu.se>
+%%% @author Vasilij Savin <vasilij.savin@gmail.com>
+%%% @author Gustav Simonsson <gusi7871@student.uu.se>
 %%% @doc
 %%% Master supervisor supervises WPM processes.
 %%% Currently there are 3 processes to monitor:

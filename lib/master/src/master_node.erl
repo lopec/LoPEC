@@ -1,5 +1,5 @@
 %%%-------------------------------------------------------------------
-%%% @author Vasilij Savin <>
+%%% @author Vasilij Savin <vasilij.savin@gmail.com>
 %%% @copyright (C) 2009, Vasilij Savin
 %%% @doc
 %%% This module handles start of master node application.
@@ -7,7 +7,7 @@
 %%% TODO: Once logger is up and running, stop function will log when 
 %%% application is stopped.
 %%% @end
-%%% Created : Oct 1, 2009 by Vasilij Savin <>
+%%% Created : Oct 1, 2009 by Vasilij Savin <vasilij.savin@gmail.com>
 %%%-------------------------------------------------------------------
 
 -module(master_node).

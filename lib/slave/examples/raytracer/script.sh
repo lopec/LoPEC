@@ -15,6 +15,7 @@ def split(input, output, split_count)
   end
   File.open(output + "/header", "w") do | header_file |
     header_file.puts("P2 #{side} #{side} 255\n")
+      puts("NEW_SPLIT header")
   end
 end
 
@@ -29,7 +30,8 @@ def map(input, output)
     start = scene_spec[1].to_i
     stop = scene_spec[2].to_i
     output_file = output + "/#{split_id}"
-    system("./oclRaytrace traceLines.cl #{start} #{stop} #{side} > #{output_file}")
+    prog_path = "/storage/test/programs/raytracer"
+    system("#{prog_path}/oclRaytrace #{prog_path}/traceLines.cl #{start} #{stop} #{side} > #{output_file}")
   end
   puts("NEW_REDUCE_TASK #{split_id}")
 end
@@ -37,7 +39,7 @@ end
 def reduce(input, output)
   split_id = input.split("/").last
   system("cp #{input} #{output}/#{split_id}")
-  puts("NEW_REDUCE_RESULT #{split_id}")
+  puts("NEW_REDUCE_RESULT #{output}")
 end
 
 def finalize(input, output)

@@ -1,12 +1,12 @@
 %%%-------------------------------------------------------------------
-%%% @author Bjorn Dahlman <>
+%%% @author Bjorn Dahlman <bjorn.dahlman@gmail.com>
 %%% @copyright (C) 2009, Bjorn Dahlman
 %%% @doc
 %%% A supervisor for dynamic processes spawning, called with
 %%% externally defined child specifications.
 %%% Currently only called by taskFetcher to spawn computingProcess.
 %%% @end
-%%% Created : 12 Oct 2009 by Bjorn Dahlman <>
+%%% Created : 12 Oct 2009 by Bjorn Dahlman <bjorn.dahlman@gmail.com>
 %%%-------------------------------------------------------------------
 -module(dynamicSupervisor).
 

@@ -94,7 +94,7 @@ add_job(JobSpec) ->
 %% Sends a message to the caller with the first available task.
 %% If no tasks are available, we just let the request time out.
 %%
-%% @spec get_task(NodeID, PID) -> {noreply, State} 
+%% @spec get_task(NodeID, PID) -> ok
 %% @end
 %%--------------------------------------------------------------------
 get_task(NodeId, PID) ->
@@ -105,7 +105,7 @@ get_task(NodeId, PID) ->
 %% Marks the task as being completely done. The results should be
 %% posted on storage before calling this method. 
 %% 
-%% @spec report_task_done(TaskID) -> {reply, ok, State}
+%% @spec report_task_done(TaskID) -> ok
 %% @end
 %%--------------------------------------------------------------------
 report_task_done(TaskId) ->
@@ -116,7 +116,7 @@ report_task_done(TaskId) ->
 %% Like report_task_done/1 except the node can ask to generate another
 %% task by providing a TaskSpec
 %%
-%% @spec report_task_done(TaskID, TaskSpec) -> {reply, ok, State}
+%% @spec report_task_done(TaskID, TaskSpec) -> ok
 %% @end
 %%--------------------------------------------------------------------
 report_task_done(TaskId, TaskSpec) ->

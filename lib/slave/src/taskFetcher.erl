@@ -89,7 +89,22 @@ handle_call({request, task}, _From, State) ->
     {reply, State, State};
 handle_call({request, new_task, Id, Type, Path}, _From, State) ->
     Reply = give_task(Id, Type, Path),
-    {reply, Reply, State}.
+    {reply, Reply, State};
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Logs and discards unexpected messages.
+%%
+%% @spec handle_call(Msg, From, State) ->  {noreply, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_call(Msg, From, State) ->
+    chronicler:warning(io_lib:format(
+                         "~w:Received unexpected handle_call call.~n"
+                         "Message: ~p~n"
+                         "From: ~p~n",
+                         [?MODULE, Msg, From])),
+    {noreply, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -108,7 +123,21 @@ handle_cast({_Pid, _ExitStatus, {_JobId, TaskId}}, State) ->
     chronicler:info(io_lib:format("ololo: ~p~n", [State])),
     {ok, Timer} = timer:send_interval(1000, poll),
     request_task(),
-    {noreply, #state{work_state = no_task, timer = Timer}}.
+    {noreply, #state{work_state = no_task, timer = Timer}};
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Logs and discards unexpected messages.
+%%
+%% @spec handle_call(Msg, From, State) ->  {noreply, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_cast(Msg, State) ->
+    chronicler:warning(io_lib:format(
+                         "~w:Received unexpected handle_cast call.~n"
+                         "Message: ~p~n",
+                         [?MODULE, Msg])),
+    {noreply, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -127,7 +156,19 @@ handle_info({task_response, Task}, State) ->
     start_task(Task),
     timer:cancel(State#state.timer),
     {noreply, State#state{work_state = task}};
-handle_info(_Reason, State) ->
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Logs and discards unexpected messages.
+%%
+%% @spec handle_info(Info, State) -> {noreply, State} 
+%% @end
+%%--------------------------------------------------------------------
+handle_info(Info, State) -> 
+    chronicler:warning(io_lib:format(
+                         "~w:Received unexpected handle_info call.~n"
+                         "Info: ~p~n",
+                         [?MODULE, Info])),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -137,22 +178,33 @@ handle_info(_Reason, State) ->
 %% terminate. It should be the opposite of Module:init/1 and do any
 %% necessary cleaning up. When it returns, the gen_server terminates
 %% with Reason. The return value is ignored.
+%% Logs and discards unexpected messages.
 %%
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(_Reason, _State) ->
+terminate(Reason, _State) -> 
+    chronicler:warning(io_lib:format(
+                         "~w:Received unexpected terminate call.~n"
+                         "Reason: ~p~n",
+                         [?MODULE, Reason])),
     ok.
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
 %% Convert process state when code is changed
+%% Logs and discards unexpected messages.
 %%
 %% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% @end
 %%--------------------------------------------------------------------
-code_change(_OldVsn, State, _Extra) ->
+code_change(OldVsn, State, Extra) -> 
+    chronicler:warning(io_lib:format(
+                         "~w:Received unexpected code_change call.~n"
+                         "Old version: ~p~n"
+                         "Extra: ~p~n",
+                         [?MODULE, OldVsn, Extra])),
     {ok, State}.
 
 %%%===================================================================

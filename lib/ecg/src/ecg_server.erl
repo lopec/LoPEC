@@ -1,10 +1,11 @@
 %%%-------------------------------------------------------------------
 %%% @author Gustav Simonsson <gusi7871@student.uu.se>
+%%% @author Vasilij Savin <vasilij.savin@gmail.com>
 %%% @doc
 %%% ElectroCardioGram - process that keeps track of all alive 
 %%% computational nodes
 %%% @end
-%%% Created : 29 Sep 2009 by Vasilij Savin <vasilij.savin@gmail.com>
+%%% Created : 29 Sep 2009 by Vasilij Savin 
 %%%-------------------------------------------------------------------
 -module(ecg_server).
 -behaviour(gen_server).

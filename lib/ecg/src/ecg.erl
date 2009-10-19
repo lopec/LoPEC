@@ -5,7 +5,7 @@
 %%% This module handles start of electrocardiogram application.
 %%% Currently it is not using any parameters.
 %%% @end
-%%% Created : Oct 5, 2009 by Vasilij Savin <vasilij.savin@gmail.com>
+%%% Created : Oct 5, 2009 by Vasilij Savin 
 %%%-------------------------------------------------------------------
 
 -module(ecg).

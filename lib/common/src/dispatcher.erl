@@ -9,7 +9,7 @@
 %%% nodes (by un-assigning them).
 %%% 
 %%% @end
-%%% Created : 30 Sep 2009 by Axel Andren <axelandren@gmail.com>
+%%% Created : 30 Sep 2009 by Axel Andren
 %%%-------------------------------------------------------------------
 -module(dispatcher).
 -behaviour(gen_server).

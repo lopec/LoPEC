@@ -163,6 +163,18 @@ handle_cast({task_request, NodeId, From}, State) ->
 %%--------------------------------------------------------------------
 handle_cast({free_tasks, NodeId}, State) ->
     db:free_tasks(NodeId),
+    {noreply, State};
+%%--------------------------------------------------------------------
+%% @doc
+%% Logs and discards unexpected messages.
+%%
+%% @spec handle_call(Msg, From, State) ->  {noreply, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_cast(Msg, State) ->
+    chronicler:warning(io_lib:format(
+                         "dispatcher:Received unrecognized cast message: ~p~n",
+                         [Msg])),
     {noreply, State}.
 
 
@@ -221,10 +233,9 @@ handle_call({create_job, JobSpec}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call(Msg, From, State) ->
     chronicler:warning(io_lib:format(
-                         "dispatcher: Wrong message received: ~p~n"
+                         "dispatcher:Received unrecognized call message: ~p~n"
                          "From: ~p~n", [Msg, From])),
     {noreply, State}.
-
 
 
 %%%===================================================================

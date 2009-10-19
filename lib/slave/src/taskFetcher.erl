@@ -1,5 +1,6 @@
 %%%-------------------------------------------------------------------
-%%% @author Bjorn Dahlman & Fredrik Andersson <sedrik@consbox.se>
+%%% @author Bjorn Dahlman <bjorn.dahlman@gmail.com>
+%%% @author Fredrik Andersson <sedrik@consbox.se>
 %%% @copyright (C) 2009, Bjorn Dahlman & Fredrik Andersson
 %%% @doc
 %%% The taskFetcher is responsible for fetching and adding tasks.

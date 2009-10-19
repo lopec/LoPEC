@@ -1,10 +1,10 @@
 %%%-------------------------------------------------------------------
-%%% @author Vasilij Savin, Gustav Simonsson <>
+%%% @author Gustav Simonsson <gusi7871@student.uu.se>
 %%% @doc
 %%% ElectroCardioGram - process that keeps track of all alive 
 %%% computational nodes
 %%% @end
-%%% Created : 29 Sep 2009 by Vasilij Savin <>
+%%% Created : 29 Sep 2009 by Vasilij Savin <vasilij.savin@gmail.com>
 %%%-------------------------------------------------------------------
 -module(ecg_server).
 -behaviour(gen_server).
@@ -100,10 +100,20 @@ handle_cast({new_node, Node}, _) ->
             ok
     end,
     {noreply, []};
-handle_cast(UnrecognisedMessage, _) ->
-    chronicler:info(io_lib:format
-                   ("Unrecognised cast: ~p ~n", [UnrecognisedMessage])),
-    {noreply, []}.
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Logs and discards unexpected messages.
+%%
+%% @spec handle_call(Msg, From, State) ->  {noreply, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_cast(Msg, State) ->
+    chronicler:warning(io_lib:format(
+                         "~w:Received unexpected handle_cast call.~n"
+                         "Message: ~p~n",
+                         [?MODULE, Msg])),
+    {noreply, State}.
 
 %% --------------------------------------------------------------------
 %% Function: handle_info/2
@@ -120,23 +130,53 @@ handle_info({nodedown, Node}, _) ->
     chronicler:info(io_lib:format
                    ("Node ~p just died. :(~n", [Node])),
     {noreply, []};
-handle_info(UnrecognisedMessage, _) ->
-    chronicler:info(io_lib:format
-                   ("Unrecognised info: ~p ~n", [UnrecognisedMessage])),
-    {noreply, []}.
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Logs and discards unexpected messages.
+%%
+%% @spec handle_info(Info, State) -> {noreply, State} 
+%% @end
+%%--------------------------------------------------------------------
+handle_info(Info, State) -> 
+    chronicler:warning(io_lib:format(
+                         "~w:Received unexpected handle_info call.~n"
+                         "Info: ~p~n",
+                         [?MODULE, Info])),
+    {noreply, State}.
 
-%% --------------------------------------------------------------------
-%% Function: terminate/2
-%% Description: Shutdown the server
-%% Returns: any (ignored by gen_server)
-%% --------------------------------------------------------------------
-terminate(_Reason, _State) ->
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% This function is called by a gen_server when it is about to
+%% terminate. It should be the opposite of Module:init/1 and do any
+%% necessary cleaning up. When it returns, the gen_server terminates
+%% with Reason. The return value is ignored.
+%% Logs and discards unexpected messages.
+%%
+%% @spec terminate(Reason, State) -> void()
+%% @end
+%%--------------------------------------------------------------------
+terminate(Reason, _State) -> 
+    chronicler:warning(io_lib:format(
+                         "~w:Received unexpected terminate call.~n"
+                         "Reason: ~p~n",
+                         [?MODULE, Reason])),
     ok.
 
-%% --------------------------------------------------------------------
-%% Func: code_change/3
-%% Purpose: Convert process state when code is changed
-%% Returns: {ok, NewState}
-%% --------------------------------------------------------------------
-code_change(_OldVsn, _State, _Extra) ->
-    {ok, []}.
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Convert process state when code is changed
+%% Logs and discards unexpected messages.
+%%
+%% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
+%% @end
+%%--------------------------------------------------------------------
+code_change(OldVsn, State, Extra) -> 
+    chronicler:warning(io_lib:format(
+                         "~w:Received unexpected code_change call.~n"
+                         "Old version: ~p~n"
+                         "Extra: ~p~n",
+                         [?MODULE, OldVsn, Extra])),
+    {ok, State}.

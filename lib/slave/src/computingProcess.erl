@@ -1,5 +1,5 @@
 %%%-------------------------------------------------------------------
-%%% @author Bjorn Dahlman <>
+%%% @author Bjorn Dahlman <bjorn.dahlman@gmail.com>
 %%% @copyright (C) 2009, Clusterbusters
 %%% @version 0.0.2
 %%% @doc

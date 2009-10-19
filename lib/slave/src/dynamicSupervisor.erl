@@ -6,7 +6,7 @@
 %%% externally defined child specifications.
 %%% Currently only called by taskFetcher to spawn computingProcess.
 %%% @end
-%%% Created : 12 Oct 2009 by Bjorn Dahlman <bjorn.dahlman@gmail.com>
+%%% Created : 12 Oct 2009 by Bjorn Dahlman
 %%%-------------------------------------------------------------------
 -module(dynamicSupervisor).
 

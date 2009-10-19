@@ -1,5 +1,5 @@
 %%%-------------------------------------------------------------------
-%%% @author Vasilij Savin, Gustav Simonsson <>
+%%% @author Vasilij Savin, Gustav Simonsson <gusi7871@student.uu.se>
 %%% @doc
 %%% Master supervisor supervises WPM processes.
 %%% Currently there are 3 processes to monitor:
@@ -7,7 +7,7 @@
 %%% DbDaemon   - interaction with DB
 %%% Dispatcher - listens to task requests from nodes  
 %%% @end
-%%% Created : Oct 2, 2009 by Vasilij Savin <> 
+%%% Created : Oct 2, 2009 by Vasilij Savin <vasilij.savin@gmail.com> 
 %%% -------------------------------------------------------------------
 -module(master_sup).
 -behaviour(supervisor).

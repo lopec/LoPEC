@@ -1,11 +1,11 @@
 %%%-------------------------------------------------------------------
-%%% @author Vasilij Savin <>
+%%% @author Vasilij Savin <vasilij.savin@gmail.com>
 %%% @copyright (C) 2009, Vasilij Savin
 %%% @doc
 %%% This module handles start of electrocardiogram application.
 %%% Currently it is not using any parameters.
 %%% @end
-%%% Created : Oct 5, 2009 by Vasilij Savin <>
+%%% Created : Oct 5, 2009 by Vasilij Savin <vasilij.savin@gmail.com>
 %%%-------------------------------------------------------------------
 
 -module(ecg).

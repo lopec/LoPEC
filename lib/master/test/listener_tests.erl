@@ -37,7 +37,7 @@ job_creation_test() ->
     {ok, Root} = 
         configparser:read_config("/etc/clusterbusters.conf", cluster_root),
     
-    InputFile = Root ++ "input.file",
+    InputFile = Root ++ "/etc/clusterbusters.conf",
     JobId = listener:new_job(raytracer, InputFile),
     Job = db:get_job_info(JobId),
     chronicler:info(Job),

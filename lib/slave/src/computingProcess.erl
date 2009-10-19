@@ -134,7 +134,7 @@ handle_cast(stop, State) ->
 %% @doc
 %% Logs and discards unexpected messages.
 %%
-%% @spec handle_call(Msg, From, State) ->  {noreply, State}
+%% @spec handle_cast(Msg, State) ->  {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->

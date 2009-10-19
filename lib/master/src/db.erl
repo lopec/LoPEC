@@ -451,7 +451,8 @@ init(_Args) ->
 %%
 %% Creates the necessary tables and the schema for the database on disc.
 %% Should only be called once for initialization.
-%%
+%% @spec handle_call(create_tables, _From, State) ->
+%%                                 {reply, tables_created, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_call(create_tables, _From, State) ->
@@ -473,7 +474,8 @@ handle_call(create_tables, _From, State) ->
 %% @doc
 %%
 %% Gets a whole job record given an id.
-%%
+%% @spec handle_call({get_job_info, JobID}, _From, State) -> 
+%%                                  {reply, Job, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_call({get_job_info, JobId}, _From, State) ->
@@ -485,7 +487,9 @@ handle_call({get_job_info, JobId}, _From, State) ->
 %% @doc
 %%
 %% Gets a jobId.
-%%
+%% @spec handle_call({get_job}, _From, State) -> 
+%%                                  {reply, FirstID, State} |
+%%                                  {reply, no_job, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_call({get_job}, _From, State) ->
@@ -514,7 +518,9 @@ handle_call({get_job}, _From, State) ->
 %%
 %% Generates a unique id for a job, and adds the job to the database on
 %% the server.
-%%
+%% @spec handle_call({add_job, JobType, InputPath, Priority},
+%%                                                   _From, State) -> 
+%%                                  {reply, JobID, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_call({add_job, JobType, InputPath, Priority}, 
@@ -530,7 +536,9 @@ handle_call({add_job, JobType, InputPath, Priority},
 %% @doc
 %%
 %% Sets the input path of a job.
-%%
+%% @spec handle_call({set_job_input_path, JobId, InputPath},
+%%                                                     _From, State) -> 
+%%                                  {reply, ok, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_call({set_job_input_path, JobId, InputPath}, _From, State) ->
@@ -547,6 +555,15 @@ handle_call({set_job_input_path, JobId, InputPath}, _From, State) ->
     mnesia:transaction(F),
     {reply, ok, State};
 
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Lists all jobs.
+%% @spec handle_call({list_jobs}, _From, State) -> 
+%%                                  {reply, Result, State}
+%% @end
+%%--------------------------------------------------------------------
 handle_call({list_jobs}, _From, State) ->
     F = fun() ->
 		mnesia:all_keys(job)
@@ -559,7 +576,9 @@ handle_call({list_jobs}, _From, State) ->
 %% @doc
 %%
 %% Adds a task to the task table and correctly sets its relations.
-%% 
+%% @spec handle_call({add_task, JobId, TaskType, InputPath,  
+%%	             CurrentState, Priority}, _From, State) -> 
+%%                                  {reply, TaskID, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_call({add_task, JobId, TaskType, InputPath, CurrentState, 
@@ -580,7 +599,10 @@ handle_call({add_task, JobId, TaskType, InputPath, CurrentState,
 %%
 %% Finds a task from the task table with TaskType and InputPath
 %% if it exists and returns true, otherwise false.
-%% 
+%% @spec handle_call({exists_task, JobId, TaskType, InputPath},
+%%                                                     _From, State) -> 
+%%                                  {reply, false, State} |
+%%                                  {reply, true, State} 
 %% @end
 %%--------------------------------------------------------------------
 handle_call({exists_task, JobId, TaskType, InputPath}, _From, State) ->
@@ -611,7 +633,8 @@ handle_call({exists_task, JobId, TaskType, InputPath}, _From, State) ->
 %%
 %% Finds a task from the task table with TaskType and InputPath
 %% if it exists and returns true, otherwise false.
-%% 
+%% @spec handle_call({list_task_type, TaskType}, _From, State) -> 
+%%                                  {reply, Result, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_call({list_task_type, TaskType}, _From, State) ->
@@ -851,7 +874,7 @@ handle_cast(stop, State) ->
 %% @doc
 %% Logs and discards unexpected messages.
 %%
-%% @spec handle_call(Msg, From, State) ->  {noreply, State}
+%% @spec handle_cast(Msg, State) ->  {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->

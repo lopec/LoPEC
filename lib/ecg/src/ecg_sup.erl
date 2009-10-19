@@ -1,10 +1,10 @@
 %%%-------------------------------------------------------------------
-%%% @author Vasilij Savin <>
+%%% @author Vasilij Savin <vasilij.savin@gmail.com>
 %%% @copyright (C) 2009, Vasilij Savin
 %%% @doc
 %%% ECG supervisor - watches a single worker, ECG server. 
 %%% @end
-%%% Created : Oct 5, 2009 by Vasilij Savin <>
+%%% Created : Oct 5, 2009 by Vasilij Savin <vasilij.savin@gmail.com>
 %%%-------------------------------------------------------------------
 
 -module(ecg_sup).

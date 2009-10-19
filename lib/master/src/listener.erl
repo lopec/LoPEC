@@ -79,7 +79,22 @@ handle_call({new_job, JobType, InputData}, _From, State) ->
     file:copy(InputData, Root ++ "tmp/" ++ JobIdString ++ "/input/data.dat"),
     dispatcher:create_task({JobId, split, 
                             "tmp/"++JobIdString++"/input/data.dat", 0}),
-    {reply, JobId, State}.
+    {reply, JobId, State};
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Logs and discards unexpected messages.
+%%
+%% @spec handle_call(Msg, From, State) ->  {noreply, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_call(Msg, From, State) ->
+    chronicler:warning(io_lib:format(
+                         "~w:Received unexpected handle_call call.~n"
+                         "Message: ~p~n"
+                         "From: ~p~n",
+                         [?MODULE, Msg, From])),
+    {noreply, State}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -95,42 +110,52 @@ handle_call({new_job, JobType, InputData}, _From, State) ->
 terminate(normal, _State) ->
     {ok}.
 
-%%------------------------------------------------------------------------------
+%%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Handling cast messages
+%% Logs and discards unexpected messages.
 %%
-%% @spec handle_cast(Msg, State) -> {noreply, State} |
-%%                                  {noreply, State, Timeout} |
-%%                                  {stop, Reason, State}
+%% @spec handle_call(Msg, From, State) ->  {noreply, State}
 %% @end
-%%------------------------------------------------------------------------------
-handle_cast(_Msg, State) ->
+%%--------------------------------------------------------------------
+handle_cast(Msg, State) ->
+    chronicler:warning(io_lib:format(
+                         "~w:Received unexpected handle_cast call.~n"
+                         "Message: ~p~n",
+                         [?MODULE, Msg])),
     {noreply, State}.
 
 
-%%------------------------------------------------------------------------------
+%%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Handling all non call/cast messages
+%% Logs and discards unexpected messages.
 %%
-%% @spec handle_info(Info, State) -> {noreply, State} |
-%%                                   {noreply, State, Timeout} |
-%%                                   {stop, Reason, State}
+%% @spec handle_info(Info, State) -> {noreply, State} 
 %% @end
-%%------------------------------------------------------------------------------
-handle_info(_Info, State) ->
+%%--------------------------------------------------------------------
+handle_info(Info, State) -> 
+    chronicler:warning(io_lib:format(
+                         "~w:Received unexpected handle_info call.~n"
+                         "Info: ~p~n",
+                         [?MODULE, Info])),
     {noreply, State}.
 
-%%------------------------------------------------------------------------------
+%%--------------------------------------------------------------------
 %% @private
 %% @doc
 %% Convert process state when code is changed
+%% Logs and discards unexpected messages.
 %%
 %% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% @end
-%%------------------------------------------------------------------------------
-code_change(_OldVersion,State, _Extra) ->
+%%--------------------------------------------------------------------
+code_change(OldVsn, State, Extra) -> 
+    chronicler:warning(io_lib:format(
+                         "~w:Received unexpected code_change call.~n"
+                         "Old version: ~p~n"
+                         "Extra: ~p~n",
+                         [?MODULE, OldVsn, Extra])),
     {ok, State}.
 
 %%%===================================================================

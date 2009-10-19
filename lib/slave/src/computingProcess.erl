@@ -204,11 +204,7 @@ handle_info(Info, State) ->
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(Reason, _State) -> 
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected terminate call.~n"
-                         "Reason: ~p~n",
-                         [?MODULE, Reason])),
+terminate(_Reason, _State) -> 
     ok.
 
 %%--------------------------------------------------------------------

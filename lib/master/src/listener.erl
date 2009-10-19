@@ -1,5 +1,5 @@
 %%%-----------------------------------------------------------------------------
-%%% @author Burbas
+%%% @author Burbas <niclas@burbas.se>
 %%% @doc
 %%% Listener - The link between our cluster and the user. Process that listens
 %%% for new jobs from user. 
@@ -21,7 +21,7 @@
 %% @doc
 %% Starts the server
 %%
-%% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
+%% @spec start_link() -> {ok, Pid} 
 %% @end
 %%------------------------------------------------------------------------------
 start_link() ->
@@ -33,6 +33,7 @@ start_link() ->
 %% created and the input file will be moved to this new structure. 
 %% When this is done a new split-task is created.
 %%
+%% @spec new_job(JobType, InputData) -> JobID
 %% @end
 %%------------------------------------------------------------------------------
 new_job(JobType, InputData) ->
@@ -48,10 +49,7 @@ new_job(JobType, InputData) ->
 %% @doc
 %% Initializes the server.
 %%
-%% @spec init(Args) -> {ok, State} |
-%%                     {ok, State, Timeout} |
-%%                     ignore |
-%%                     {stop, Reason}
+%% @spec init(Args) -> {ok, State} 
 %% @end
 %%------------------------------------------------------------------------------
 init(_Args) ->
@@ -63,8 +61,7 @@ init(_Args) ->
 %% Handling call messages
 %%
 %% @spec handle_call(Request, From, State) ->
-%%                                   {reply, JobId, State} |
-%%                                   {reply, shutdown, State}
+%%                                   {reply, JobId, State} 
 %% @end
 %%------------------------------------------------------------------------------
 handle_call({new_job, JobType, InputData}, _From, State) ->

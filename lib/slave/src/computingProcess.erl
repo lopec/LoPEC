@@ -52,7 +52,7 @@ start_link(Path, Op, JobId, InputPath, TaskId) ->
 	reduce ->
 	    LoadPath = Root ++ InputPath,
 	    SavePath = Root ++ "tmp/" ++ StringId ++ "/results/";
-	finalize ->
+	_Finalize ->
 	    filelib:ensure_dir(Root ++ "results/" ++ StringId ++ "/" ++ atom_to_list(Path)),
 	    LoadPath = Root ++ InputPath,
 	    SavePath = Root ++ "results/" ++ StringId
@@ -103,20 +103,18 @@ init([Path, Op, LoadPath, SavePath, JobId, TaskId]) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Handling call messages
+%% Logs and discards unexpected messages.
 %%
-%% @spec handle_call(Request, From, State) ->
-%%                                   {reply, Reply, State} |
-%%                                   {reply, Reply, State, Timeout} |
-%%                                   {noreply, State} |
-%%                                   {noreply, State, Timeout} |
-%%                                   {stop, Reason, Reply, State} |
-%%                                   {stop, Reason, State}
+%% @spec handle_call(Msg, From, State) ->  {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call(_Request, _From, State) ->
-    Reply = no_reply,
-    {reply, Reply, State}.
+handle_call(Msg, From, State) ->
+    chronicler:warning(io_lib:format(
+                         "~w:Received unexpected handle_call call.~n"
+                         "Message: ~p~n"
+                         "From: ~p~n",
+                         [?MODULE, Msg, From])),
+    {noreply, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -131,8 +129,21 @@ handle_call(_Request, _From, State) ->
 handle_cast(stop, State) ->
     %gen_server:cast(?FETCHER, {self(), halt}),
     {stop, normal, State};
-handle_cast(_Msg, State) ->
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Logs and discards unexpected messages.
+%%
+%% @spec handle_call(Msg, From, State) ->  {noreply, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_cast(Msg, State) ->
+    chronicler:warning(io_lib:format(
+                         "~w:Received unexpected handle_cast call.~n"
+                         "Message: ~p~n",
+                         [?MODULE, Msg])),
     {noreply, State}.
+
 
 %%--------------------------------------------------------------------
 %% @private
@@ -165,6 +176,20 @@ handle_info({Pid, {exit_status, Status}}, State) ->
     {stop, normal, State};
 handle_info({_Pid, {data, {_Flag, Data}}}, State) ->
     chronicler:info(io_lib:format("PORT PRINTOUT: ~ts~n", [Data])),
+    {noreply, State};
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Logs and discards unexpected messages.
+%%
+%% @spec handle_info(Info, State) -> {noreply, State} 
+%% @end
+%%--------------------------------------------------------------------
+handle_info(Info, State) -> 
+    chronicler:warning(io_lib:format(
+                         "~w:Received unexpected handle_info call.~n"
+                         "Info: ~p~n",
+                         [?MODULE, Info])),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -174,20 +199,31 @@ handle_info({_Pid, {data, {_Flag, Data}}}, State) ->
 %% terminate. It should be the opposite of Module:init/1 and do any
 %% necessary cleaning up. When it returns, the gen_server terminates
 %% with Reason. The return value is ignored.
+%% Logs and discards unexpected messages.
 %%
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(_Reason, _State) ->
+terminate(Reason, _State) -> 
+    chronicler:warning(io_lib:format(
+                         "~w:Received unexpected terminate call.~n"
+                         "Reason: ~p~n",
+                         [?MODULE, Reason])),
     ok.
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
 %% Convert process state when code is changed
+%% Logs and discards unexpected messages.
 %%
 %% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% @end
 %%--------------------------------------------------------------------
-code_change(_OldVsn, State, _Extra) ->
+code_change(OldVsn, State, Extra) -> 
+    chronicler:warning(io_lib:format(
+                         "~w:Received unexpected code_change call.~n"
+                         "Old version: ~p~n"
+                         "Extra: ~p~n",
+                         [?MODULE, OldVsn, Extra])),
     {ok, State}.

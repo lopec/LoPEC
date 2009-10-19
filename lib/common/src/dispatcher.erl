@@ -165,6 +165,7 @@ handle_cast({free_tasks, NodeId}, State) ->
     db:free_tasks(NodeId),
     {noreply, State};
 %%--------------------------------------------------------------------
+%% @private
 %% @doc
 %% Logs and discards unexpected messages.
 %%
@@ -225,6 +226,7 @@ handle_call({create_job, JobSpec}, _From, State) ->
     NewJobId = db:add_job(JobSpec),
     {reply, NewJobId, State};
 %%--------------------------------------------------------------------
+%% @private
 %% @doc
 %% Logs and discards unexpected messages.
 %%
@@ -291,6 +293,7 @@ find_task(RequesterPID, NodeId) ->
 %% terminate. It should be the opposite of Module:init/1 and do any
 %% necessary cleaning up. When it returns, the gen_server terminates
 %% with Reason. The return value is ignored.
+%% Logs and discards unexpected messages.
 %%
 %% @spec terminate(Reason, State) -> void()
 %% @end
@@ -307,6 +310,7 @@ terminate(Reason, _State) ->
 %% @private
 %% @doc
 %% Convert process state when code is changed
+%% Logs and discards unexpected messages.
 %%
 %% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% @end
@@ -323,6 +327,7 @@ code_change(OldVsn, State, Extra) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
+%% Logs and discards unexpected messages.
 %%
 %% @spec handle_info(Info, State) -> {noreply, State} 
 %% @end

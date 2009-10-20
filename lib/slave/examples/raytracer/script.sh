@@ -4,13 +4,15 @@ require 'fileutils'
 
 def split(input, output, split_count)
   side = File.new(input, "r").gets.to_i
+  split_count = (side*side) / (1024*1024)
   split_size = side/split_count
   (0..(split_count - 1)).each do | i |
-    File.open(output + "/split#{i}", "w") do | split_file |
+    split_id = ("%0" + split_count.to_s.length.to_s + "d") % i
+    File.open(output + "/split#{split_id}", "w") do | split_file |
       start = side - i*split_size
       stop = start - split_size
       split_file.puts("#{side} #{start} #{stop}")
-      puts("NEW_SPLIT split#{i}")
+      puts("NEW_SPLIT split#{split_id}")
     end
   end
   File.open(output + "/header", "w") do | header_file |

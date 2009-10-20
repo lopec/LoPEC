@@ -204,9 +204,12 @@ handle_info(Info, State) ->
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(_Reason, _State) -> 
+terminate(Reason, _State) -> 
+    chronicler:debug(io_lib:format(
+                       "~w:Received terminate call.~n"
+                       "Reason: ~p~n",
+                       [?MODULE, Reason])),
     ok.
-
 %%--------------------------------------------------------------------
 %% @private
 %% @doc

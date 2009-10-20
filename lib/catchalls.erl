@@ -76,8 +76,8 @@ code_change(OldVsn, State, Extra) ->
 %% @end
 %%--------------------------------------------------------------------
 terminate(Reason, _State) -> 
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected terminate call.~n"
-                         "Reason: ~p~n",
-                         [?MODULE, Reason])),
+    chronicler:debug(io_lib:format(
+                       "~w:Received terminate call.~n"
+                       "Reason: ~p~n",
+                       [?MODULE, Reason])),
     ok.

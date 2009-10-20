@@ -910,9 +910,12 @@ handle_info(Info, State) ->
 %% 
 %% @end
 %%--------------------------------------------------------------------
-terminate(_Reason, _State) ->
+terminate(Reason, _State) ->
+    chronicler:debug(io_lib:format(
+                         "~w:Received terminate call.~n"
+                         "Reason: ~p~n",
+                         [?MODULE, Reason])),
     application:stop(mnesia).
-
 %%--------------------------------------------------------------------
 %% @private
 %% @doc

@@ -139,7 +139,7 @@ init(no_args) ->
         false -> error_logger:add_report_handler(externalLogger, State)
     end,
 
-    info("Chronicle application started"),
+    info("Chronicler application started"),
     {ok, State}.
 
 %%--------------------------------------------------------------------

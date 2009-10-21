@@ -260,8 +260,8 @@ handle_call(Msg, From, State) ->
 %%--------------------------------------------------------------------
 find_task(RequesterPID, NodeId) ->
     FreeTask = db:get_task(NodeId),
-    %chronicler:info(io_lib:format("dispatcher: Received task: ~p~n", 
-    %                   [FreeTask])),
+    chronicler:debug(io_lib:format("dispatcher: Received task: ~p~n",
+                                   [FreeTask])),
     case FreeTask of
         % If no task found - let the request time out and try again
         % Therefore we just terminate
@@ -269,8 +269,8 @@ find_task(RequesterPID, NodeId) ->
             ok;
         Task ->
             Job = db:get_job_info(Task#task.job_id),
-            chronicler:info(io_lib:format("dispatcher: Received job: ~p~n", 
-                       [Job])),
+            chronicler:debug(io_lib:format("dispatcher: Received job: ~p~n", 
+                                           [Job])),
             JobType = Job#job.job_type,
             AssignedTask = #task_tmp {task_id = Task#task.task_id,
                             job_id = Task#task.job_id,
@@ -299,10 +299,9 @@ find_task(RequesterPID, NodeId) ->
 %% @end
 %%--------------------------------------------------------------------
 terminate(Reason, _State) -> 
-    chronicler:debug(io_lib:format(
-                       "~w:Received terminate call.~n"
-                       "Reason: ~p~n",
-                       [?MODULE, Reason])),
+    chronicler:debug("~w:Received terminate call.~n"
+                     "Reason: ~p~n",
+                     [?MODULE, Reason]),
     ok.
 
 
@@ -316,11 +315,10 @@ terminate(Reason, _State) ->
 %% @end
 %%--------------------------------------------------------------------
 code_change(OldVsn, State, Extra) -> 
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected code_change call.~n"
-                         "Old version: ~p~n"
-                         "Extra: ~p~n",
-                         [?MODULE, OldVsn, Extra])),
+    chronicler:debug("~w:Received code_change call.~n"
+                     "Old version: ~p~n"
+                     "Extra: ~p~n",
+                     [?MODULE, OldVsn, Extra]),
     {ok, State}.
 
 
@@ -333,8 +331,7 @@ code_change(OldVsn, State, Extra) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(Info, State) -> 
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected handle_info call.~n"
-                         "Info: ~p~n",
-                         [?MODULE, Info])),
+    chronicler:warning("~w:Received unexpected handle_info call.~n"
+                       "Info: ~p~n",
+                       [?MODULE, Info]),
     {noreply, State}.

@@ -67,7 +67,7 @@ start_link() ->
 %%--------------------------------------------------------------------
 init(_) ->
     net_kernel:monitor_nodes(true),
-    chronicler:info(io_lib:format("ECG is up and running!", [])),
+    chronicler:info("~w is up and running!", [?MODULE]),
     {ok, #state{}}.
 
 %% --------------------------------------------------------------------
@@ -93,7 +93,7 @@ handle_call(_Request, _From, _State) ->
 %% We need to establish connection to new node, if not yet connected
 %% This might be obsolete later, depending on comm protocol
 handle_cast({new_node, Node}, _) ->
-    chronicler:info(io_lib:format("New Node ~n", [])),
+    chronicler:info("Welcome new node: ~w~n", [Node]),
     case lists:member(Node, nodes()) of
         false ->
             net_adm:ping(Node);
@@ -110,10 +110,9 @@ handle_cast({new_node, Node}, _) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected handle_cast call.~n"
-                         "Message: ~p~n",
-                         [?MODULE, Msg])),
+    chronicler:warning("~w:Received unexpected handle_cast call.~n"
+                       "Message: ~p~n",
+                       [?MODULE, Msg]),
     {noreply, State}.
 
 %% --------------------------------------------------------------------
@@ -123,13 +122,11 @@ handle_cast(Msg, State) ->
 %% Returns: {noreply, State}
 %% --------------------------------------------------------------------
 handle_info({nodeup, Node}, _) ->    
-    chronicler:info(io_lib:format
-                   ("Welcome new node: ~p~n", [Node])),
+    chronicler:info("Welcome new node: ~p~n", [Node]),
     {noreply, []};
 handle_info({nodedown, Node}, _) ->
     dispatcher:free_tasks(Node),
-    chronicler:info(io_lib:format
-                   ("Node ~p just died. :(~n", [Node])),
+    chronicler:info("Node ~p just died. :(~n", [Node]),
     {noreply, []};
 %%--------------------------------------------------------------------
 %% @private
@@ -140,10 +137,9 @@ handle_info({nodedown, Node}, _) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(Info, State) -> 
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected handle_info call.~n"
-                         "Info: ~p~n",
-                         [?MODULE, Info])),
+    chronicler:warning("~w:Received unexpected handle_info call.~n"
+                       "Info: ~p~n",
+                       [?MODULE, Info]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -159,10 +155,9 @@ handle_info(Info, State) ->
 %% @end
 %%--------------------------------------------------------------------
 terminate(Reason, _State) -> 
-    chronicler:debug(io_lib:format(
-                         "~w:Received terminate call.~n"
-                         "Reason: ~p~n",
-                         [?MODULE, Reason])),
+    chronicler:info("~w:Received terminate call.~n"
+                    "Reason: ~p~n",
+                    [?MODULE, Reason]),
     ok.
 
 %%--------------------------------------------------------------------
@@ -175,9 +170,8 @@ terminate(Reason, _State) ->
 %% @end
 %%--------------------------------------------------------------------
 code_change(OldVsn, State, Extra) -> 
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected code_change call.~n"
-                         "Old version: ~p~n"
-                         "Extra: ~p~n",
-                         [?MODULE, OldVsn, Extra])),
+    chronicler:debug("~w:Received code_change call.~n"
+                     "Old version: ~p~n"
+                     "Extra: ~p~n",
+                     [?MODULE, OldVsn, Extra]),
     {ok, State}.

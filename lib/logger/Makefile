@@ -20,7 +20,7 @@ test/%.beam : test/%.erl $(HEADERS) Makefile
 	erlc $(ERLC_FLAGS) -o test/ $<
 
 clean:
-	rm -f ebin/*.beam test/*.beam
+	rm -f ebin/*.beam test/*.beam test/*.html
 
 .PHONY: test
 test: $(TESTOBJECTS)

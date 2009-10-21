@@ -126,7 +126,6 @@ set_logging_level(NewLevel) ->
 %%--------------------------------------------------------------------
 init(no_args) ->
     error_logger:logfile({open, node()}),
-    error_logger:tty(true),
 
     %TODO add module information logging level
     State = #state{loggingLevel = [error, user_info, info, warning, debug]},

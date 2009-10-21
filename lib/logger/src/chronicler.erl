@@ -17,12 +17,17 @@
 
 %% API
 -export([start_link/0,
-        error/1,
-        info/1,
-        warning/1,
-        debug/1,
-        user_info/1,
-        set_logging_level/1
+         error/1,
+         info/1,
+         warning/1,
+         debug/1,
+         user_info/1,
+         error/2,
+         info/2,
+         warning/2,
+         debug/2,
+         user_info/2,
+         set_logging_level/1
     ]).
 
 %% gen_server callbacks
@@ -53,6 +58,12 @@ start_link() ->
 %%--------------------------------------------------------------------
 error(Msg) ->
     gen_server:cast(?MODULE, {error, Msg}).
+%% @spec error(Format, Args) -> ok
+%% @equiv error(io_lib:format(Format, Args))
+error(Format, Args) ->
+    Msg = io_lib:format(Format, Args),
+    gen_server:cast(?MODULE, {error, Msg}).
+
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -63,6 +74,11 @@ error(Msg) ->
 %%--------------------------------------------------------------------
 info(Msg) ->
     gen_server:cast(?MODULE, {info, Msg}).
+%% @spec info(Format, Args) -> ok
+%% @equiv info(io_lib:format(Format, Args))
+info(Format, Args) ->
+    Msg = io_lib:format(Format, Args),
+    gen_server:cast(?MODULE, {info, Msg}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -72,6 +88,11 @@ info(Msg) ->
 %% @end
 %%--------------------------------------------------------------------
 warning(Msg) ->
+    gen_server:cast(?MODULE, {warning, Msg}).
+%% @spec warning(Format, Args) -> ok
+%% @equiv warning(io_lib:format(Format, Args))
+warning(Format, Args) ->
+    Msg = io_lib:format(Format, Args),
     gen_server:cast(?MODULE, {warning, Msg}).
 
 %%--------------------------------------------------------------------
@@ -84,6 +105,11 @@ warning(Msg) ->
 %%--------------------------------------------------------------------
 debug(Msg) ->
     gen_server:cast(?MODULE, {debug, Msg}).
+%% @spec debug(Format, Args) -> ok
+%% @equiv debug(io_lib:format(Format, Args))
+debug(Format, Args) ->
+    Msg = io_lib:format(Format, Args),
+    gen_server:cast(?MODULE, {debug, Msg}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -94,6 +120,11 @@ debug(Msg) ->
 %% @end
 %%--------------------------------------------------------------------
 user_info(Msg) ->
+    gen_server:cast(?MODULE, {user_info, Msg}).
+%% @spec user_info(Format, Args) -> ok
+%% @equiv user_info(io_lib:format(Format, Args))
+user_info(Format, Args) ->
+    Msg = io_lib:format(Format, Args),
     gen_server:cast(?MODULE, {user_info, Msg}).
 
 %%--------------------------------------------------------------------
@@ -150,11 +181,10 @@ init(no_args) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call(Msg, From, State) ->
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected handle_call call.~n"
-                         "Message: ~p~n"
-                         "From: ~p~n",
-                         [?MODULE, Msg, From])),
+    chronicler:warning("~w:Received unexpected handle_call call.~n"
+                       "Message: ~p~n"
+                       "From: ~p~n",
+                       [?MODULE, Msg, From]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -195,10 +225,9 @@ handle_cast({Level, From, Msg}, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected handle_cast call.~n"
-                         "Message: ~p~n",
-                         [?MODULE, Msg])),
+    chronicler:warning("~w:Received unexpected handle_cast call.~n"
+                       "Message: ~p~n",
+                       [?MODULE, Msg]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -210,10 +239,9 @@ handle_cast(Msg, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(Info, State) -> 
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected handle_info call.~n"
-                         "Info: ~p~n",
-                         [?MODULE, Info])),
+    chronicler:warning("~w:Received unexpected handle_info call.~n"
+                       "Info: ~p~n",
+                       [?MODULE, Info]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -250,11 +278,10 @@ terminate(Reason, State) ->
 %% @end
 %%--------------------------------------------------------------------
 code_change(OldVsn, State, Extra) -> 
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected code_change call.~n"
-                         "Old version: ~p~n"
-                         "Extra: ~p~n",
-                         [?MODULE, OldVsn, Extra])),
+    chronicler:warning("~w:Received unexpected code_change call.~n"
+                       "Old version: ~p~n"
+                       "Extra: ~p~n",
+                       [?MODULE, OldVsn, Extra]),
     {ok, State}.
 
 %%%===================================================================

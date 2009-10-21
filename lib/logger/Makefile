@@ -23,8 +23,8 @@ clean:
 	rm -f ebin/*.beam test/*.beam
 
 .PHONY: test
-test: $(OBJECTS) $(TESTOBJECTS)
-	erl -noshell +W w -pa ebin -pa test -eval 'eunit:test("test",[verbose])' -s init stop
+test: $(TESTOBJECTS)
+	test/testscript.escript
 
 docs: 
 	erl -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS)])" -s init stop

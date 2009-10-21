@@ -21,6 +21,7 @@
         info/1,
         warning/1,
         debug/1,
+        user_info/1,
         set_logging_level/1
     ]).
 
@@ -86,8 +87,19 @@ debug(Msg) ->
 
 %%--------------------------------------------------------------------
 %% @doc
+%% Logs a user info message
+%%
+%% @TODO implement using something else than error_logger
+%% @spec user_info(Msg) -> ok
+%% @end
+%%--------------------------------------------------------------------
+user_info(Msg) ->
+    gen_server:cast(?MODULE, {user_info, Msg}).
+
+%%--------------------------------------------------------------------
+%% @doc
 %% Changes the logging level of the logger, available levels are
-%% info, error, warning and debug
+%% info, user_info, error, warning and debug
 %%
 %% @spec set_logging_level(NewLevel) -> ok
 %%  NewLevel = list()
@@ -117,7 +129,7 @@ init(no_args) ->
     error_logger:tty(true),
 
     %TODO add module information logging level
-    State = #state{loggingLevel = [error, info, warning, debug]},
+    State = #state{loggingLevel = [error, user_info, info, warning, debug]},
 
     %register the externalLogger if we are not the logger process
     case "logger" == lists:takewhile(fun(X)->X /= $@ end, atom_to_list(node())) of
@@ -265,13 +277,15 @@ is_level_logging_on(Level, State) ->
 %% @doc
 %% Calls the correct error_logger reoport function depending on Level.
 %%
-%% @spec error_report_message(info, Msg) -> ok
+%% @spec error_report_message(LoggingLevel, Msg) -> ok
 %% @end
 %%--------------------------------------------------------------------
 error_report_message(info, Msg) ->
     error_logger:info_report(Msg);
 error_report_message(debug, Msg) ->
-    error_logger:info_report(Msg);
+    error_logger:info_report(Msg); %TODO Use something else than info_report
+error_report_message(user_info, Msg) ->
+    error_logger:info_report(Msg); %TODO Use something else than info_report
 error_report_message(error, Msg) ->
     error_logger:error_report(Msg);
 error_report_message(warning, Msg) ->

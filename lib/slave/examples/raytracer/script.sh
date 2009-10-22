@@ -43,7 +43,7 @@ end
 def reduce(input, output)
   split_id = input.split("/").last
   system("cp #{input} #{output}/#{split_id}")
-  unless (File.directory? output) # check to see that the results directory does not exist
+  if (split_id == "header")
     puts("NEW_REDUCE_RESULT #{output}")
 end
 

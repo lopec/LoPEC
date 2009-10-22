@@ -278,10 +278,10 @@ terminate(Reason, State) ->
 %% @end
 %%--------------------------------------------------------------------
 code_change(OldVsn, State, Extra) -> 
-    chronicler:warning("~w:Received unexpected code_change call.~n"
-                       "Old version: ~p~n"
-                       "Extra: ~p~n",
-                       [?MODULE, OldVsn, Extra]),
+    chronicler:debug("~w:Received code_change call.~n"
+                     "Old version: ~p~n"
+                     "Extra: ~p~n",
+                     [?MODULE, OldVsn, Extra]),
     {ok, State}.
 
 %%%===================================================================

@@ -114,10 +114,9 @@ handle_info(_Info, _State) ->
 %% @end
 %%--------------------------------------------------------------------
 terminate(Reason, _State) -> 
-    chronicler:debug(io_lib:format(
-                       "~w:Received terminate call.~n"
-                       "Reason: ~p~n",
-                       [?MODULE, Reason])),
+    chronicler:info("~w:Received terminate call.~n"
+                    "Reason: ~p~n",
+                    [?MODULE, Reason]),
     ok.
 
 %%--------------------------------------------------------------------

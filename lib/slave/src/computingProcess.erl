@@ -33,30 +33,22 @@
 %% is the first argument, Arg1 is the second and Arg2 is the third
 %% argument. So the os call will look like "Path Op Arg1 Arg2".
 %%
-%% @spec start_link(Path, Op, Arg1, Arg2, LOOOOOOOOOOOOOOOOOOOOOL) -> {ok, Pid} |
-%%                                  ignore |
-%%                               {error, Error}
+%% @spec start_link(Path, Op, Arg1, Arg2, LOOOOOOOOOOOOOOOOOOOOOL) ->
+%%           {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 start_link(Path, Op, JobId, InputPath, TaskId) ->
     StringId = integer_to_list(JobId),
     {ok, Root} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
     Prog = Root ++ "programs/" ++ atom_to_list(Path) ++ "/script.sh",
-    case Op of
-	split ->
-	    LoadPath = Root ++ InputPath,
-	    SavePath = Root ++ "tmp/" ++ StringId ++ "/map/";
-	map ->
-	    LoadPath = Root ++ InputPath,
-	    SavePath = Root ++ "tmp/" ++ StringId ++ "/reduce/";
-	reduce ->
-	    LoadPath = Root ++ InputPath,
-	    SavePath = Root ++ "tmp/" ++ StringId ++ "/results/";
-	_Finalize ->
-	    filelib:ensure_dir(Root ++ "results/" ++ StringId ++ "/" ++ atom_to_list(Path)),
-	    LoadPath = Root ++ InputPath,
-	    SavePath = Root ++ "results/" ++ StringId
-    end,
+    LoadPath = Root ++ InputPath,
+    SavePath = Root ++
+        case Op of
+            split -> "tmp/" ++ StringId ++ "/map/";
+            map -> "tmp/" ++ StringId ++ "/reduce/";
+            reduce -> "tmp/" ++ StringId ++ "/results/";
+            finalize -> "results/" ++ StringId
+        end,
     gen_server:start_link({local, ?SERVER},?MODULE,
 			  [Prog, atom_to_list(Op), LoadPath, SavePath, JobId, TaskId], []).
 
@@ -88,13 +80,15 @@ stop() ->
 %%--------------------------------------------------------------------
 init([Path, "split", LoadPath, SavePath, JobId, TaskId]) ->
     {ok, Val} = configparser:read_config("/etc/clusterbusters.conf", split_value),
-    chronicler:info(io_lib:format("Path: ~ts~nOperation: ~ts~nLoadpath: ~ts~nSavepath: ~ts~nJobId: ~p~n", [Path, "split", LoadPath, SavePath, JobId])),
+    chronicler:debug("Path: ~ts~nOperation: ~ts~nLoadpath: ~ts~nSavepath: ~ts~nJobId: ~p~n",
+                     [Path, "split", LoadPath, SavePath, JobId]),
     open_port({spawn_executable, Path},
 	      [use_stdio, exit_status, {line, 512},
 	       {args, ["split", LoadPath, SavePath, integer_to_list(Val)]}]),
     {ok, {JobId, TaskId}};
 init([Path, Op, LoadPath, SavePath, JobId, TaskId]) ->
-    chronicler:info(io_lib:format("Path: ~ts~nOperation: ~ts~nLoadpath: ~ts~nSavepath: ~ts~nJobId: ~p~n", [Path, Op, LoadPath, SavePath, JobId])),
+    chronicler:debug("Path: ~ts~nOperation: ~ts~nLoadpath: ~ts~nSavepath: ~ts~nJobId: ~p~n",
+                     [Path, Op, LoadPath, SavePath, JobId]),
     open_port({spawn_executable, Path},
 	      [use_stdio, exit_status, {line, 512},
 	       {args, [Op, LoadPath, SavePath]}]),
@@ -109,11 +103,10 @@ init([Path, Op, LoadPath, SavePath, JobId, TaskId]) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call(Msg, From, State) ->
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected handle_call call.~n"
-                         "Message: ~p~n"
-                         "From: ~p~n",
-                         [?MODULE, Msg, From])),
+    chronicler:warning("~w:Received unexpected handle_call call.~n"
+                       "Message: ~p~n"
+                       "From: ~p~n",
+                       [?MODULE, Msg, From]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -127,7 +120,6 @@ handle_call(Msg, From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(stop, State) ->
-    %gen_server:cast(?FETCHER, {self(), halt}),
     {stop, normal, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -138,10 +130,9 @@ handle_cast(stop, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected handle_cast call.~n"
-                         "Message: ~p~n",
-                         [?MODULE, Msg])),
+    chronicler:warning("~w:Received unexpected handle_cast call.~n"
+                       "Message: ~p~n",
+                       [?MODULE, Msg]),
     {noreply, State}.
 
 
@@ -156,27 +147,34 @@ handle_cast(Msg, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info({_Pid, {data, {_Flag, "NEW_SPLIT " ++ Data}}}, State) ->
-    chronicler:info(io_lib:format("SPLIT: New map task: ~ts~n", [Data])),
+    chronicler:debug("SPLIT: New map task: ~ts~n", [Data]),
     taskFetcher:new_task(State, map, "/map/" ++ Data),
     {noreply, State};
 handle_info({_Pid, {data, {_Flag, "NEW_REDUCE_TASK " ++ Data}}}, State) ->
-    chronicler:info(io_lib:format("MAP: New reduce task: ~ts~n", [Data])),
+    chronicler:debug("MAP: New reduce task: ~ts~n", [Data]),
     taskFetcher:new_task(State, reduce, "/reduce/" ++ Data),
     {noreply, State};
 handle_info({_Pid, {data, {_Flag, "NEW_REDUCE_RESULT " ++ Data}}}, State) ->
-    chronicler:info(io_lib:format("REDUCE: New finalize task: ~ts~n", [Data])),
+    chronicler:debug("REDUCE: New finalize task: ~ts~n", [Data]),
     taskFetcher:new_task(State, finalize, "/results/"),
     {noreply, State};
 handle_info({_Pid, {data, {_Flag, "ERROR " ++ Data}}}, State) ->
-    chronicler:info(io_lib:format("ERROR: ~ts~n", [Data])),
+    chronicler:error("ERROR: ~ts~n", [Data]),
     {noreply, State};
-handle_info({Pid, {exit_status, Status}}, State) ->
-    chronicler:info(io_lib:format("Process ~p exited with signal: ~p~n", [Pid, Status])),
-    gen_server:cast(?FETCHER, {self(), done, State}),
-    {stop, normal, State};
+handle_info({_Pid, {data, {_Flag, "LOG " ++ Data}}}, State) ->
+    chronicler:user_info("LOG: ~ts~n", [Data]),
+    {noreply, State};
 handle_info({_Pid, {data, {_Flag, Data}}}, State) ->
     chronicler:info(io_lib:format("PORT PRINTOUT: ~ts~n", [Data])),
     {noreply, State};
+handle_info({Pid, {exit_status, Status}}, State) when Status == 0 ->
+    chronicler:debug("Process ~p exited normally~n", [Pid]),
+    gen_server:cast(?FETCHER, {self(), done, State}),
+    {stop, normal, State};
+handle_info({Pid, {exit_status, Status}}, State) ->
+    chronicler:error("Process ~p exited with status: ~p~n", [Pid, Status]),
+    gen_server:cast(?FETCHER, {self(), error, State}),
+    {stop, normal, State};
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -186,10 +184,9 @@ handle_info({_Pid, {data, {_Flag, Data}}}, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(Info, State) -> 
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected handle_info call.~n"
-                         "Info: ~p~n",
-                         [?MODULE, Info])),
+    chronicler:warning("~w:Received unexpected handle_info call.~n"
+                       "Info: ~p~n",
+                       [?MODULE, Info]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -205,10 +202,9 @@ handle_info(Info, State) ->
 %% @end
 %%--------------------------------------------------------------------
 terminate(Reason, _State) -> 
-    chronicler:debug(io_lib:format(
-                       "~w:Received terminate call.~n"
-                       "Reason: ~p~n",
-                       [?MODULE, Reason])),
+    chronicler:debug("~w:Received terminate call.~n"
+                     "Reason: ~p~n",
+                     [?MODULE, Reason]),
     ok.
 %%--------------------------------------------------------------------
 %% @private
@@ -220,9 +216,8 @@ terminate(Reason, _State) ->
 %% @end
 %%--------------------------------------------------------------------
 code_change(OldVsn, State, Extra) -> 
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected code_change call.~n"
-                         "Old version: ~p~n"
-                         "Extra: ~p~n",
-                         [?MODULE, OldVsn, Extra])),
+    chronicler:debug("~w:Received code_change call.~n"
+                     "Old version: ~p~n"
+                     "Extra: ~p~n",
+                     [?MODULE, OldVsn, Extra]),
     {ok, State}.

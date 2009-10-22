@@ -37,7 +37,6 @@ user_info_log_test_() ->
     testing_log(user_info, "=INFO REPORT=", "This is a user_info test").
 
 start_logger() ->
-    error_logger:tty(false),
     application:start(chronicler),
     {ok, File} = file:open(nonode@nohost, read),
     File.

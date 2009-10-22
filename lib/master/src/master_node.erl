@@ -24,7 +24,7 @@
 %%          {error, Reason}
 %% --------------------------------------------------------------------
 start(_Type, _StartArgs) ->
-    chronicler:info("Master application started~n"),
+    chronicler:info("~w application started~n", [?MODULE]),
     case master_sup:start_link() of
 	{ok, Pid} ->
 	    {ok, Pid};
@@ -41,6 +41,5 @@ start(_Type, _StartArgs) ->
 %% Returns: 'ok'
 %% --------------------------------------------------------------------
 stop(_) ->
-%%     logger ! {event, self(), 
-%%         io_lib:format("Master node is shutting down...", [])},
+    chronicler:info("~w application stopped~n", [?MODULE]),
     ok.

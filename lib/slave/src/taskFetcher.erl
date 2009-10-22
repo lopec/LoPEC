@@ -100,11 +100,10 @@ handle_call({request, new_task, Id, Type, Path}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call(Msg, From, State) ->
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected handle_call call.~n"
-                         "Message: ~p~n"
-                         "From: ~p~n",
-                         [?MODULE, Msg, From])),
+    chronicler:warning("~w:Received unexpected handle_call call.~n"
+                       "Message: ~p~n"
+                       "From: ~p~n",
+                       [?MODULE, Msg, From]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -117,11 +116,10 @@ handle_call(Msg, From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({_Pid, _ExitStatus, {_JobId, TaskId}}, State) ->
+handle_cast({_Pid, done, {_JobId, TaskId}}, _State) ->
     supervisor:terminate_child(?DYNSUP, ?WORKER),
     supervisor:delete_child(?DYNSUP, ?WORKER),
     dispatcher:report_task_done(TaskId),
-    chronicler:info(io_lib:format("ololo: ~p~n", [State])),
     {ok, Timer} = timer:send_interval(1000, poll),
     request_task(),
     {noreply, #state{work_state = no_task, timer = Timer}};
@@ -134,10 +132,9 @@ handle_cast({_Pid, _ExitStatus, {_JobId, TaskId}}, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected handle_cast call.~n"
-                         "Message: ~p~n",
-                         [?MODULE, Msg])),
+    chronicler:warning("~w:Received unexpected handle_cast call.~n"
+                       "Message: ~p~n",
+                       [?MODULE, Msg]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -166,10 +163,9 @@ handle_info({task_response, Task}, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(Info, State) -> 
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected handle_info call.~n"
-                         "Info: ~p~n",
-                         [?MODULE, Info])),
+    chronicler:warning("~w:Received unexpected handle_info call.~n"
+                       "Info: ~p~n",
+                       [?MODULE, Info]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -185,10 +181,9 @@ handle_info(Info, State) ->
 %% @end
 %%--------------------------------------------------------------------
 terminate(Reason, _State) -> 
-    chronicler:debug(io_lib:format(
-                         "~w:Received terminate call.~n"
-                         "Reason: ~p~n",
-                         [?MODULE, Reason])),
+    chronicler:info("~w:Received terminate call.~n"
+                    "Reason: ~p~n",
+                    [?MODULE, Reason]),
     ok.
 
 %%--------------------------------------------------------------------
@@ -201,11 +196,10 @@ terminate(Reason, _State) ->
 %% @end
 %%--------------------------------------------------------------------
 code_change(OldVsn, State, Extra) -> 
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected code_change call.~n"
-                         "Old version: ~p~n"
-                         "Extra: ~p~n",
-                         [?MODULE, OldVsn, Extra])),
+    chronicler:debug("~w:Received unexpected code_change call.~n"
+                     "Old version: ~p~n"
+                     "Extra: ~p~n",
+                     [?MODULE, OldVsn, Extra]),
     {ok, State}.
 
 %%%===================================================================

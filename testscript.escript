@@ -1,7 +1,10 @@
 #!/usr/bin/env escript
-%%! +W w -pa ebin -pa test
+%%! +W w -pa ../ecg/ebin ../common/ebin ../logger/ebin ../ecg/ebin ../master/ebin ../slave/ebin -pa test
 
 main(Args) ->
+    %Turn off terminal output
+    error_logger:tty(false),
+
     %Compile and run tests
 	cover:compile_directory("src"),
 	eunit:test("test",[]),

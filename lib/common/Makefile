@@ -22,10 +22,10 @@ test/%.beam : test/%.erl $(HEADERS) Makefile
 clean:
 	rm -f ebin/*.beam test/*.beam
 
+.PHONY: test
 test: $(TESTOBJECTS)
-	erl -noshell -pa ../ecg/ebin -pa ../logger/ebin -pa ../master/ebin \
-	    -pa ebin -pa tests -eval 'eunit:test("test",[verbose]).' \
-	    -s init stop
+	../../testscript.escript $(SOURCES)
+#	erl -noshell -pa ../../ecg/ebin -pa ../../chronicler/ebin -pa ../../master/ebin -pa ebin -pa tests -eval 'eunit:test("test",[verbose])' -s init stop
 
 docs: 
 	erl -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS)])" \

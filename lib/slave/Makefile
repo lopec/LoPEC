@@ -24,7 +24,8 @@ clean:
 
 .PHONY: test
 test: $(OBJECTS) $(TESTOBJECTS)
-	erl -noshell -pa ebin -pa test -eval 'eunit:test("test",[verbose])' -s init stop
+	../../testscript.escript $(SOURCES)
+#	erl -noshell -pa ebin -pa test -eval 'eunit:test("test",[verbose])' -s init stop
 
 port:
 	mkdir tests

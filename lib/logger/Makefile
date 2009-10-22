@@ -24,7 +24,7 @@ clean:
 
 .PHONY: test
 test: $(TESTOBJECTS)
-	test/testscript.escript $(SOURCES)
+	../../testscript.escript $(SOURCES)
 
 docs: 
 	erl -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS)])" -s init stop

@@ -33,7 +33,9 @@ def map(input, output)
     stop = scene_spec[2].to_i
     output_file = output + "/#{split_id}"
     prog_path = "/storage/test/programs/raytracer"
-    system("#{prog_path}/oclRaytrace #{prog_path}/traceLines.cl #{start} #{stop} #{side} > #{output_file}")
+    tracer = "#{prog_path}/oclRaytrace"
+    cl_code = "#{prog_path}/traceLines.cl"
+    system("#{tracer} #{cl_code} #{start} #{stop} #{side} > #{output_file}")
   end
   puts("NEW_REDUCE_TASK #{split_id}")
 end
@@ -41,7 +43,8 @@ end
 def reduce(input, output)
   split_id = input.split("/").last
   system("cp #{input} #{output}/#{split_id}")
-  puts("NEW_REDUCE_RESULT #{output}")
+  unless (File.directory? output) # check to see that the results directory does not exist
+    puts("NEW_REDUCE_RESULT #{output}")
 end
 
 def finalize(input, output)

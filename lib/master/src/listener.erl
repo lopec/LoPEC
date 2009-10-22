@@ -9,9 +9,12 @@
 -module(listener).
 -behaviour(gen_server).
 
--export([new_job/2, is_valid_jobtype/1]).
+-export([new_job/2, new_job/3, get_job_name/1, remove_job_name/1,
+         is_valid_jobtype/1]).
 -export([start_link/0, init/1, handle_call/3, handle_cast/2, handle_info/2, 
         terminate/2, code_change/3]).
+
+-record(state, {active_jobs = dict:new()}).
 
 %%%=============================================================================
 %%% API
@@ -32,13 +35,39 @@ start_link() ->
 %% When a new job is reported a series of new directories will be 
 %% created and the input file will be moved to this new structure. 
 %% When this is done a new split-task is created.
+%% Name is the atom the user wants to associate with the job id,
+%% or no_name if no association is wanted.
 %%
-%% @spec new_job(JobType, InputData) -> JobID
+%% @spec new_job(JobType, InputData, Name) -> JobID
 %% @end
 %%------------------------------------------------------------------------------
+new_job(JobType, InputData, Name) ->
+    gen_server:call(?MODULE, {new_job, JobType, InputData, Name}).
+%% @spec new_job(JobType, InputData) -> JobID
+%% @equiv new_job(JobType, InputData, no_name)
 new_job(JobType, InputData) ->
-    gen_server:call(?MODULE, {new_job, JobType, InputData}).
+    new_job(JobType, InputData, no_name).
 
+%%------------------------------------------------------------------------------
+%% @doc
+%% Returns the name the user gave JobId when starting it.
+%% If no name was given, anonymous is returned
+%%
+%% @spec get_job_name(JobId) -> {name, Name} | anonymous
+%% @end
+%%------------------------------------------------------------------------------
+get_job_name(JobId) ->
+    gen_server:call(?MODULE, {get_job_name, JobId}).
+
+%%------------------------------------------------------------------------------
+%% @doc
+%% Disassociates JobId with any saved name.
+%%
+%% @spec remove_job_name(JobId) -> ok
+%% @end
+%%------------------------------------------------------------------------------
+remove_job_name(JobId) ->
+    gen_server:call(?MODULE, {remove_job_name, JobId}).
 
 %%%=============================================================================
 %%% gen_server callbacks
@@ -53,7 +82,7 @@ new_job(JobType, InputData) ->
 %% @end
 %%------------------------------------------------------------------------------
 init(_Args) ->
-    {ok, []}.
+    {ok, #state{}}.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -64,7 +93,7 @@ init(_Args) ->
 %%                                   {reply, JobId, State} 
 %% @end
 %%------------------------------------------------------------------------------
-handle_call({new_job, JobType, InputData}, _From, State) ->
+handle_call({new_job, JobType, InputData, Name}, _From, State) ->
     JobId = dispatcher:add_job({JobType, 0}),
     % Read the structurepath from configfile
     {ok, Root} =
@@ -79,7 +108,43 @@ handle_call({new_job, JobType, InputData}, _From, State) ->
     file:copy(InputData, Root ++ "tmp/" ++ JobIdString ++ "/input/data.dat"),
     dispatcher:create_task({JobId, split, 
                             "tmp/"++JobIdString++"/input/data.dat", 0}),
-    {reply, JobId, State};
+    NewState =
+        case Name of
+            no_name -> State;
+            _ ->
+                NewJobs = dict:store(JobId, Name, State#state.active_jobs),
+                State#state{active_jobs = NewJobs}
+        end,
+    {reply, JobId, NewState};
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Returns the registered name of the JobId, or anonymous
+%%
+%% @spec handle_call(GetJobName, From, State) ->
+%%           {reply, anonymous, State} | {reply, {name, Name}, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({get_job_name, JobId}, _From, State) ->
+    Reply = case dict:find(JobId, State#state.active_jobs) of
+                error -> anonymous;
+                {ok, Name} -> {name, Name}
+            end,
+    {reply, Reply, State};
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Disassociate any name registered for JobId
+%%
+%% @spec handle_call(RemoveJobName, From, State) ->
+%%           {reply, anonymous, State} | {reply, {name, Name}, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({remove_job_name, JobId}, _From, State) ->
+    Reply = ok, 
+    NewJobs = dict:erase(JobId, State#state.active_jobs),
+    NewState = State#state{active_jobs = NewJobs},
+    {reply, Reply, NewState};
 %%--------------------------------------------------------------------
 %% @private
 %% @doc

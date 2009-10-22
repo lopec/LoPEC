@@ -61,8 +61,8 @@ error(Msg) ->
 %% @spec error(Format, Args) -> ok
 %% @equiv error(io_lib:format(Format, Args))
 error(Format, Args) ->
-    Msg = io_lib:format(Format, Args),
-    gen_server:cast(?MODULE, {error, Msg}).
+    Msg = lists:flatten(io_lib:format(Format, Args)),
+    error(Msg).
 
 
 %%--------------------------------------------------------------------
@@ -77,8 +77,8 @@ info(Msg) ->
 %% @spec info(Format, Args) -> ok
 %% @equiv info(io_lib:format(Format, Args))
 info(Format, Args) ->
-    Msg = io_lib:format(Format, Args),
-    gen_server:cast(?MODULE, {info, Msg}).
+    Msg = lists:flatten(io_lib:format(Format, Args)),
+    info(Msg).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -92,8 +92,8 @@ warning(Msg) ->
 %% @spec warning(Format, Args) -> ok
 %% @equiv warning(io_lib:format(Format, Args))
 warning(Format, Args) ->
-    Msg = io_lib:format(Format, Args),
-    gen_server:cast(?MODULE, {warning, Msg}).
+    Msg = lists:flatten(io_lib:format(Format, Args)),
+    warning(Msg).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -108,8 +108,8 @@ debug(Msg) ->
 %% @spec debug(Format, Args) -> ok
 %% @equiv debug(io_lib:format(Format, Args))
 debug(Format, Args) ->
-    Msg = io_lib:format(Format, Args),
-    gen_server:cast(?MODULE, {debug, Msg}).
+    Msg = lists:flatten(io_lib:format(Format, Args)),
+    debug(Msg).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -124,8 +124,8 @@ user_info(Msg) ->
 %% @spec user_info(Format, Args) -> ok
 %% @equiv user_info(io_lib:format(Format, Args))
 user_info(Format, Args) ->
-    Msg = io_lib:format(Format, Args),
-    gen_server:cast(?MODULE, {user_info, Msg}).
+    Msg = lists:flatten(io_lib:format(Format, Args)),
+    user_info(Msg).
 
 %%--------------------------------------------------------------------
 %% @doc

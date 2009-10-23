@@ -81,7 +81,7 @@ update(Data) ->
 %% @end
 %%--------------------------------------------------------------------
 job_finished(JobID) ->
-    {ok, _TimerRef} = timer:send_after(?UPDATE_INTERVAL*2,
+    {ok, _TimerRef} = timer:send_after(?UPDATE_INTERVAL*2, ?SERVER,
                                        {job_finished, JobID}),
     please_wait_a_few_seconds.
 
@@ -193,7 +193,7 @@ handle_cast({update_with_list, List}, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({job_finished, JobID}, State) ->
-    JobStats = get_job_stats(JobID),
+    JobStats = job_stats(JobID),
     ets:match_delete(stats, {{'_', JobID, '_'},'_','_','_','_','_'}),
     {ok, Root} =
         configparser:read_config("/etc/clusterbusters.conf", cluster_root),

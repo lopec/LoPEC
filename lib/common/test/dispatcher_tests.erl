@@ -12,7 +12,8 @@
 -include("../../master/include/db.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
-init_per_test_case() ->    
+init_per_test_case() ->  
+    db:delete_tables(),  
     db:create_tables().
 
 end_per_test_case() ->

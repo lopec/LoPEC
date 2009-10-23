@@ -63,7 +63,7 @@ get_job_stats(JobID) ->
 %% its stats to the table if it doesn't already exist, otherwise
 %% updating the existing entry.
 %%
-%% @spec update(JobID, Tasktype, Data) -> ok
+%% @spec update(Data) -> ok
 %% @end
 %%--------------------------------------------------------------------
 update(Data) ->
@@ -120,7 +120,7 @@ init([slave]) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% @see job_stats(JobID)
+%% See job_stats(JobID)
 %%
 %% @spec handle_call({get_jobs_stats, JobID}, From, State) ->
 %%                                   {reply, Reply, State} 
@@ -149,7 +149,7 @@ handle_call(Msg, From, State) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% @see update(JobID)
+%% See update(JobID)
 %%
 %% @spec handle_cast({update, StatsTuple}, State) -> {noreply, State} 
 %% @end
@@ -188,7 +188,7 @@ handle_cast({update_with_list, List}, State) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% @see job_finished(JobID)
+%% See job_finished(JobID)
 %%
 %% @spec handle_cast(Msg, State) -> {noreply, State} 
 %% @end
@@ -233,7 +233,7 @@ handle_info(flush, State) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% @see job_finished(JobID)
+%% See job_finished(JobID)
 %%
 %% @spec handle_info({job_finished, JobID}, State) -> {noreply, State} 
 %% @end
@@ -381,7 +381,7 @@ jobstats_string_formatter(
 %% @doc
 %% Returns a neatly formatted string for the given task and its stats
 %%
-%% @spec taskstats_string_formatter(Data) -> String
+%% @spec taskstats_string_formatter(TaskType, TaskStats) -> String
 %% 
 %% @end
 %%--------------------------------------------------------------------

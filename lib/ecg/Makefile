@@ -23,7 +23,7 @@ clean:
 	-rm -f ebin/*.beam test/*.beam
 
 .PHONY: test
-test: $(OBJECTS) $(TESTOBJECTS)
+test: $(TESTOBJECTS)
 	../../testscript.escript $(SOURCES)
 #	erl -noshell -pa ebin -pa test -eval 'eunit:test("test",[verbose])' -s init stop
 

@@ -1,11 +1,15 @@
 %%%-------------------------------------------------------------------
 %%% @author Fredrik Andersson <sedrik@consbox.se>
 %%% @copyright (C) 2009, Fredrik Andersson
-%%% @doc logger holds an API for logging messages on the server.
-%%% It uses @see error_logger for info, warning and error messages. Don't use
-%%% it for debugging messages, if needed a debugging function can be added to
-%%% the API later on. Currently no nice formatting of the message is done it's
-%%% simply treated as single whole message and will be printed that way.
+%%% @doc
+%%%
+%%% logger holds an API for logging messages on the server.  It uses
+%%% error_logger for info, warning and error messages. Don't use
+%%% it for debugging messages, if needed a debugging function can be
+%%% added to the API later on. Currently no nice formatting of the
+%%% message is done it's simply treated as single whole message and
+%%% will be printed that way.
+%%% See also http://www.erlang.org/doc/man/error_logger.html
 %%%
 %%% @end
 %%% Created : 29 Sep 2009 by Fredrik Andersson <sedrik@consbox.se>

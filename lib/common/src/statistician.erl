@@ -120,7 +120,7 @@ init([slave]) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% See job_stats(JobID)
+%% @see job_stats/1
 %%
 %% @spec handle_call({get_jobs_stats, JobID}, From, State) ->
 %%                                   {reply, Reply, State} 
@@ -149,7 +149,7 @@ handle_call(Msg, From, State) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% See update(JobID)
+%% @see update/1
 %%
 %% @spec handle_cast({update, StatsTuple}, State) -> {noreply, State} 
 %% @end
@@ -188,7 +188,7 @@ handle_cast({update_with_list, List}, State) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% See job_finished(JobID)
+%% @see job_finished/1
 %%
 %% @spec handle_cast(Msg, State) -> {noreply, State} 
 %% @end
@@ -233,7 +233,7 @@ handle_info(flush, State) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% See job_finished(JobID)
+%% @see job_finished/1
 %%
 %% @spec handle_info({job_finished, JobID}, State) -> {noreply, State} 
 %% @end

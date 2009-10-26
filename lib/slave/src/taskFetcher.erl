@@ -70,7 +70,9 @@ new_task(Data, Type, Path) ->
 %%--------------------------------------------------------------------
 init(no_args) ->
     {ok, TimerRef} = timer:send_interval(1000, poll),
-    {ok, #state{timer = TimerRef}}.
+    {Upload, Download} = netMonitor:get_net_stats(),
+    NetStats = {list_to_integer(Upload), list_to_integer(Download)},
+    {ok, {#state{timer = TimerRef}, NetStats}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -117,12 +119,14 @@ handle_call(Msg, From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType}}, _State) ->
+handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType}}, {LolTimer, {OldUp, OldDown}}) ->
     %% Report to statistician
     Diff = timer:now_diff(now(), Time) / 1000000,
     Power = power_check:get_watt_per_task(Diff),
+    {NewUpload, NewDownload} = netMonitor:get_net_stats(),
+    {NewUp, NewDown} = {list_to_integer(NewUpload), list_to_integer(NewDownload)},
     statistician:update({{node(), JobId, list_to_atom(TaskType)},
-		        Power, Diff, 0, 1, 0}),
+		        Power, Diff, NewUp - OldUp, NewDown - OldDown, 1, 0}),
     
     %% Kill and remove computingProcess spec from dynamic supervisor
     supervisor:terminate_child(?DYNSUP, ?WORKER),
@@ -134,7 +138,7 @@ handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType}}, _State) ->
     %% Reinstate poll timer and request task
     {ok, Timer} = timer:send_interval(1000, poll),
     request_task(),
-    {noreply, #state{work_state = no_task, timer = Timer}};
+    {noreply, {#state{work_state = no_task, timer = Timer}, {NewUp, NewDown}}};
 
 handle_cast({Pid, error, CallState}, State) ->
     chronicler:user_info("~w : Process ~p exited unexpected with state ~w.~n", 
@@ -164,13 +168,13 @@ handle_cast(Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(poll, State = #state{work_state = no_task}) ->
+handle_info(poll, {State = #state{work_state = no_task}, NetLoad}) ->
     request_task(),
-    {noreply, State};
-handle_info({task_response, Task}, State) ->
+    {noreply, {State, NetLoad}};
+handle_info({task_response, Task}, {State, NetLoad}) ->
     start_task(Task),
     timer:cancel(State#state.timer),
-    {noreply, State#state{work_state = task}};
+    {noreply, {State#state{work_state = task}, NetLoad}};
 %%--------------------------------------------------------------------
 %% @private
 %% @doc

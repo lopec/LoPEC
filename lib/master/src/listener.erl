@@ -11,6 +11,7 @@
 
 -export([new_job/2, new_job/3, get_job_name/1, remove_job_name/1,
          is_valid_jobtype/1]).
+
 -export([start_link/0, init/1, handle_call/3, handle_cast/2, handle_info/2, 
         terminate/2, code_change/3]).
 
@@ -95,32 +96,31 @@ init(_Args) ->
 %% Handling call messages
 %%
 %% @spec handle_call(Request, From, State) ->
-%%                                   {reply, JobId, State} 
+%%           {reply, JobId, State} | {noreply, State}
 %% @end
 %%------------------------------------------------------------------------------
 handle_call({new_job, JobType, InputData, Name}, _From, State) ->
-    JobId = dispatcher:add_job({JobType, 0}),
-    % Read the structurepath from configfile
-    {ok, Root} =
-        configparser:read_config("/etc/clusterbusters.conf", cluster_root),
-    % Make the directory-structure
-    JobIdString = lists:flatten(io_lib:format("~p", [JobId])),
-    filelib:ensure_dir(Root ++ "tmp/" ++ JobIdString ++ "/map/"),
-    filelib:ensure_dir(Root ++ "tmp/" ++ JobIdString ++ "/reduce/"),
-    filelib:ensure_dir(Root ++ "tmp/" ++ JobIdString ++ "/input/"),
-    filelib:ensure_dir(Root ++ "tmp/" ++ JobIdString ++ "/results/"),
-    % Move the files to the right thing
-    file:copy(InputData, Root ++ "tmp/" ++ JobIdString ++ "/input/data.dat"),
-    dispatcher:create_task({JobId, split, 
-                            "tmp/"++JobIdString++"/input/data.dat", 0}),
-    NewState =
-        case Name of
-            no_name -> State;
-            _ ->
-                NewJobs = dict:store(JobId, Name, State#state.active_jobs),
-                State#state{active_jobs = NewJobs}
-        end,
-    {reply, JobId, NewState};
+    JobsWithThisName = dict:filter(fun (_Id, JobName) -> JobName == Name end,
+                                   State#state.active_jobs),
+    case dict:size(JobsWithThisName) of
+        0 ->
+            JobId = add_new_job(JobType, InputData),
+            NewState =
+                case Name of
+                    no_name -> State;
+                    _ ->
+                        NewJobs = dict:store(JobId, Name,
+                                             State#state.active_jobs),
+                        State#state{active_jobs = NewJobs}
+                end,
+            {reply, {ok, JobId}, NewState};
+        _ ->
+            Message = "There is already a job with this name, "
+                      "pick another one and try again.",
+            chronicler:user_info(Message),
+            {reply, {error, Message}, State}
+    end;
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -251,3 +251,17 @@ is_valid_jobtype(JobType) ->
         ok -> {ok};
         {error, Reason} -> {error, Reason}
     end.
+
+add_new_job(JobType, InputData) ->
+    JobId = dispatcher:add_job({JobType, 0}),
+    % Read the structurepath from configfile
+    {ok, Root} =
+        configparser:read_config("/etc/clusterbusters.conf", cluster_root),
+    JobRoot = lists:flatten(io_lib:format("/tmp/~p/", [JobId])),
+    % Make the directory-structure
+    [filelib:ensure_dir(Root ++ JobRoot ++ SubDir)
+     || SubDir <- ["map/", "reduce/", "input/", "results/"]],
+    % Move the files to the right thing
+    file:copy(InputData, Root ++ JobRoot ++ "/input/data.dat"),
+    dispatcher:create_task({JobId, split, JobRoot ++ "/input/data.dat", 0}),
+    JobId.

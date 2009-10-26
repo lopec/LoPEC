@@ -36,17 +36,20 @@ job_name_test_() ->
                {ok, Root} = 
                    configparser:read_config("/etc/clusterbusters.conf",
                                             cluster_root),
-               {listener:new_job(raytracer, Root ++ "ray256", ray256),
+               [Root,
+                listener:new_job(raytracer, Root ++ "ray256", ray256),
                 listener:new_job(raytracer, Root ++ "ray256", no_name)
-               }
+               ]
      end,
      fun (_) -> end_per_test_case() end,
-     fun ({Named, Anonymous}) ->
+     fun ([Root, {ok, Named}, {ok, Anonymous}]) ->
              {inorder,
-              [?_assertEqual({name, ray256},
-                             listener:get_job_name(Named)),
-               ?_assertEqual(anonymous,
+              [?_assertEqual(anonymous,
                              listener:get_job_name(Anonymous)),
+               ?_assertEqual({name, ray256},
+                             listener:get_job_name(Named)),
+               ?_assertMatch({error, _},
+                             listener:new_job(raytracer, Root ++ "ray256", ray256)),
                ?_assertEqual(ok,
                              listener:remove_job_name(Named)),
                ?_assertEqual(anonymous,
@@ -63,7 +66,7 @@ job_creation_test() ->
         configparser:read_config("/etc/clusterbusters.conf", cluster_root),
     
     InputFile = Root ++ "ray256",
-    JobId = listener:new_job(raytracer, InputFile),
+    {ok, JobId} = listener:new_job(raytracer, InputFile),
     Job = db:get_job_info(JobId),
     chronicler:info(Job),
     ?assertEqual(JobId, Job#job.job_id),

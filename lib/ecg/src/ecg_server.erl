@@ -46,6 +46,7 @@ accept_message(Msg) ->
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
+    chronicler:info("~w : module started~n", [?MODULE]),
     gen_server:start_link({global, ?MODULE}, ?MODULE, [], []).
 
 
@@ -81,6 +82,7 @@ init(_) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_call(_Request, _From, _State) ->
+    chronicler:warning("~w : Unexpected message in handle_call~n", [?MODULE]),
     {noreply, []}.
 
 %% --------------------------------------------------------------------
@@ -110,7 +112,7 @@ handle_cast({new_node, Node}, _) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    chronicler:warning("~w:Received unexpected handle_cast call.~n"
+    chronicler:warning("~w : Received unexpected handle_cast call.~n"
                        "Message: ~p~n",
                        [?MODULE, Msg]),
     {noreply, State}.
@@ -122,11 +124,11 @@ handle_cast(Msg, State) ->
 %% Returns: {noreply, State}
 %% --------------------------------------------------------------------
 handle_info({nodeup, Node}, _) ->    
-    chronicler:info("Welcome new node: ~p~n", [Node]),
+    chronicler:info("~w : Welcome new node: ~p~n", [?MODULE, Node]),
     {noreply, []};
 handle_info({nodedown, Node}, _) ->
     dispatcher:free_tasks(Node),
-    chronicler:info("Node ~p just died. :(~n", [Node]),
+    chronicler:info("~w : Node ~p just died. :(~n", [?MODULE, Node]),
     {noreply, []};
 %%--------------------------------------------------------------------
 %% @private
@@ -137,7 +139,7 @@ handle_info({nodedown, Node}, _) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(Info, State) -> 
-    chronicler:warning("~w:Received unexpected handle_info call.~n"
+    chronicler:warning("~w : Received unexpected handle_info call.~n"
                        "Info: ~p~n",
                        [?MODULE, Info]),
     {noreply, State}.
@@ -155,7 +157,7 @@ handle_info(Info, State) ->
 %% @end
 %%--------------------------------------------------------------------
 terminate(Reason, _State) -> 
-    chronicler:info("~w:Received terminate call.~n"
+    chronicler:info("~w : Received terminate call.~n"
                     "Reason: ~p~n",
                     [?MODULE, Reason]),
     ok.
@@ -170,7 +172,7 @@ terminate(Reason, _State) ->
 %% @end
 %%--------------------------------------------------------------------
 code_change(OldVsn, State, Extra) -> 
-    chronicler:debug("~w:Received code_change call.~n"
+    chronicler:debug("~w : Received code_change call.~n"
                      "Old version: ~p~n"
                      "Extra: ~p~n",
                      [?MODULE, OldVsn, Extra]),

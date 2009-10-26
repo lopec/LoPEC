@@ -32,7 +32,6 @@ get_load(Period) ->
     end.
 
 %%--------------------------------------------------------------------
-%% @private
 %% @doc
 %% Get the expected power consumption for a period of time (1min, 5min
 %% and 15min is valid values)
@@ -56,7 +55,6 @@ get_watt(Period) ->
     
 
 %%--------------------------------------------------------------------
-%% @private
 %% @doc
 %% Returns the power consumptions for the last X, X < 60, seconds.
 %% 

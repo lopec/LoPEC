@@ -13,7 +13,7 @@
 %% @doc
 %% Ask the system what load it have.
 %%
-%% @spec get_load(Period::atom()) -> Load
+%% @spec get_load(Period) -> Load
 %% @end
 %%--------------------------------------------------------------------
 get_load(Period) ->
@@ -37,7 +37,7 @@ get_load(Period) ->
 %% Get the expected power consumption for a period of time (1min, 5min
 %% and 15min is valid values)
 %%
-%% @spec get_watt(Period::atom()) -> Watt::Integer()
+%% @spec get_watt(Period) -> Watt
 %% @end
 %%--------------------------------------------------------------------
 get_watt(Period) ->
@@ -61,7 +61,7 @@ get_watt(Period) ->
 %% Returns the power consumptions for the last X, X < 60, seconds.
 %% 
 %%
-%% @spec get_watt_per_task(Period::Integer()) -> Watt::Integer()
+%% @spec get_watt_per_task(Period) -> Watt
 %% @end
 %%--------------------------------------------------------------------
 get_watt_per_task(Period) ->

@@ -4,6 +4,7 @@
 
 add_job_and_task_test() ->
     db:start(),
+    db:delete_tables(),
     db:create_tables(),
 
     Job1 = {ray_tracer, 15},

@@ -12,17 +12,19 @@
 %%                                  {error, not_found}
 %% @end
 %%--------------------------------------------------------------------
-parse(_Key, []) ->
-  {error, not_found};
+parse(Key, []) ->
+    chronicler:warning("~w : Could not find the key '~w'~n", [?MODULE, Key]),
+    {error, not_found};
 parse(Key, [{Key, Value} | _Config]) ->
-  {ok, Value};
+    {ok, Value};
 parse(Key, [_Other | Config]) ->
-  parse(Key, Config).
+    parse(Key, Config).
 
 read_config(File, Key) ->
     {Ret, Config} = file:consult(File),
     case Ret of 
-        error -> {error, Config};
+        error -> chronicler:warning("~w : Could not find the configfile '~w'~n", [?MODULE, File]),
+                {error, Config};
         ok -> Value = parse(Key, Config),
             Value
     end.

@@ -29,6 +29,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start(_Type, _Args) ->
+    chronicler:info("~w : module started~n", [?MODULE]),
     clientSupervisor:start_link().
 
 %%--------------------------------------------------------------------
@@ -41,4 +42,5 @@ start(_Type, _Args) ->
 %% @end
 %%--------------------------------------------------------------------
 stop(_State) ->
+    chronicler:info("~w : module stopped~n", [?MODULE]),
     ok.

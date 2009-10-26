@@ -38,6 +38,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link(Path, Op, JobId, InputPath, TaskId) ->
+    chronicler:info("~w : application started~n", [?MODULE]),
     StringId = integer_to_list(JobId),
     {ok, Root} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
     Prog = Root ++ "programs/" ++ atom_to_list(Path) ++ "/script.sh",
@@ -61,6 +62,7 @@ start_link(Path, Op, JobId, InputPath, TaskId) ->
 %%--------------------------------------------------------------------
 
 stop() ->
+    chronicler:info("~w : module stopped~n", [?MODULE]),
     gen_server:cast(?SERVER, stop).
 
 %%%===================================================================
@@ -80,15 +82,15 @@ stop() ->
 %%--------------------------------------------------------------------
 init([Path, "split", LoadPath, SavePath, JobId, TaskId]) ->
     {ok, Val} = configparser:read_config("/etc/clusterbusters.conf", split_value),
-    chronicler:debug("Path: ~ts~nOperation: ~ts~nLoadpath: ~ts~nSavepath: ~ts~nJobId: ~p~n",
-                     [Path, "split", LoadPath, SavePath, JobId]),
+    chronicler:debug("~w : Path: ~ts~nOperation: ~ts~nLoadpath: ~ts~nSavepath: ~ts~nJobId: ~p~n",
+                     [?MODULE, Path, "split", LoadPath, SavePath, JobId]),
     open_port({spawn_executable, Path},
 	      [use_stdio, exit_status, {line, 512},
 	       {args, ["split", LoadPath, SavePath, integer_to_list(Val)]}]),
     {ok, {JobId, TaskId}};
 init([Path, Op, LoadPath, SavePath, JobId, TaskId]) ->
-    chronicler:debug("Path: ~ts~nOperation: ~ts~nLoadpath: ~ts~nSavepath: ~ts~nJobId: ~p~n",
-                     [Path, Op, LoadPath, SavePath, JobId]),
+    chronicler:debug("~w : Path: ~ts~nOperation: ~ts~nLoadpath: ~ts~nSavepath: ~ts~nJobId: ~p~n",
+                     [?MODULE, Path, Op, LoadPath, SavePath, JobId]),
     open_port({spawn_executable, Path},
 	      [use_stdio, exit_status, {line, 512},
 	       {args, [Op, LoadPath, SavePath]}]),
@@ -103,7 +105,7 @@ init([Path, Op, LoadPath, SavePath, JobId, TaskId]) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call(Msg, From, State) ->
-    chronicler:warning("~w:Received unexpected handle_call call.~n"
+    chronicler:warning("~w : Received unexpected handle_call call.~n"
                        "Message: ~p~n"
                        "From: ~p~n",
                        [?MODULE, Msg, From]),
@@ -130,7 +132,7 @@ handle_cast(stop, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    chronicler:warning("~w:Received unexpected handle_cast call.~n"
+    chronicler:warning("~w : Received unexpected handle_cast call.~n"
                        "Message: ~p~n",
                        [?MODULE, Msg]),
     {noreply, State}.
@@ -147,32 +149,32 @@ handle_cast(Msg, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info({_Pid, {data, {_Flag, "NEW_SPLIT " ++ Data}}}, State) ->
-    chronicler:debug("SPLIT: New map task: ~ts~n", [Data]),
+    chronicler:debug("~w : SPLIT: New map task: ~ts~n", [?MODULE, Data]),
     taskFetcher:new_task(State, map, "/map/" ++ Data),
     {noreply, State};
 handle_info({_Pid, {data, {_Flag, "NEW_REDUCE_TASK " ++ Data}}}, State) ->
-    chronicler:debug("MAP: New reduce task: ~ts~n", [Data]),
+    chronicler:debug("~w : MAP: New reduce task: ~ts~n", [?MODULE, Data]),
     taskFetcher:new_task(State, reduce, "/reduce/" ++ Data),
     {noreply, State};
 handle_info({_Pid, {data, {_Flag, "NEW_REDUCE_RESULT " ++ Data}}}, State) ->
-    chronicler:debug("REDUCE: New finalize task: ~ts~n", [Data]),
+    chronicler:debug("~w : REDUCE: New finalize task: ~ts~n", [?MODULE, Data]),
     taskFetcher:new_task(State, finalize, "/results/"),
     {noreply, State};
 handle_info({_Pid, {data, {_Flag, "ERROR " ++ Data}}}, State) ->
-    chronicler:error("ERROR: ~ts~n", [Data]),
+    chronicler:error("~w : ERROR: ~ts~n", [?MODULE, Data]),
     {noreply, State};
 handle_info({_Pid, {data, {_Flag, "LOG " ++ Data}}}, State) ->
-    chronicler:user_info("LOG: ~ts~n", [Data]),
+    chronicler:user_info("~w : LOG: ~ts~n", [?MODULE, Data]),
     {noreply, State};
 handle_info({_Pid, {data, {_Flag, Data}}}, State) ->
-    chronicler:info(io_lib:format("PORT PRINTOUT: ~ts~n", [Data])),
+    chronicler:info(io_lib:format("~w : PORT PRINTOUT: ~ts~n", [?MODULE, Data])),
     {noreply, State};
 handle_info({Pid, {exit_status, Status}}, State) when Status == 0 ->
-    chronicler:debug("Process ~p exited normally~n", [Pid]),
+    chronicler:debug("~w : Process ~p exited normally~n", [?MODULE, Pid]),
     gen_server:cast(?FETCHER, {self(), done, State}),
     {stop, normal, State};
 handle_info({Pid, {exit_status, Status}}, State) ->
-    chronicler:error("Process ~p exited with status: ~p~n", [Pid, Status]),
+    chronicler:error("~w : Process ~p exited with status: ~p~n", [?MODULE, Pid, Status]),
     gen_server:cast(?FETCHER, {self(), error, State}),
     {stop, normal, State};
 %%--------------------------------------------------------------------
@@ -184,7 +186,7 @@ handle_info({Pid, {exit_status, Status}}, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(Info, State) -> 
-    chronicler:warning("~w:Received unexpected handle_info call.~n"
+    chronicler:warning("~w : Received unexpected handle_info call.~n"
                        "Info: ~p~n",
                        [?MODULE, Info]),
     {noreply, State}.
@@ -202,7 +204,7 @@ handle_info(Info, State) ->
 %% @end
 %%--------------------------------------------------------------------
 terminate(Reason, _State) -> 
-    chronicler:debug("~w:Received terminate call.~n"
+    chronicler:debug("~w : Received terminate call.~n"
                      "Reason: ~p~n",
                      [?MODULE, Reason]),
     ok.
@@ -216,7 +218,7 @@ terminate(Reason, _State) ->
 %% @end
 %%--------------------------------------------------------------------
 code_change(OldVsn, State, Extra) -> 
-    chronicler:debug("~w:Received code_change call.~n"
+    chronicler:debug("~w : Received code_change call.~n"
                      "Old version: ~p~n"
                      "Extra: ~p~n",
                      [?MODULE, OldVsn, Extra]),

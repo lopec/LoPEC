@@ -198,7 +198,7 @@ handle_cast({job_finished, JobID}, State) ->
     {ok, Root} =
         configparser:read_config("/etc/clusterbusters.conf", cluster_root),
     file:write_file(Root ++ "results/" ++
-                  integer_to_list(JobID) ++ "/stats.txt", JobStats),
+                  integer_to_list(JobID) ++ "/stats", JobStats),
     {noreply, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -355,7 +355,7 @@ job_stats(JobID) ->
 %%--------------------------------------------------------------------
 jobstats_string_formatter(
   {JobID, SplitString, MapString, ReduceString, FinalizeString, TimePassed,
-   Nodes, [TimeExecuted, Power, Netload, Numtasks, Restarts]}) ->
+   Nodes, [Power, TimeExecuted, Netload, Numtasks, Restarts]}) ->
     lists:flatten(
       io_lib:format(
         "Stats for job: ~p~n~ts~ts~ts~ts~n"

@@ -24,7 +24,6 @@
 
 -define(DYNSUP, dynamicSupervisor).
 -define(WORKER, computingProcess).
--define(TIMEOUT, 1000).
 
 -record(state, {work_state = no_task, timer}).
 
@@ -49,8 +48,8 @@ start_link() ->
 %% @spec new_task(Id, Type, Path) -> Task | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-new_task(Id, Type, Path) ->
-    gen_server:call(?MODULE, {request, new_task, Id, Type, Path}).
+new_task(Data, Type, Path) ->
+    gen_server:call(?MODULE, {request, new_task, Data, Type, Path}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -88,8 +87,8 @@ init(no_args) ->
 handle_call({request, task}, _From, State) ->
     request_task(),
     {reply, State, State};
-handle_call({request, new_task, Id, Type, Path}, _From, State) ->
-    Reply = give_task(Id, Type, Path),
+handle_call({request, new_task, Data, Type, Path}, _From, State) ->
+    Reply = give_task(Data, Type, Path),
     {reply, Reply, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -116,13 +115,24 @@ handle_call(Msg, From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({_Pid, done, {_JobId, TaskId}}, _State) ->
+handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType}}, _State) ->
+    %% Report to statistician
+    Diff = timer:now_diff(now(), Time),
+    statistician:update({{node(), JobId, list_to_atom(TaskType)},
+		        0, Diff, 0, 1, 0}),
+    
+    %% Kill and remove computingProcess spec from dynamic supervisor
     supervisor:terminate_child(?DYNSUP, ?WORKER),
     supervisor:delete_child(?DYNSUP, ?WORKER),
+
+    %% Report to master that task is done
     dispatcher:report_task_done(TaskId),
+
+    %% Reinstate poll timer and request task
     {ok, Timer} = timer:send_interval(1000, poll),
     request_task(),
     {noreply, #state{work_state = no_task, timer = Timer}};
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -225,13 +235,13 @@ request_task() ->
 %% @end
 %%--------------------------------------------------------------------
 
-give_task({JobId, _TaskId}, Type, Path) ->
+give_task({JobId, _TaskId, _Time, _OldType}, Type, Path) ->
     dispatcher:create_task({JobId, Type,
 			    "tmp/" ++ integer_to_list(JobId) ++ Path, 1}).
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Starts a already fetched task on the node.
+%% Starts an already fetched task on the node.
 %%
 %% @spec start_task({TaskId, JobId, Op, Path, Name}) -> ChildSpec
 %% @end

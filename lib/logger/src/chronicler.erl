@@ -202,6 +202,9 @@ handle_call(Msg, From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
+handle_cast({new_level, all}, State) ->
+    {noreply, State#state{loggingLevel =
+                          [info, debug, user_info, warning, error]}};
 handle_cast({new_level, NewLevel}, State) ->
     {noreply, State#state{loggingLevel = NewLevel}};
 handle_cast({Level, Msg}, State) ->

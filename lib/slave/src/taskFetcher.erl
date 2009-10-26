@@ -117,9 +117,10 @@ handle_call(Msg, From, State) ->
 %%--------------------------------------------------------------------
 handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType}}, _State) ->
     %% Report to statistician
-    Diff = timer:now_diff(now(), Time),
+    Diff = timer:now_diff(now(), Time) / 1000000,
+    Power = power_check:get_watt_per_task(Diff),
     statistician:update({{node(), JobId, list_to_atom(TaskType)},
-		        0, Diff, 0, 1, 0}),
+		        Power, Diff, 0, 1, 0}),
     
     %% Kill and remove computingProcess spec from dynamic supervisor
     supervisor:terminate_child(?DYNSUP, ?WORKER),

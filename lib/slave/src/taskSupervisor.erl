@@ -27,6 +27,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
+    chronicler:info("~w : module started~n", [?MODULE]),
     supervisor:start_link({local, ?MODULE}, ?MODULE, no_args).
 
 

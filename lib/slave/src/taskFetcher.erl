@@ -136,6 +136,10 @@ handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType}}, _State) ->
     request_task(),
     {noreply, #state{work_state = no_task, timer = Timer}};
 
+handle_cast({Pid, error, CallState}, State) ->
+    chronicler:user_info("~w : Process ~p exited unexpected with state ~w.~n", 
+        [?MODULE, Pid,CallState]),
+    {noreply, State};
 %%--------------------------------------------------------------------
 %% @private
 %% @doc

@@ -54,14 +54,6 @@ get_watt(Period) ->
     end.
     
 
-%%--------------------------------------------------------------------
-%% @doc
-%% Returns the power consumptions for the last X, X < 60, seconds.
-%% 
-%%
-%% @spec get_watt_per_task(Period) -> Watt
-%% @end
-%%--------------------------------------------------------------------
 get_watt_per_task(Period) ->
     Watt = get_watt(l1min),
     Watt*(Period/60).

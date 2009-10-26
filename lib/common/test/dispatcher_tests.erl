@@ -1,12 +1,13 @@
 %%%-------------------------------------------------------------------
-%%% @author Axel, Vasilij Savin <>
+%%% @author Axel Andren <axelandren@gmail.com>
+%%% @author Vasilij Savin <vasilij.savin@gmail.com>
 %%% @copyright (C) 2009, Axel
 %%% @doc
 %%%
 %%% Contains the unit tests for the dispatcher. 
 %%%
 %%% @end
-%%% Created : 1 Oct 2009 by Axel <>
+%%% Created : 1 Oct 2009 by Axel Andren <axelandren@gmail.com>
 %%%-------------------------------------------------------------------
 -module(dispatcher_tests).
 -include("../../master/include/db.hrl").

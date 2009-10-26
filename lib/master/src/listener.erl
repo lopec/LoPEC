@@ -28,6 +28,7 @@
 %% @end
 %%------------------------------------------------------------------------------
 start_link() ->
+    chronicler:info("~w : module started~n", [?MODULE]),
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 %%------------------------------------------------------------------------------
@@ -42,10 +43,12 @@ start_link() ->
 %% @end
 %%------------------------------------------------------------------------------
 new_job(JobType, InputData, Name) ->
+    chronicler:info("~w : called new_job with a name=~w~n", [?MODULE, Name]),
     gen_server:call(?MODULE, {new_job, JobType, InputData, Name}).
 %% @spec new_job(JobType, InputData) -> JobID
 %% @equiv new_job(JobType, InputData, no_name)
 new_job(JobType, InputData) ->
+    chronicler:info("~w called new_job~n", [?MODULE]),
     new_job(JobType, InputData, no_name).
 
 %%------------------------------------------------------------------------------
@@ -57,6 +60,7 @@ new_job(JobType, InputData) ->
 %% @end
 %%------------------------------------------------------------------------------
 get_job_name(JobId) ->
+    chronicler:info("~w : called get_job_name with JobId=~B~n", [?MODULE, JobId]),
     gen_server:call(?MODULE, {get_job_name, JobId}).
 
 %%------------------------------------------------------------------------------
@@ -67,6 +71,7 @@ get_job_name(JobId) ->
 %% @end
 %%------------------------------------------------------------------------------
 remove_job_name(JobId) ->
+    chronicler:info("~w : called remove_job_name with JobId=~B~n", [?MODULE, JobId]),
     gen_server:call(?MODULE, {remove_job_name, JobId}).
 
 %%%=============================================================================
@@ -154,7 +159,7 @@ handle_call({remove_job_name, JobId}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call(Msg, From, State) ->
-    chronicler:warning("~w:Received unexpected handle_call call.~n"
+    chronicler:warning("~w : Received unexpected handle_call call.~n"
                        "Message: ~p~n"
                        "From: ~p~n",
                        [?MODULE, Msg, From]),
@@ -172,7 +177,7 @@ handle_call(Msg, From, State) ->
 %% @end
 %%------------------------------------------------------------------------------
 terminate(Reason, _State) ->
-    chronicler:info("~w:Received terminate call.~n"
+    chronicler:info("~w : Received terminate call.~n"
                     "Reason: ~p~n",
                     [?MODULE, Reason]),
     ok.
@@ -186,7 +191,7 @@ terminate(Reason, _State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    chronicler:warning("~w:Received unexpected handle_cast call.~n"
+    chronicler:warning("~w : Received unexpected handle_cast call.~n"
                        "Message: ~p~n",
                        [?MODULE, Msg]),
     {noreply, State}.
@@ -201,7 +206,7 @@ handle_cast(Msg, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(Info, State) -> 
-    chronicler:warning("~w:Received unexpected handle_info call.~n"
+    chronicler:warning("~w : Received unexpected handle_info call.~n"
                        "Info: ~p~n",
                        [?MODULE, Info]),
     {noreply, State}.
@@ -216,7 +221,7 @@ handle_info(Info, State) ->
 %% @end
 %%--------------------------------------------------------------------
 code_change(OldVsn, State, Extra) -> 
-    chronicler:debug("~w:Received unexpected code_change call.~n"
+    chronicler:debug("~w : Received unexpected code_change call.~n"
                      "Old version: ~p~n"
                      "Extra: ~p~n",
                      [?MODULE, OldVsn, Extra]),

@@ -25,7 +25,7 @@
 %% ====================================================================
 
 start_link() ->
-    %io:format("Starting Supervisor~n", []),
+    chronicler:info("~w : module started~n", [?MODULE]),
     supervisor:start_link({local, ?MODULE}, ?MODULE, no_args).
 
 %% --------------------------------------------------------------------
@@ -43,7 +43,7 @@ init(no_args) ->
     % ShutdownTime
     % Type: worker | supervisor
     % Used modules
-    io:format("Creating children~n", []),
+    chronicler:info("~w : creating children~n", [?MODULE]),
     Dispatcher = child(dispatcher, worker, no_args),
     Listener = child(listener, worker, no_args),    
     DbDaemon = child(db, worker, no_args),

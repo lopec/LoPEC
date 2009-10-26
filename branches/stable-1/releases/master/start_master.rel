@@ -1,0 +1,7 @@
+{release, {"Cluster master", "1"}, {erts, "5.7.2"},
+ [{kernel,"2.13.2"},
+  {stdlib,"1.16.2"},
+  {chronicler, "0.1"},
+  {ecg, "0.2"}, 
+  {common, "0.1"},
+  {master, "0.2"}]}.

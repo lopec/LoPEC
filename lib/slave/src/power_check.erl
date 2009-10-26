@@ -33,8 +33,8 @@ get_load(Period) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Get the expected power consumption for a period of time (1min, 5min
-%% and 15min is valid values)
+%% Get the expected power consumption for a period of time (l1min, l5min
+%% and l15min is valid values)
 %%
 %% @spec get_watt(Period) -> Watt
 %% @end
@@ -54,6 +54,14 @@ get_watt(Period) ->
     end.
     
 
+%%--------------------------------------------------------------------
+%% @doc
+%% This measures power consumptions over a time T where T is expressed
+%% in seconds. 
+%%
+%% @spec get_watt_per_task(Period) -> Watt
+%% @end
+%%--------------------------------------------------------------------
 get_watt_per_task(Period) ->
     Watt = get_watt(l1min),
     Watt*(Period/60).

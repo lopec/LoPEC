@@ -322,12 +322,12 @@ job_stats(JobID) ->
             
             SumAll = sum_stats([SumSplit, SumMap, SumReduce, SumFinal], Zeroes),
 
-            {Mega, Sec, Milli} = now(),
+            {Mega, Sec, Micro} = now(),
 
              TimePassed = ((list_to_integer(
                               integer_to_list(Mega) ++
                               integer_to_list(Sec) ++
-                              integer_to_list(Milli))) - JobID) / 1000,
+                              integer_to_list(Micro))) - JobID) / 1000000,
             
             SplitStrings = taskstats_string_formatter(split, SumSplit),
             MapStrings = taskstats_string_formatter(map, SumMap),

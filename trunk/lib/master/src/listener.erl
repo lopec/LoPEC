@@ -40,7 +40,7 @@ start_link() ->
 %% Name is the atom the user wants to associate with the job id,
 %% or no_name if no association is wanted.
 %%
-%% @spec new_job(ProgramName, ProblemType, Owner, Priority, InputData, Name) 
+%% @spec add_job(ProgramName, ProblemType, Owner, Priority, InputData, Name) 
 %%                  -> JobID
 %% @end
 %%------------------------------------------------------------------------------
@@ -48,9 +48,9 @@ add_job(ProgramName, ProblemType, Owner, Priority, InputData, Name) ->
     chronicler:info("~w : called new_job with a name=~w~n", [?MODULE, Name]),
     gen_server:call(?MODULE, 
        {new_job, ProgramName, ProblemType, Owner, Priority, InputData, Name}).
-%% %@spec new_job(ProgramName, ProblemType, Owner, Priority, InputData)
-%% %@equiv new_job(JobType, InputData, no_name)
-%TODO: Burbas must fix the above two, only he knows how theyre meant to be
+%% %@spec add_job(ProgramName, ProblemType, Owner, Priority, InputData)
+%% %@equiv add_job(JobType, InputData, no_name)
+%TODO: Burbas must fix the above two, only he knows how they should look
 add_job(ProgramName, ProblemType, Owner, Priority, InputData) ->
     chronicler:info("~w called new_job~n", [?MODULE]),
     add_job(ProgramName, ProblemType, Owner, Priority, InputData, no_name).

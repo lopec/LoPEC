@@ -28,6 +28,9 @@
 %% APIs for handling tasks
 -export([add_task/1, fetch_task/1, mark_done/1, free_tasks/1, list/1]).
 
+%% APIs for information
+-export([get_job/1, get_task/1]).
+
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
@@ -214,6 +217,17 @@ add_task({JobId, ProgramName, Type, Path}) ->
 %%--------------------------------------------------------------------
 get_task(TaskId) ->
     gen_server:call(?SERVER, {get_task, TaskId}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Returns the whole job record from the database given a valid id.
+%%
+%% @spec get_job(JobId::integer()) -> Job::record() | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+get_job(TaskId) ->
+    gen_server:call(?SERVER, {get_job, TaskId}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -652,7 +666,22 @@ handle_call({get_task, TaskId}, _From, State) ->
 %% @private
 %% @doc
 %%
-%% 
+%% Returns a whole job given a valid id.
+%%
+%% @spec handle_call({get_job, JobId::integer()}, 
+%%                    _From, State) ->
+%%                                 {reply, Job, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({get_job, JobId}, _From, State) ->
+    Job = read(job, JobId),
+    {reply, Job, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Returns the node id of the node which is working on the given task.
 %%
 %% @spec handle_call({get_node, TaskId::integer()}, 
 %%                    _From, State) ->
@@ -671,7 +700,7 @@ handle_call({get_node, TaskId}, _From, State) ->
 %% Sets the state of a task and places the task and its relations in
 %% the correct tables.
 %%
-%% @spec handle_call({get_task, TaskId::integer(), NewState::atom()}, 
+%% @spec handle_call({set_task_state, TaskId::integer(), NewState::atom()}, 
 %%                    _From, State) ->
 %%                                 {reply, Task, State}
 %% @end

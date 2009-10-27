@@ -254,13 +254,14 @@ handle_call(Msg, From, State) ->
 %%--------------------------------------------------------------------
 find_task(RequesterPID, NodeId) ->
     FreeTask = db:fetch_task(NodeId),
-    chronicler:debug("dispatcher: Received task: ~p~n",[FreeTask]),
     case FreeTask of
         % If no task found - let the request time out and try again
         % Therefore we just terminate
-        no_task -> 
+        no_task ->
+            chronicler:debug("~p: Found no tasks.~n",[?MODULE]),
             ok;
         Task ->
+            chronicler:debug("~p: Found task ~p.~n",[?MODULE, Task]),
             RequesterPID ! {task_response, Task},
             ecg_server:accept_message({new_node, NodeId})
     end.

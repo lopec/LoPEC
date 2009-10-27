@@ -39,7 +39,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
-    chronicler:info("~w : application started~n", [?MODULE]),
+    chronicler:info("~w started", [?MODULE]),
     gen_server:start_link({local, ?MODULE}, ?MODULE, no_args, []).
 
 %%--------------------------------------------------------------------
@@ -50,7 +50,7 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 new_task(Data, Type, Path) ->
-    chronicler:info("~w : called new_task of type ~w~n", [?MODULE, Type]),
+    chronicler:info("~w : called new_task of type ~w", [?MODULE, Type]),
     gen_server:call(?MODULE, {request, new_task, Data, Type, Path}).
 
 %%%===================================================================
@@ -140,8 +140,17 @@ handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType}}, {LolTimer, {OldUp, Ol
     request_task(),
     {noreply, {#state{work_state = no_task, timer = Timer}, {NewUp, NewDown}}};
 
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Handles errournous exit of user application.
+%% Will tell the user through a user_info message.
+%%
+%% @spec handle_cast({Pid, error, CallState}, State) -> {noreply, State}
+%% @end
+%%--------------------------------------------------------------------
 handle_cast({Pid, error, CallState}, State) ->
-    chronicler:user_info("~w : Process ~p exited unexpected with state ~w.~n", 
+    chronicler:user_info("~w : Process ~p exited unexpected with state ~w.", 
         [?MODULE, Pid,CallState]),
     {noreply, State};
 %%--------------------------------------------------------------------

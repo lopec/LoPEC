@@ -1,5 +1,5 @@
 #!/usr/bin/env escript
-%%! +W w -pa ../ecg/ebin ../common/ebin ../logger/ebin ../ecg/ebin ../master/ebin ../slave/ebin -pa test
+%%! +W w -pa ../ecg/ebin ../common/ebin ../chronicler/ebin ../ecg/ebin ../master/ebin ../slave/ebin -pa test
 %% A bit ugly above, dunno what we can do about it...
 
 main(Args) ->

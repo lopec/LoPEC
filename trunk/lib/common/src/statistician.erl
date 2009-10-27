@@ -53,7 +53,6 @@ start_link(Type) ->
 %% @end
 %%--------------------------------------------------------------------
 stop() ->
-    gen_server:cast({global, ?SERVER}, stop),
     gen_server:cast(?SERVER, stop).
 
 %%--------------------------------------------------------------------
@@ -172,16 +171,17 @@ handle_cast({update,
     case Item of
         [] ->
             ets:insert(stats, {{NodeName, JobID, TaskType},
-                        Power, Time, Upload, Download, Numtasks, Restarts});
-        [{{_,_,_}, OldPower, OldTime, OldUpload, OldDownload,
-	  OldNumtasks, OldRestarts}] ->
-            ets:insert(stats, {{NodeName, JobID, TaskType},
+                               Power, Time, Upload, Download, Numtasks, Restarts});
+        [{{NodeName, JobID, TaskType},
+          OldPower, OldTime, OldUpload, OldDownload, OldNumtasks, OldRestarts}] ->
+            ets:insert(stats,
+                       {{NodeName, JobID, TaskType},
                         Power+OldPower,
-                         Time+OldTime,
-                         Upload+OldUpload,
-			 Download+OldDownload,
-                         Numtasks+OldNumtasks,
-                         Restarts+OldRestarts})
+                        Time+OldTime,
+                        Upload+OldUpload,
+                        Download+OldDownload,
+                        Numtasks+OldNumtasks,
+                        Restarts+OldRestarts})
     end,
     {noreply, State};
 %%--------------------------------------------------------------------

@@ -76,5 +76,5 @@ child(Module,Role, no_args) ->
     {Module, {Module, start_link, []},
         permanent, brutal_kill, Role, [Module]};
 child(Module, Role, Args) ->
-    {Module, {Module, start_link, [Args]},
+    {Module, {Module, start_link, Args},
         permanent, brutal_kill, Role, [Module]}.

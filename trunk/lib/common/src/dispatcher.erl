@@ -16,12 +16,12 @@
 -include("../../master/include/db.hrl").
 
 %% API
--export([start_link/0, 
-         get_task/2,
-         report_task_done/2, 
-         create_task/1, 
-         report_task_done/1,
+-export([start_link/0,
          add_job/1,
+         add_task/1, 
+         fetch_task/2,
+         report_task_done/2, 
+         report_task_done/1,
          free_tasks/1
         ]).
 
@@ -49,18 +49,18 @@ start_link() ->
 %% <pre>
 %% TaskSpec is a tuple:
 %% {
-%%     JobId,
-%%     Tasktype,  % atoms 'map', 'reduce', 'finalise' or 'split' are
+%%      JobId,
+%%      ProgramName,
+%%      Type - atoms 'map', 'reduce', 'finalise' or 'split' are
 %%                  accepted at the moment (without quote marks '')
-%%     input_path,% input file name
-%%     priority   % not yet implemented
+%%      Path - input file name
 %% }
 %% </pre>
 %% @spec create_task(TaskSpec) -> TaskID
 %% @end
 %%--------------------------------------------------------------------
-create_task(TaskSpec) ->
-    gen_server:call({global, ?MODULE}, {create_task, TaskSpec}).
+add_task(TaskSpec) ->
+    gen_server:call({global, ?MODULE}, {add_task, TaskSpec}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -78,16 +78,17 @@ free_tasks(NodeId) ->
 %% <pre>
 %% JobSpec is a tuple:
 %% {   
-%%     JobType, % atoms 'map', 'reduce', 'finalise' or 'split' are
-%%                accepted at the moment (without quote marks '')
-%%     priority % not implemented at the moment
+%%      ProgramName,
+%%      ProblemType (map reduce only accepted now)
+%%      Owner
+%%      Priority - not implemented at the moment
 %% }
 %% </pre>
 %% @spec add_job(JobSpec) -> JobID
 %% @end
 %%--------------------------------------------------------------------
 add_job(JobSpec) ->
-    gen_server:call({global, ?MODULE}, {create_job, JobSpec}).
+    gen_server:call({global, ?MODULE}, {add_job, JobSpec}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -97,7 +98,7 @@ add_job(JobSpec) ->
 %% @spec get_task(NodeID, PID) -> ok
 %% @end
 %%--------------------------------------------------------------------
-get_task(NodeId, PID) ->
+fetch_task(NodeId, PID) ->
     gen_server:cast({global, ?MODULE}, {task_request, NodeId, PID}).
 
 %%--------------------------------------------------------------------
@@ -137,10 +138,8 @@ report_task_done(TaskId, TaskSpec) ->
 %%--------------------------------------------------------------------
 init([]) ->
     application:start(chronicler),
-    chronicler:info(io_lib:format("dispatcher: Application started~n", [])),
+    chronicler:info("dispatcher: Application started~n", []),
     {ok, []}.
-
-
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -173,10 +172,9 @@ handle_cast({free_tasks, NodeId}, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected handle_cast call.~n"
-                         "Message: ~p~n",
-                         [?MODULE, Msg])),
+    chronicler:warning("~w:Received unexpected handle_cast call.~n"
+                       "Message: ~p~n",
+                       [?MODULE, Msg]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -234,15 +232,11 @@ handle_call({create_job, JobSpec}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call(Msg, From, State) ->
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected handle_call call.~n"
-                         "Message: ~p~n"
-                         "From: ~p~n",
-                         [?MODULE, Msg, From])),
+    chronicler:warning("~w:Received unexpected handle_call call.~n"
+                       "Message: ~p~n"
+                       "From: ~p~n",
+                       [?MODULE, Msg, From]),
     {noreply, State}.
-
-
-
 
 %%%===================================================================
 %%% Internal functions
@@ -259,27 +253,16 @@ handle_call(Msg, From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 find_task(RequesterPID, NodeId) ->
-    FreeTask = db:get_task(NodeId),
-    chronicler:debug(io_lib:format("dispatcher: Received task: ~p~n",
-                                   [FreeTask])),
+    FreeTask = db:fetch_task(NodeId),
+    chronicler:debug("dispatcher: Received task: ~p~n",[FreeTask]),
     case FreeTask of
         % If no task found - let the request time out and try again
         % Therefore we just terminate
         no_task -> 
             ok;
         Task ->
-            Job = db:get_job_info(Task#task.job_id),
-            chronicler:debug(io_lib:format("dispatcher: Received job: ~p~n", 
-                                           [Job])),
-            JobType = Job#job.job_type,
-            AssignedTask = #task_tmp {task_id = Task#task.task_id,
-                            job_id = Task#task.job_id,
-                            task_type = Task#task.task_type,
-                            input_file = Task#task.input_path,
-                            job_type = JobType},
-            RequesterPID ! {task_response, AssignedTask},
-            ecg_server:accept_message({new_node, NodeId}),
-            db:assign_task(Task#task.task_id, NodeId)
+            RequesterPID ! {task_response, Task},
+            ecg_server:accept_message({new_node, NodeId})
     end.
 
 %%%===================================================================

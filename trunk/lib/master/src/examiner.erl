@@ -10,7 +10,7 @@
 %% --------------------------------------------------------------------
 %% External exports
 -export([get_promising_job/0, get_progress/1, insert/1, remove/1, 
-         start_link/0, update_count/3, update_count/4]).
+         start_link/0, update_count/3]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, 
@@ -48,16 +48,16 @@ get_progress(JobId) ->
 %%
 remove(JobId) -> 
 	gen_server:call({global, ?MODULE}, {remove_entry, JobId}).
-%%
-%% TODO: Add description of update /function_arity
-%%
+
+%% @doc
+%% Updates progress meter according to latest changes.
+%% JobId - job associated with task.
+%% TaskType - what type of task was modified (map, reduce, split, finalize)
+%% NewTaskState - state task changes to (free, assigned, done)
+%% @end
 update_count(JobId, TaskType, NewTaskState) -> 
 	gen_server:call({global, ?MODULE}, 
                     {update_entry, JobId, TaskType, NewTaskState}).
-
-update_count(JobId, TaskType, OldTaskState, NewTaskState) -> 
-    gen_server:call({global, ?MODULE}, 
-                    {update_entry, JobId, TaskType, OldTaskState, NewTaskState}).
 
 %%
 %% TODO: Add description of update/function_arity

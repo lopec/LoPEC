@@ -2,21 +2,32 @@
 -module(taskFetcher_tests).
 -include_lib("eunit/include/eunit.hrl").
 
-%Old test, the code in taskFetcher has been changed but not the test..
-
-%-export([get_jobs/0]).
-
-%get_jobs() -> [2,4,1,5].
-
-%request_job_test_() ->
-%    {setup,
-%     fun () -> {ok, Pid} = taskFetcher:start_link(?MODULE), Pid end,
-%     fun (Pid) -> exit(Pid, kill) end,
-%     fun (_Pid) ->
-%             {inorder,
-%              [?_assertEqual(2, taskFetcher:request_job()),
-%               ?_assertEqual(4, taskFetcher:request_job()),
-%               ?_assertEqual(1, taskFetcher:request_job()),
-%               ?_assertEqual(5, taskFetcher:request_job())]}
-%     end
-%    }.
+%% tests the case handle_cast({Pid, error, CallState}, State) ->
+%% in taskFetcher
+errournous_user_app_value_test_() ->
+    {setup,
+        fun () ->
+                taskFetcher:start_link(),
+                application:start(chronicler),
+                {ok, File} = file:open(nonode@nohost, read),
+                File
+        end,
+        fun (File) ->
+                application:stop(chronicler),
+                error_logger:logfile(close),
+                file:close(File)
+        end,
+        fun (File) ->
+                {inorder,
+                    [
+                        ?_assertEqual(ok, gen_server:cast(taskFetcher, {1, error, state})),
+                        ?_assertMatch("\n", io:get_line(File, "")),
+                        ?_assertMatch("=INFO REPORT=" ++ _, io:get_line(File, "")),
+                        ?_assertMatch("Chronicler application started\n", io:get_line(File, "")),
+                        ?_assertMatch("\n", io:get_line(File, "")),
+                        ?_assertMatch("=INFO REPORT=" ++ _, io:get_line(File, "")),
+                        ?_assertEqual("taskFetcher : Process 1 exited unexpected with state state.\n",
+                            io:get_line(File, ""))
+                    ]}
+        end
+    }.

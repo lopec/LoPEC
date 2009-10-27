@@ -9,7 +9,7 @@
 -module(listener).
 -behaviour(gen_server).
 
--export([new_job/2, new_job/3, get_job_name/1, remove_job_name/1,
+-export([new_job/5, new_job/6, get_job_name/1, remove_job_name/1,
          is_valid_jobtype/1]).
 
 -export([start_link/0, init/1, handle_call/3, handle_cast/2, handle_info/2, 
@@ -43,14 +43,15 @@ start_link() ->
 %% @spec new_job(JobType, InputData, Name) -> JobID
 %% @end
 %%------------------------------------------------------------------------------
-new_job(JobType, InputData, Name) ->
+new_job(ProgramName, ProblemType, Owner, Priority, InputData, Name) ->
     chronicler:info("~w : called new_job with a name=~w~n", [?MODULE, Name]),
-    gen_server:call(?MODULE, {new_job, JobType, InputData, Name}).
+    gen_server:call(?MODULE, 
+       {new_job, ProgramName, ProblemType, Owner, Priority, InputData, Name}).
 %% @spec new_job(JobType, InputData) -> JobID
 %% @equiv new_job(JobType, InputData, no_name)
-new_job(JobType, InputData) ->
+new_job(ProgramName, ProblemType, Owner, Priority, InputData) ->
     chronicler:info("~w called new_job~n", [?MODULE]),
-    new_job(JobType, InputData, no_name).
+    new_job(ProgramName, ProblemType, Owner, Priority, InputData, no_name).
 
 %%------------------------------------------------------------------------------
 %% @doc
@@ -99,12 +100,14 @@ init(_Args) ->
 %%           {reply, JobId, State} | {noreply, State}
 %% @end
 %%------------------------------------------------------------------------------
-handle_call({new_job, JobType, InputData, Name}, _From, State) ->
+handle_call({new_job, ProgramName, ProblemType, Owner, Priority, InputData, Name}, 
+            _From, State) ->
     JobsWithThisName = dict:filter(fun (_Id, JobName) -> JobName == Name end,
                                    State#state.active_jobs),
     case dict:size(JobsWithThisName) of
         0 ->
-            JobId = add_new_job(JobType, InputData),
+            JobId = add_new_job(ProgramName, ProblemType, 
+                                Owner, Priority, InputData),
             NewState =
                 case Name of
                     no_name -> State;
@@ -252,8 +255,8 @@ is_valid_jobtype(JobType) ->
         {error, Reason} -> {error, Reason}
     end.
 
-add_new_job(JobType, InputData) ->
-    JobId = dispatcher:add_job({JobType, 0}),
+add_new_job(ProgramName, ProblemType, Owner, Priority, InputData) ->
+    JobId = dispatcher:add_job({ProgramName, ProblemType, Owner, Priority}),
     % Read the structurepath from configfile
     {ok, Root} =
         configparser:read_config("/etc/clusterbusters.conf", cluster_root),

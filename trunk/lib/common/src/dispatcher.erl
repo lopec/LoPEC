@@ -209,7 +209,7 @@ handle_call({task_done, TaskId, TaskSpec}, _From, State) ->
 %%                                   {reply, NewTaskID, State} 
 %% @end
 %%--------------------------------------------------------------------
-handle_call({create_task, TaskSpec}, _From, State) ->
+handle_call({add_task, TaskSpec}, _From, State) ->
     NewTaskId = db:add_task(TaskSpec),
     {reply, NewTaskId, State};
 %%--------------------------------------------------------------------
@@ -220,7 +220,7 @@ handle_call({create_task, TaskSpec}, _From, State) ->
 %%                                   {reply, NewJobID, State} 
 %% @end
 %%--------------------------------------------------------------------
-handle_call({create_job, JobSpec}, _From, State) ->
+handle_call({add_job, JobSpec}, _From, State) ->
     NewJobId = db:add_job(JobSpec),
     {reply, NewJobId, State};
 %%--------------------------------------------------------------------

@@ -49,7 +49,7 @@ start_link(Type) ->
 %% @doc
 %% Stops the statistician. Meant to be used in testing.
 %%
-%% @spec stop() -> ok.
+%% @spec stop() -> ok
 %% @end
 %%--------------------------------------------------------------------
 stop() ->
@@ -396,7 +396,7 @@ jobstats_string_formatter(
         "------------------------------------------------------------~n"
         "Nodes that worked on job: ~p~n"
         "Time passed: ~p seconds~n"
-        "Execution time: ~p microseconds~n"
+        "Execution time: ~p seconds~n"
         "Power used: ~p watts~n"
         "Upload: ~p bytes~n"
 	"Download: ~p bytes~n"
@@ -419,7 +419,7 @@ taskstats_string_formatter(TaskType, [Power, Time, Upload, Download, NumTasks, R
       "~p~n"
       "------------------------------------------------------------~n"
       "Power used: ~p watts~n"
-      "Time spent: ~p microseconds~n"
+      "Time spent: ~p seconds~n"
       "Upload: ~p bytes~n"
       "Download: ~p bytes~n"
       "Number of tasks: ~p~n"

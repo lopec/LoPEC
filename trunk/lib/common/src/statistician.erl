@@ -16,7 +16,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/1, update/1, job_finished/1, get_job_stats/1]).
+-export([start_link/1, update/1, job_finished/1, get_job_stats/1, stop/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -44,6 +44,16 @@
 start_link(Type) ->
     gen_server:start_link({local, ?SERVER}, ?MODULE,
                           [Type], []).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Stops the statistician. Meant to be used in testing.
+%%
+%% @spec stop() -> ok.
+%% @end
+%%--------------------------------------------------------------------
+stop() ->
+    gen_server:cast(?SERVER, stop).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -155,23 +165,35 @@ handle_call(Msg, From, State) ->
 %%--------------------------------------------------------------------
 handle_cast({update,
              {{NodeName, JobID, TaskType},
-              Power, Time, Netload, Numtasks, Restarts}},
+              Power, Time, Upload, Download, Numtasks, Restarts}},
             State) ->
     
     Item = ets:lookup(stats, {NodeName, JobID, TaskType}),
     case Item of
         [] ->
             ets:insert(stats, {{NodeName, JobID, TaskType},
-                        Power, Time, Netload, Numtasks, Restarts});
-        [{{_,_,_}, OldPower, OldTime, OldNetload, OldNumtasks, OldRestarts}] ->
+                        Power, Time, Upload, Download, Numtasks, Restarts});
+        [{{_,_,_}, OldPower, OldTime, OldUpload, OldDownload,
+	  OldNumtasks, OldRestarts}] ->
             ets:insert(stats, {{NodeName, JobID, TaskType},
                         Power+OldPower,
                          Time+OldTime,
-                         Netload+OldNetload,
+                         Upload+OldUpload,
+			 Download+OldDownload,
                          Numtasks+OldNumtasks,
                          Restarts+OldRestarts})
     end,
     {noreply, State};
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% @see stop/0
+%%
+%% @spec handle_cast(stop, State) -> {stop, State} 
+%% @end
+%%--------------------------------------------------------------------
+handle_cast(stop, State) ->
+    {stop, normal, State};
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -194,7 +216,7 @@ handle_cast({update_with_list, List}, State) ->
 %%--------------------------------------------------------------------
 handle_cast({job_finished, JobID}, State) ->
     JobStats = job_stats(JobID),
-    ets:match_delete(stats, {{'_', JobID, '_'},'_','_','_','_','_'}),
+    ets:match_delete(stats, {{'_', JobID, '_'},'_','_','_','_','_','_'}),
     {ok, Root} =
         configparser:read_config("/etc/clusterbusters.conf", cluster_root),
     file:write_file(Root ++ "results/" ++
@@ -260,6 +282,16 @@ handle_info(Info, State) ->
 %% terminate. It should be the opposite of Module:init/1 and do any
 %% necessary cleaning up. When it returns, the gen_server terminates
 %% with Reason. The return value is ignored.
+%%
+%% @spec terminate(normal, State) -> void()
+%% @end
+%%--------------------------------------------------------------------
+terminate(normal, _State) -> 
+    chronicler:debug("~w:Received normal terminate call.~n"),
+    ok;
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
 %% Logs and discards unexpected messages.
 %%
 %% @spec terminate(Reason, State) -> void()
@@ -303,18 +335,18 @@ code_change(OldVsn, State, Extra) ->
 %%--------------------------------------------------------------------
 job_stats(JobID) ->
     T = stats,
-    case ets:match(T, {{'_', JobID, '_'}, '$1', '_', '_', '_', '_'}) of
+    case ets:match(T, {{'_', JobID, '_'}, '$1', '_', '_', '_', '_', '_'}) of
         [] ->
             {error, no_such_job_in_stats};
         _Other ->
-            Split    = ets:match(T, {{'_', JobID, split}, '$1', '$2', '$3', '$4', '$5'}),
-            Map      = ets:match(T, {{'_', JobID, map}, '$1', '$2', '$3', '$4', '$5'}),
-            Reduce   = ets:match(T, {{'_', JobID, reduce}, '$1', '$2', '$3', '$4', '$5'}),
-            Finalize = ets:match(T, {{'_', JobID, finalize}, '$1', '$2', '$3', '$4', '$5'}),
-            Nodes    = ets:match(T, {{'$1', JobID, '_'},'_','_','_','_','_'}),
+            Split    = ets:match(T, {{'_', JobID, split}, '$1', '$2', '$3', '$4', '$5', '$6'}),
+            Map      = ets:match(T, {{'_', JobID, map}, '$1', '$2', '$3', '$4', '$5', '$6'}),
+            Reduce   = ets:match(T, {{'_', JobID, reduce}, '$1', '$2', '$3', '$4', '$5', '$6'}),
+            Finalize = ets:match(T, {{'_', JobID, finalize}, '$1', '$2', '$3', '$4', '$5', '$6'}),
+            Nodes    = ets:match(T, {{'$1', JobID, '_'},'_','_','_','_','_','_'}),
             UniqueNodes = lists:umerge(Nodes),
             
-            Zeroes = [0,0,0,0,0],
+            Zeroes = [0,0,0,0,0,0],
             SumSplit = sum_stats(Split, Zeroes),
             SumMap = sum_stats(Map, Zeroes),
             SumReduce = sum_stats(Reduce, Zeroes),
@@ -324,10 +356,10 @@ job_stats(JobID) ->
 
             {Mega, Sec, Micro} = now(),
 
-             TimePassed = ((list_to_integer(
-                              integer_to_list(Mega) ++
-                              integer_to_list(Sec) ++
-                              integer_to_list(Micro))) - JobID) / 1000000,
+	    TimePassed = ((list_to_integer(
+			     integer_to_list(Mega) ++
+			     integer_to_list(Sec) ++
+			     integer_to_list(Micro))) - JobID) / 1000000,
             
             SplitStrings = taskstats_string_formatter(split, SumSplit),
             MapStrings = taskstats_string_formatter(map, SumMap),
@@ -355,7 +387,7 @@ job_stats(JobID) ->
 %%--------------------------------------------------------------------
 jobstats_string_formatter(
   {JobID, SplitString, MapString, ReduceString, FinalizeString, TimePassed,
-   Nodes, [Power, TimeExecuted, Netload, Numtasks, Restarts]}) ->
+   Nodes, [Power, TimeExecuted, Upload, Download, Numtasks, Restarts]}) ->
     lists:flatten(
       io_lib:format(
         "Stats for job: ~p~n~ts~ts~ts~ts~n"
@@ -363,14 +395,15 @@ jobstats_string_formatter(
         "Total:~n"
         "------------------------------------------------------------~n"
         "Nodes that worked on job: ~p~n"
-        "Time passed: ~p~n"
-        "Execution time: ~p~n"
-        "Power used: ~p~n"
-        "Network traffic: ~p~n"
+        "Time passed: ~p seconds~n"
+        "Execution time: ~p microseconds~n"
+        "Power used: ~p watts~n"
+        "Upload: ~p bytes~n"
+	"Download: ~p bytes~n"
         "Number of tasks: ~p~n"
         "Number of restarts:~p~n",
-        [JobID, SplitString, MapString, ReduceString, FinalizeString,
-         Nodes, TimePassed, TimeExecuted, Power, Netload, Numtasks, Restarts])).
+        [JobID, SplitString, MapString, ReduceString, FinalizeString, Nodes,
+	 TimePassed, TimeExecuted, Power, Upload, Download, Numtasks, Restarts])).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -380,17 +413,18 @@ jobstats_string_formatter(
 %% 
 %% @end
 %%--------------------------------------------------------------------
-taskstats_string_formatter(TaskType, [Power, Time, NetLoad, NumTasks, Restarts]) ->
+taskstats_string_formatter(TaskType, [Power, Time, Upload, Download, NumTasks, Restarts]) ->
     io_lib:format(
       "------------------------------------------------------------~n"
       "~p~n"
       "------------------------------------------------------------~n"
-      "Power used: ~p~n"
-      "Time spent: ~p~n"
-      "Network traffic: ~p~n"
+      "Power used: ~p watts~n"
+      "Time spent: ~p microseconds~n"
+      "Upload: ~p bytes~n"
+      "Download: ~p bytes~n"
       "Number of tasks: ~p~n"
       "Number of restarts: ~p~n",
-      [TaskType, Power, Time, NetLoad, NumTasks, Restarts]).
+      [TaskType, Power, Time, Upload, Download, NumTasks, Restarts]).
 
 
 %%--------------------------------------------------------------------
@@ -404,11 +438,12 @@ taskstats_string_formatter(TaskType, [Power, Time, NetLoad, NumTasks, Restarts])
 sum_stats([],Data) ->
     Data;
 sum_stats([H|T], Data) ->
-    [TempPower, TempTime, TempNetload, TempNumtasks, TempRestarts]  = H,
-    [AccPower, AccTime, AccNetload, AccNumtasks, AccRestarts] = Data,
+    [TempPower, TempTime, TempUpload, TempDownload, TempNumtasks, TempRestarts]  = H,
+    [AccPower, AccTime, AccUpload, AccDownload, AccNumtasks, AccRestarts] = Data,
     sum_stats(T, [TempPower + AccPower,
                   TempTime + AccTime,
-                  TempNetload + AccNetload,
+                  TempUpload + AccUpload,
+		  TempDownload + AccDownload,
                   TempNumtasks + AccNumtasks,
                   TempRestarts + AccRestarts]).
     

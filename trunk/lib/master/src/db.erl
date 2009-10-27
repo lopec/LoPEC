@@ -1,18 +1,13 @@
 %%%-------------------------------------------------------------------
 %%% @author Henkan <henkethalin@hotmail.com>
+%%% @author Nordh
 %%% @doc
-%%% db.erl is the database API, and provides the necessary
-%%% functionality for the user to operate on the job and task tables.
-%%%  
-%%% For now, when you want to run the database, you start with typing
-%%% db:start() in your erlang shell. This will setup the schema and
-%%% start the mnesia application. Afterwards, type db:create:tables()
-%%% to create the physical tables on the disc.  The tables and stuff
-%%% will be stored in ./Mnesia.nonode@nohost.
 %%% 
-%%% Note that you only need to create the tables once, afterwards you
-%%% start the database by simply typing db:start(), otherwise
-%%% everything blows up.
+%%% db.erl contains the database API for the cluster.
+%%% The API handles everything the user needs to work the Job and Task tables.
+%%% 
+%%% The database  can also be started in test mode by using db:start(test). 
+%%% This will only create RAM copies of the db tabels for easy testing.
 %%%
 %%% @end
 %%% Created : 30 Sep 2009 by Henkan
@@ -23,23 +18,15 @@
 -behaviour(gen_server).
 -define(SERVER, db_server).
 
-%-ifdef(test).
--export([delete_tables/0, get_job_info/1, get_job/0, list_jobs/0,
-         get_task_info/1, list_task_type/1, check_done/1]).
-%-endif.
+%% APIs for management of the database
+-export([start/0, start/1, start_link/0, stop/0, create_tables/1]).
 
-%% APIs for management of the databases
--export([start/0, start_link/0, stop/0, create_tables/0]).
+%% APIs for handling jobs
+-export([add_job/1, remove_job/1, set_job_path/2, set_job_state/2,
+	pause_job/1, stop_job/1, resume_job/1]).
 
-%% Business functions
--export([mark_done/1, assign_task/2, remove_reservation/1, free_tasks/1]).
-
-%% APIs for external access to the job table
--export([add_job/1, set_job_input_path/2]).
-
-%% APIs for external access to the task table
--export([add_task/1, get_task/1, get_task_state/1, list_tasks/0, 
-	 list_tasks/1, list_node_tasks/1]).
+%% APIs for handling tasks
+-export([add_task/1, fetch_task/1, mark_done/1, free_tasks/1, list/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -48,14 +35,31 @@
 %%--------------------------------------------------------------------
 %% @doc
 %%
+%% Starts the database gen_server in a test environment, with all tables
+%% as ram copies only.
+%%
+%% @spec start(test:atom()) -> ok | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+start(test) ->
+    start_link(),
+    create_tables(ram_copies).
+%    chronicler:info("~w:Database started in test environment.~n",
+%                         [?MODULE])).
+
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
 %% Starts the database gen_server.
 %%
-%% @spec start() -> database_started | {error, Error}
+%% @spec start() -> ok | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 start() ->
-    start_link(),
-    database_started.
+    start_link().
+%    chronicler:info("~w:Database started.~n",
+%                         [?MODULE])).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -79,349 +83,285 @@ start_link() ->
 %%--------------------------------------------------------------------
 stop() ->
     gen_server:cast(?SERVER, stop).
+%    chronicler:info("~w:Database stopped.~n",
+%                         [?MODULE])).
+
 
 %%--------------------------------------------------------------------
 %% @doc
 %%
 %% Creates the tables and the schema used for keeping track of the jobs,
-%% tasks and the assigned tasks.
+%% tasks and the assigned tasks. When creating the tables in a stable
+%% environment, use disc_copies as argument. In test environments
+%% ram_copies is preferrably supplied as the argument.
 %%
-%% @spec create_tables() -> tables_created | ignore | {error, Error}
+%% @spec create_tables(StorageType::atom()) -> ok 
+%%                                           | ignore 
+%%                                           | {error, Error}
+%%                  StorageType = ram_copies 
+%%                              | disc_copies
+%%                              | disc_only_copies
 %% @end
 %%--------------------------------------------------------------------
-create_tables() ->
-    gen_server:call(?SERVER, create_tables).
+create_tables(StorageType) ->
+    gen_server:call(?SERVER, {create_tables, StorageType}).
+%    chronicler:info("~w:Tables created.~n"
+%                    "Type:~p~n",
+%                         [?MODULE, StorageType])).
 
-%-ifdef(test).
-%%--------------------------------------------------------------------
-%% @doc
-%%
-%% Deletes all tables and the schema. ONLY TO BE USED FOR TESTING!
-%% 
-%% @spec delete_tables() -> tables_deleted | {error, Error}
-%% @end
-%%--------------------------------------------------------------------
-delete_tables() ->
-    chronicler:info(io_lib:format("db:Deleting tables~n", [])),
-    mnesia:delete_schema(node()),
-    mnesia:delete_table(job),
-    mnesia:delete_table(task),
-    mnesia:delete_table(assigned_task),
-    tables_deleted.
-
-%%--------------------------------------------------------------------
-%% @doc
-%%
-%% Retrieves a whole job record given a JobId
-%% 
-%% @spec get_job_info(JobId::integer()) -> Job | {error, Error}
-%% @end
-%%--------------------------------------------------------------------
-get_job_info(JobId) ->
-    gen_server:call(?SERVER, {get_job_info, JobId}).
-
-%%--------------------------------------------------------------------
-%% @doc
-%%
-%% Retrieves a job id.
-%% 
-%% @spec get_job() -> JobId::integer() | {error, Error}
-%% @end
-%%--------------------------------------------------------------------
-get_job() ->
-    gen_server:call(?SERVER, {get_job}).
-
-%%--------------------------------------------------------------------
-%% @doc
-%%
-%% Lists all jobs in the job table.
-%% 
-%% @spec list_jobs() -> List | {error, Error}
-%%               List = [JobId::integer()]
-%% @end
-%%--------------------------------------------------------------------
-list_jobs() ->
-    gen_server:call(?SERVER, {list_jobs}).
-
-%-endif.
-
+		
 %%====================================================================
-%% BUSINESS FUNCTIONS
+%% Database API
 %%====================================================================
 %%--------------------------------------------------------------------
 %% @doc
 %%
-%% Marks the specified task as done in the database.
+%% Adds a job to the database. ProgramName is the name of the program
+%% to be run, ProblemType is how the problem is run (by default
+%% map/reduce for now), Owner is the user who submitted the job and
+%% Priority is the priority of the job.
 %% 
-%% @spec mark_done(TaskId::integer()) -> ok | {error, Error}
+%% @spec add_job({ProgramName::atom(), ProblemType::atom(), 
+%%                Owner::atom(), Priority::integer()}) -> 
+%%                     ok | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+add_job({ProgramName, ProblemType, Owner, Priority}) ->
+    gen_server:call(?SERVER, {add_job, 
+			      #job{program_name = ProgramName,
+				   problem_type = ProblemType,
+				   owner        = Owner,
+				   priority     = Priority}}).
+%    chronicler:debug("~w:Added job.~n"
+%                     "JobId:~p~n"
+%                     "Program name:~p~n"
+%                     "Problem type:~p~n"
+%                     "Owner:~p~n"
+%                     "Priority:~p~n",
+%                         [?MODULE, JobId, ProgramName, ProblemType,
+%                          Owner, Priority])).
+
+    
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Removes a job and all its associated tasks.
+%%
+%% @spec remove_job(JobId) -> ok | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+remove_job(JobId) ->
+    gen_server:call(?SERVER, {remove_job, JobId}).
+%    chronicler:debug("~w:Removed job.~n"
+%                     "JobId:~p~n",
+%                         [?MODULE, JobId])).
+
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Finds the task which is the next to be worked on and sets it as assigned
+%% to the specified node.
+%%
+%% @spec fetch_task(NodeId::atom()) -> Task::record()
+%% @end
+%%--------------------------------------------------------------------
+fetch_task(NodeId) ->
+    gen_server:call(?SERVER, {fetch_task, NodeId}).
+    
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Adds a task to the database. The JobId is the id of the job the task
+%% belongs to, ProgramName denotes what kind of program the task runs,
+%% Type is the task type and Path is the path to the input relative to
+%% the NFS root.
+%%
+%% @spec add_task({JobId::integer(), ProgramName::atom(),
+%%                 Type::atom(), Path::atom()}) -> TaskId::integer()
+%%           Type = split | map | reduce | finalize
+%% @end
+%%--------------------------------------------------------------------
+add_task({JobId, ProgramName, Type, Path}) ->
+     case Type of
+ 	split ->
+ 	    TableName = split_free;
+ 	map ->
+ 	    TableName = map_free;
+ 	reduce ->
+ 	    TableName = reduce_free;
+ 	finalize ->
+ 	    TableName = finalize_free;
+ 	_NotAType ->
+ 	    TableName = '$not_a_table'
+ 	    %chronicler:error("~w:add_task failed: 
+            %Incorrect input type: ~p~n", [?MODULE, Type]))
+     end,
+    gen_server:call(?SERVER, {add_task, 
+			      TableName, 
+			      #task{job_id       = JobId, 
+				    program_name = ProgramName, 
+				    type         = Type, 
+				    path         = Path}}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Returns the whole task from the database given a valid id.
+%%
+%% @spec get_task(TaskId::integer()) -> Task::record() | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+get_task(TaskId) ->
+    gen_server:call(?SERVER, {get_task, TaskId}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Sets the state of the specified job.
+%%
+%% @spec set_job_state(JobId::integer(), NewState::atom()) -> ok 
+%%                                                          | {error, Error}
+%%                               NewState = free | paused | stopped | done
+%% @end
+%%--------------------------------------------------------------------
+set_job_state(JobId, NewState) ->
+    gen_server:call(?SERVER, {set_job_state, JobId, NewState}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Sets the path of the specified job.
+%%
+%% @spec set_job_path(JobId::integer(), NewPath::string()) -> ok 
+%%                                                          | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+set_job_path(JobId, NewPath) ->
+    gen_server:call(?SERVER, {set_job_path, JobId, NewPath}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Sets the state of the specified task to done.
+%%
+%% @spec mark_done(TaskId::integer()) -> ok 
+%%                                     | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 mark_done(TaskId) ->
-    set_task_state(TaskId, done).
+    gen_server:call(?SERVER, {set_task_state, TaskId, done}).
+%    chronicler:debug("~w:Marked task as done.~n"
+%                     "TaskId:~p~n",
+%                         [?MODULE, TaskId])).
+
 
 %%--------------------------------------------------------------------
 %% @doc
 %%
-%% Sets the specified task as available, and removes its relations to
-%% any node.
-%% 
-%% @spec remove_reservation(TaskId::integer()) -> ok | {error, Error}
+%% Sets the state of the specified job to paused.
+%%
+%% @spec pause_job(JobId::integer()) -> ok 
+%%                                     | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-remove_reservation(TaskId) ->
-    assign_task(TaskId, undefined),
-    set_task_state(TaskId, available).
-
-%%====================================================================
-%% JOB TABLE APIs
-%%====================================================================
-%%--------------------------------------------------------------------
-%% @doc
-%%
-%% Calls the server to add a job to the job table with the given
-%% properties. The server returns the generated id of the job.
-%% The JobType specifies what type of job it is, e.g. ray_tracer, etc.
-%%
-%% @spec add_job({JobType::atom(),
-%%                Priority::integer()}) -> 
-%%                           JobId::integer() | {error, Error}
-%% @end
-%%--------------------------------------------------------------------
-add_job({JobType, Priority}) ->
-    gen_server:call(?SERVER, {add_job, JobType, undefined, Priority}).
+pause_job(JobId) ->
+    gen_server:call(?SERVER, {set_job_state, JobId, paused}).
+%    chronicler:info("~w:Paused job.~n"
+%                     "JobId:~p~n",
+%                         [?MODULE, JobId])).
 
 %%--------------------------------------------------------------------
 %% @doc
 %%
-%% Sets the input path of the given job.
-%% 
-%% @spec set_job_input_path(JobId, InputPath) -> ok | {error, Error}
+%% Sets the state of the specified job to stopped.
+%%
+%% @spec stop_job(JobId::integer()) -> TaskList 
+%%                                     | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-set_job_input_path(JobId, InputPath) ->
-    gen_server:call(?SERVER, {set_job_input_path, JobId, InputPath}).
+stop_job(JobId) ->
+    gen_server:call(?SERVER, {set_job_state, JobId, stopped}),
+    ListOfTasks = list_job_tasks(JobId),
+    Filter = fun(H) ->
+		     Task = get_task(H),
+		     TaskState = Task#task.state,
+		     case TaskState of
+			 assigned ->
+			     true;
+			 _ ->
+			     false
+		     end
+	     end,
+    GetNode = fun(H) ->
+		      gen_server:call(?SERVER, {get_node, H})
+	      end,
+    _ListOfNodes = lists:map(GetNode, 
+			     lists:filter(Filter, ListOfTasks)).
+%    chronicler:info("~w:Stopped job.~n"
+%                     "JobId:~p~n"
+%                     "Affected nodes:~p~n",
+%                         [?MODULE, JobId, ListOfNodes])).
 
-%%====================================================================
-%% TASK TABLE APIs
-%%====================================================================
-%%--------------------------------------------------------------------
-%% @doc
-%%
-%% Adds a task to the task table with parameters set, and its current
-%% state set to 'available'. The parameter node_id in the
-%% assigned_task table is set to 'undefined', as the task is not
-%% assigned to any node.
-%% 
-%% @spec add_task(
-%%   { JobId::integer(), 
-%%     TaskType::atom(), 
-%%     InputPath::string(), 
-%%     Priority::integer()
-%%    }) ->
-%%     TaskId::integer() | {error, Error}
-%%                 TaskType = mapping | reducing
-%% @end
-%%--------------------------------------------------------------------
-add_task({JobId, reduce, InputPath, Priority}) ->
-    Exists = gen_server:call(?SERVER, 
-			     {exists_task, JobId, reduce, InputPath}),
-    case Exists of
-	false ->
-	    gen_server:call(?SERVER, {add_task, JobId, 
-				      reduce, InputPath, 
-				      available, Priority});
-	true ->
-	    ok
-    end;
-
-add_task({JobId, finalize, InputPath, Priority}) ->
-    Exists = gen_server:call(?SERVER, 
-			     {exists_finalize, JobId}),
-    case Exists of
-	false ->
-	    gen_server:call(?SERVER, {add_task, JobId, 
-				      finalize, InputPath, 
-				      available, Priority});
-	true ->
-	    ok
-    end;
-
-
-add_task({JobId, TaskType, InputPath, Priority}) ->
-    gen_server:call(?SERVER, {add_task, JobId, 
-			      TaskType, InputPath, 
-			      available, Priority}).
-       
-%%--------------------------------------------------------------------
-%% @doc
-%%
-%% Returns an available task from the task table, and assigns it as
-%% reserved to the node with id 'NodeId'. If no such task exists
-%% the atom 'no_task' is returned.
-%% 
-%% @spec get_task(NodeId::atom()) -> Task | no_task | {error, Error}
-%% @end
-%%--------------------------------------------------------------------
-get_task(NodeId) ->
-    Split = gen_server:call(?SERVER, {get_task, split, NodeId}),
-    case Split of
-	no_task ->
-	    Map = gen_server:call(?SERVER, {get_task, map, NodeId}),
-	    case Map of
-		no_task ->
-		    DoneMap = check_done(list_task_type(map)),
-		    case DoneMap of
-			true ->
-			    Reduce = gen_server:call(
-				       ?SERVER, {get_task, reduce, NodeId}),
-			    case Reduce of
-				no_task ->
-				    DoneReduce = check_done(list_task_type(reduce)),
-				    case DoneReduce of
-					true ->
-					    gen_server:call(
-					      ?SERVER, {get_task, finalize, 
-							NodeId});
-					false ->
-					    no_task
-				    end;
-				ReduceTask -> 
-				    ReduceTask
-			    end;
-			false ->
-			    no_task
-		    end;
-		MapTask -> 
-		    MapTask
-	    end;
-	SplitTask -> 
-	    SplitTask
-    end.
-					
-list_task_type(TaskType) ->
-    gen_server:call(?SERVER, {list_task_type, TaskType}).
-
-check_done(ListOfTasks) ->
-    Check = fun(H) ->
-		    case (db:get_task_state(H)) of
-			done ->
-			    true;
-			_NotDone ->
-			    false
-		    end
-	   end,
-    lists:all(Check, ListOfTasks).
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%%
-%% Returns the whole task with id 'TaskId' from the task table.
-%% 
-%% @spec get_task_info(TaskId::integer()) -> Task | {error, Error}
-%% @end
-%%--------------------------------------------------------------------
-get_task_info(TaskId) ->
-    gen_server:call(?SERVER, {get_task_info, TaskId}).
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%%
-%% Sets the state of the task with id 'TaskId' to 'State'.
-%%
-%% @spec set_task_state(TaskId::integer(), State::atom()) -> ok | {error, Error}
-%%                   State = available | reserved | assigned | done
-%%                           
-%% @end
-%%--------------------------------------------------------------------
-set_task_state(TaskId, State) ->
-    gen_server:call(?SERVER, {set_task_state, TaskId, State}).
  
 %%--------------------------------------------------------------------
-%% @private
 %% @doc
 %%
-%% Returns the state of the task with id 'TaskId'.
-%% 
-%% @spec get_task_state(TaskId::integer()) -> State::atom() | {error, Error}
+%% Set the state of the job to free so it can resume execution.
+%%
+%% @spec resume_job(JobId::integer()) -> ok 
+%%                                     | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-get_task_state(TaskId) ->
-    Task = get_task_info(TaskId),
-    Task#task.current_state.
+resume_job(JobId) ->
+    gen_server:call(?SERVER, {set_job_state, JobId, free}).
+%    chronicler:info("~w:Resumed job.~n"
+%                     "JobId:~p~n",
+%                         [?MODULE, JobId])).
 
 %%--------------------------------------------------------------------
-%% @private
 %% @doc
 %%
-%% Sets the task as assigned to the specified node.
+%% Marks all assigned tasks of the specified node as free.
 %%
-%% @spec assign_task(TaskId::integer(), NodeId::atom()) -> ok | {error, Error}
-%%                NodeId = undefined | node_name@host_name
-%% @end
-%%--------------------------------------------------------------------
-assign_task(TaskId, NodeId) ->
-    gen_server:call(?SERVER, {assign_task, TaskId, NodeId}),
-    set_task_state(TaskId, assigned).
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%%
-%% Sets all tasks that belong to NodeId as available.
-%%
-%% @spec free_tasks(NodeId::atom()) -> ok | {error, Error}
+%% @spec free_tasks(NodeId::atom()) -> ok 
+%%                                  | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 free_tasks(NodeId) ->
-    ListOfNodeTasks = list_node_tasks(NodeId),
+    ListOfTasks = list_node_tasks(NodeId),
     Free = fun(H) ->
-		   assign_task(H, undefined),
-		   set_task_state(H, available)
+		   gen_server:call(?SERVER, {set_task_state, H, free})
 	   end,
-    lists:foreach(Free, ListOfNodeTasks),
-    chronicler:debug(io_lib:format('db:Released all tasks of node ~p~n', [NodeId])),
+    lists:foreach(Free, ListOfTasks),
+%    chronicler:debug("~w:Freed tasks from node:~p~n"
+%                     "Tasks:~p~n",
+%                         [?MODULE, NodeId, ListOfTasks])).
     ok.
 
 %%--------------------------------------------------------------------
 %% @doc
 %%
-%% Returns a list of id's of all tasks in the task table.
-%% 
-%% @list_tasks() -> List | {error, Error}
-%%                  List = [TaskId::integer()]
+%% Lists all items in the specified table.
+%%
+%% @spec list(TableName::atom()) -> List | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-list_tasks() ->
-    gen_server:call(?SERVER, {list_tasks}).
+list(TableName) ->
+    gen_server:call(?SERVER, {list, TableName}).
 
 %%--------------------------------------------------------------------
+%% @private 
 %% @doc
 %%
-%% Returns a list of id's of all tasks in the task table which belong
-%% to the job with id 'JobId'.
-%% 
-%% @spec list_tasks(JobId::integer()) -> List | {error, Error}
-%%               List = [TaskId::integer()]
-%% @end
-%%--------------------------------------------------------------------
-list_tasks(JobId) ->
-    gen_server:call(?SERVER, {list_tasks, JobId}).
-
-%%--------------------------------------------------------------------
-%% @doc
+%% Lists all tasks that are assigned to the specified node.
 %%
-%% Returns a list of id's of all tasks in the task table which are
-%% reserved or assigned to the node with id 'NodeId'.
-%% 
-%% @spec list_node_tasks(NodeId::integer()) -> List | {error, Error}
-%%                    List = [TaskId::integer()]
+%% @spec list_node_tasks(NodeId::atom()) -> List | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 list_node_tasks(NodeId) ->
     gen_server:call(?SERVER, {list_node_tasks, NodeId}).
-		
+
 %%====================================================================
 %% gen_server callbacks
 %%====================================================================
@@ -439,359 +379,356 @@ list_node_tasks(NodeId) ->
 %%--------------------------------------------------------------------
 init(_Args) ->
     NodeList = [node()],
-    application:start(chronicler),
-    mnesia:create_schema([node()]),  
     application:start(mnesia),
-    chronicler:info(io_lib:format("db:Database started~n", [])),
     {ok, NodeList}.
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
 %%
-%% Creates the necessary tables and the schema for the database on disc.
-%% Should only be called once for initialization.
-%% @spec handle_call(create_tables, _From, State) ->
+%% Creates the necessary tables for the database.
+%% Should only be called once for initialization if ram_copies is not
+%% supplied as the StorageType argument.
+%%
+%% @spec handle_call({create_tables, StorageType::atom()}, 
+%%                    _From, State) ->
 %%                                 {reply, tables_created, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call(create_tables, _From, State) ->
-    % Set the options for the tables, such as storing them on disc.
+handle_call({create_tables, StorageType}, _From, State) ->
+    % Set the options for the tables, such as how to store them.
+    Opts = [{type, set}, {StorageType, [node()]}],
+    % Create all the tables
+    {atomic, ok} = mnesia:create_table(
+		     job, 
+		     [{attributes, record_info(fields, job)}|Opts]),
+    {atomic, ok} = mnesia:create_table(
+		     split_free, 
+		     [{record_name, task}, 
+		      {attributes, record_info(fields, task)}|Opts]),
+    {atomic, ok} = mnesia:create_table(
+		     split_assigned,
+		     [{record_name, task},  
+		      {attributes, record_info(fields, task)}|Opts]),
+    {atomic, ok} = mnesia:create_table(
+		     split_done,
+		     [{record_name, task},  
+		      {attributes, record_info(fields, task)}|Opts]),    
+    {atomic, ok} = mnesia:create_table(
+		     map_free,
+		     [{record_name, task}, 
+		      {attributes, record_info(fields, task)}|Opts]),
+    {atomic, ok} = mnesia:create_table(
+		     map_assigned,
+		     [{record_name, task},  
+		      {attributes, record_info(fields, task)}|Opts]),
+    {atomic, ok} = mnesia:create_table(
+		     map_done,
+		     [{record_name, task},  
+		      {attributes, record_info(fields, task)}|Opts]),
+    {atomic, ok} = mnesia:create_table(
+		     reduce_free,
+		     [{record_name, task},  
+		      {attributes, record_info(fields, task)}|Opts]),
+    {atomic, ok} = mnesia:create_table(
+		     reduce_assigned,
+		     [{record_name, task},  
+		      {attributes, record_info(fields, task)}|Opts]),
+    {atomic, ok} = mnesia:create_table(
+		     reduce_done,
+		     [{record_name, task},  
+		      {attributes, record_info(fields, task)}|Opts]),
+    {atomic, ok} = mnesia:create_table(
+		     finalize_free,
+		     [{record_name, task},  
+		      {attributes, record_info(fields, task)}|Opts]),
+    {atomic, ok} = mnesia:create_table(
+		     finalize_assigned,
+		     [{record_name, task},  
+		      {attributes, record_info(fields, task)}|Opts]),
+    {atomic, ok} = mnesia:create_table(
+		     finalize_done,
+		     [{record_name, task},  
+		      {attributes, record_info(fields, task)}|Opts]),
+    {atomic, ok} = mnesia:create_table(
+		     assigned_tasks,
+		     [{record_name, assigned_tasks},  
+		      {attributes, record_info(fields, assigned_tasks)}|Opts]),
+    {atomic, ok} = mnesia:create_table(
+		     task_relations,
+		     [{record_name, task_relations},  
+		      {attributes, record_info(fields, task_relations)}|Opts]),
 
-    Opts = [{type, set}, {disc_copies, [node()]}],
-    {atomic, ok} = mnesia:create_table(
-		     job, [{attributes, record_info(fields, job)}|Opts]),
-    {atomic, ok} = mnesia:create_table(
-		     task, [{attributes, record_info(fields, task)}|Opts]),
-    {atomic, ok} = mnesia:create_table(
-		     assigned_task, [{attributes, 
-				      record_info(fields, assigned_task)}|Opts]),
-    chronicler:info(io_lib:format("db:Tables created~n", [])),
+    % Add secondary keys to some of the tables
+    mnesia:add_table_index(assigned_task, job_id),
+    mnesia:add_table_index(assigned_task, node_id),
+    mnesia:add_table_index(split_free, job_id),
+    mnesia:add_table_index(split_assigned, job_id),
+    mnesia:add_table_index(split_done, job_id),
+    mnesia:add_table_index(map_free, job_id),
+    mnesia:add_table_index(map_assigned, job_id),
+    mnesia:add_table_index(map_done, job_id),
+    mnesia:add_table_index(reduce_free, job_id),
+    mnesia:add_table_index(reduce_assigned, job_id),
+    mnesia:add_table_index(reduce_done, job_id),
+    mnesia:add_table_index(finalize_free, job_id),
+    mnesia:add_table_index(finalize_assigned, job_id),
+    mnesia:add_table_index(finalize_done, job_id),
     {reply, tables_created, State};
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
 %%
-%% Gets a whole job record given an id.
-%% @spec handle_call({get_job_info, JobID}, _From, State) -> 
-%%                                  {reply, Job, State}
-%% @end
-%%--------------------------------------------------------------------
-handle_call({get_job_info, JobId}, _From, State) ->
-    Job = get_element_on_server(JobId, job),
-    {reply, Job, State};
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
+%% Adds a job to the database.
 %%
-%% Gets a jobId.
-%% @spec handle_call({get_job}, _From, State) -> 
-%%                                  {reply, FirstID, State} |
-%%                                  {reply, no_job, State}
+%% @spec handle_call({add_job, ProgramName::atom(), ProblemType::atom(), 
+%%                    Owner::atom(), Priority::integer()}, 
+%%                    _From, State) ->
+%%                                 {reply, JobId::integer(), State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({get_job}, _From, State) ->
-      F = fun() ->
-		  MatchHead = #job{job_id = '$1', 
-				   job_type = '_',
-				   input_path = '_', 
-				   current_state = '_', 
-				   current_progress = '_', 
-				   priority = '_'},
-		  Result = '$1',
-		  mnesia:select(job, [{MatchHead, [], [Result]}], 1, read)
-	  end,
-    Result = mnesia:transaction(F),
-    
-    case Result of
-	{atomic, {[First], _Cont}} ->
-	    {reply, First, State};
- 	{atomic, '$end_of_table'} ->
- 	    {reply, no_job, State}
-    end;
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%%
-%% Generates a unique id for a job, and adds the job to the database on
-%% the server.
-%% @spec handle_call({add_job, JobType, InputPath, Priority},
-%%                                                   _From, State) -> 
-%%                                  {reply, JobID, State}
-%% @end
-%%--------------------------------------------------------------------
-handle_call({add_job, JobType, InputPath, Priority}, 
-	    _From, State) ->
+handle_call({add_job, Job}, _From, State) ->
     JobId = generate_id(),
-    add_job_on_server(JobId, JobType, InputPath, available, 
-		      undefined, Priority),
-    chronicler:debug(io_lib:format("db:Added job: ~p~n", [JobId])),
+    add(job, Job#job{job_id=JobId}),
     {reply, JobId, State};
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
 %%
-%% Sets the input path of a job.
-%% @spec handle_call({set_job_input_path, JobId, InputPath},
-%%                                                     _From, State) -> 
-%%                                  {reply, ok, State}
+%% Removes a job and all its associated tasks from the database.
+%%
+%% @spec handle_call({remove_job, JobId::atom()}, 
+%%                    _From, State) ->
+%%                                 {reply, ok, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({set_job_input_path, JobId, InputPath}, _From, State) ->
-    F = fun() ->
-		Job = get_element_on_server(JobId, job),
-		remove_element_on_server(JobId, job),
-		add_job_on_server(Job#job.job_id,
-				  Job#job.job_type,
-				  InputPath,
-				  Job#job.current_state,
-				  Job#job.current_progress,
-				  Job#job.priority)
-	end,
-    mnesia:transaction(F),
+handle_call({remove_job, JobId}, _From, State) ->
+    ListOfTasks = list_job_tasks(JobId),
+    remove(job, JobId),
+    Remove = fun(H) ->
+		     Task = read(task_relations, H), 
+		     remove(Task#task_relations.table_name, H),
+		     remove(task_relations, H)
+	   end,
+    lists:foreach(Remove, ListOfTasks),
     {reply, ok, State};
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
 %%
-%% Lists all jobs.
-%% @spec handle_call({list_jobs}, _From, State) -> 
-%%                                  {reply, Result, State}
+%% Returns the id of the job which is the next to be worked on.
+%%
+%% @spec handle_call({get_job}, _From, State) ->
+%%                                 {reply, JobId::integer(), State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({list_jobs}, _From, State) ->
+handle_call({fetch_job}, _From, State) ->
+    Job = fetch_job_internal(no_arg),
+    {reply, Job, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Returns the task which is the next to be worked on and sets it as
+%% assigned to NodeId.
+%%
+%% @spec handle_call({fetch_task, NodeId}, _From, State) ->
+%%                                 {reply, Task::record(), State}
+%%                               | no_task
+%%                               | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({fetch_task, NodeId}, _From, State) ->
     F = fun() ->
-		mnesia:all_keys(job)
+		JobId = fetch_job_internal(no_arg),
+		case get_split(JobId) of
+		    {ok, SplitTask} ->
+			Task = SplitTask;
+   		    _ -> 
+			case get_map(JobId) of
+			    {ok, MapTask} ->
+				Task = MapTask;
+			    _ -> 
+				case get_reduce(JobId) of
+				    {ok, ReduceTask} ->
+					Task = ReduceTask;
+				    _ -> 
+					case get_finalize(JobId) of
+					    {ok, FinalizeTask} -> 
+						Task = FinalizeTask;
+					    _ -> 
+						Task = no_task
+					end
+				end
+			end
+   		end,
+		case Task of
+		    no_task ->
+			no_task;
+		    _ ->
+			TaskId = Task#task.task_id,
+			set_task_state(TaskId, assigned),
+			add(assigned_tasks, 
+			    #assigned_tasks{task_id = TaskId,
+					    job_id  = JobId,
+					    node_id = NodeId})
+		end,
+		Task
 	end,
     {atomic, Result} = mnesia:transaction(F),
+    %chronicler:debug("~w:Retrieved task."
+    %                 "Task:~p~n",    
+    %                 [?MODULE, Result]),
     {reply, Result, State};
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
 %%
-%% Adds a task to the task table and correctly sets its relations.
-%% @spec handle_call({add_task, JobId, TaskType, InputPath,  
-%%	             CurrentState, Priority}, _From, State) -> 
-%%                                  {reply, TaskID, State}
+%% Adds a task to the database.
+%%
+%% @spec handle_call({add_task, TableName::atom(), Task}, 
+%%                    _From, State) ->
+%%                                 {reply, JobId::integer(), State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({add_task, JobId, TaskType, InputPath, CurrentState, 
-	     Priority}, _From, State) ->
+handle_call({add_task, TableName, Task}, _From, State) ->
     TaskId = generate_id(),
-    add_task_on_server(TaskId, JobId, TaskType, InputPath, 
-		       CurrentState, Priority),
-    % Also add the relations the task will have, namely which job and which
-    % node (undefined when first inserting the task) it is assigned to.
-    add_assigned_task_on_server(TaskId, JobId, undefined),
-    chronicler:debug(io_lib:format("db:Added task: ~p~n", [TaskId])),
+    add(TableName, Task#task{task_id = TaskId}),
+    TaskRelation = #task_relations{task_id    = TaskId,
+				   job_id     = Task#task.job_id,
+				   table_name = TableName},
+    add(task_relations, TaskRelation),
+    %chronicler:debug("~w:Added task."
+    %                 "TaskId:~p~n"
+    %                 "JobId:~p~n"
+    %                 "Type:~p~n",    
+    %                 [?MODULE, TaskId, JobId, Task#task.type]),
     {reply, TaskId, State};
 
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Removes a task from the database.
+%%
+%% @spec handle_call({remove_task, TaskId::integer()}, 
+%%                    _From, State) ->
+%%                                 {reply, ok, State} | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({remove_task, TaskId}, _From, State) ->
+    TaskRelation = read(task_relations, TaskId),
+    remove(TaskRelation#task_relations.table_name, TaskId),
+    remove(task_relations, TaskId),
+    %chronicler:debug("~w:Removed task."
+    %                 "TaskId:~p~n",    
+    %                 [?MODULE, TaskId]),
+    {reply, ok, State};
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
 %%
-%% Finds a task from the task table with TaskType and InputPath
-%% if it exists and returns true, otherwise false.
-%% @spec handle_call({exists_task, JobId, TaskType, InputPath},
-%%                                                     _From, State) -> 
-%%                                  {reply, false, State} |
-%%                                  {reply, true, State} 
-%% @end
-%%--------------------------------------------------------------------
-handle_call({exists_task, JobId, TaskType, InputPath}, _From, State) ->
-    F = fun() ->
-		MatchHead = #task{task_id = '_',
- 				  job_id = '$1',
- 				  task_type = '$2',
- 				  input_path = '$3',
- 				  current_state = '_',
- 				  priority = '_'},
-		Guard1 = {'==', '$1', JobId},
-		Guard2 = {'==', '$2', TaskType},
-		Guard3 = {'==', '$3', InputPath},
-		Result = '$1',
- 	        mnesia:select(task, [{MatchHead, [Guard1, Guard2, Guard3], [Result]}], 1, read)
- 	end,
-    {atomic, Result} = mnesia:transaction(F),
-    case Result of
-	'$end_of_table' ->
-	    {reply, false, State};
-	_Task ->
-	    {reply, true, State}
-    end;
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
+%% Returns a whole task given a valid id.
 %%
-%% Finds a task from the task table with TaskType and InputPath
-%% if it exists and returns true, otherwise false.
-%% @spec handle_call({list_task_type, TaskType}, _From, State) -> 
-%%                                  {reply, Result, State}
+%% @spec handle_call({get_task, TaskId::integer()}, 
+%%                    _From, State) ->
+%%                                 {reply, Task, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({list_task_type, TaskType}, _From, State) ->
-    F = fun() ->
-		MatchHead = #task{task_id = '$1',
- 				  job_id = '_',
- 				  task_type = '$2',
- 				  input_path = '_',
- 				  current_state = '_',
- 				  priority = '_'},
-	       	Guard = {'==', '$2', TaskType},
-		Result = '$1',
- 	        mnesia:select(task, [{MatchHead, [Guard], [Result]}])
- 	end,
-    {atomic, Result} = mnesia:transaction(F),
-    {reply, Result, State};
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%%
-%% Returns true if JobId has a finalize task, otherwise false
-%% 
-%% @end
-%%--------------------------------------------------------------------
-handle_call({exists_finalize, JobId}, _From, State) ->
-    F = fun() ->
-		MatchHead = #task{task_id = '_',
- 				  job_id = '$1',
- 				  task_type = '$2',
- 				  input_path = '_',
- 				  current_state = '_',
- 				  priority = '_'},
-		Guard1 = {'==', '$1', JobId},
-		Guard2 = {'==', '$2', finalize},
-		Result = '$1',
- 	        mnesia:select(task, [{MatchHead, [Guard1, Guard2], [Result]}], 1, read)
- 	end,
-    {atomic, Result} = mnesia:transaction(F),
-    case Result of
-	'$end_of_table' ->
-	    {reply, false, State};
-	_Task ->
-	    {reply, true, State}
-    end;
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%%
-%% Returns an available task from the task table and set it as
-%% assigned to the specified NodeId. 
-%% 
-%% @end
-%%--------------------------------------------------------------------
-handle_call({get_task, TaskType, NodeId}, _From, State) ->
-    F = fun() ->
-		MatchHead = #task{task_id = '$1',
- 				  job_id = '_',
- 				  task_type = '$2',
- 				  input_path = '_',
- 				  current_state = available,
- 				  priority = '_'},
-		Guard = {'==', '$2', TaskType},
-		Result = '$1',
- 	        mnesia:select(task, [{MatchHead, [Guard], [Result]}], 1, read)
- 	end,
-    Result = mnesia:transaction(F),
-    case Result of
-	{atomic, {[First], _Cont}} ->
-	    % We need to update the current state of the task
-	    % and its relations.
-	    Task = get_element_on_server(First, task),
-	    remove_element_on_server(First, task),
-	    remove_element_on_server(First, assigned_task),
-	    add_task_on_server(Task#task.task_id, 
-			       Task#task.job_id, 
-			       Task#task.task_type,
-			       Task#task.input_path, 
-			       reserved,
-			       Task#task.priority),
-	    add_assigned_task_on_server(Task#task.task_id,
-					Task#task.job_id,
-					NodeId),
-	    chronicler:debug(io_lib:format(
-			      "db:Retrieving task: ~p~n", [Task#task.task_id])),
-
- 	    {reply, Task, State};
- 	{atomic, '$end_of_table'} ->
-	    %chronicler:debug(io_lib:format("db:Retrieving no_task~n", [])),
- 	    {reply, no_task, State}
-    end;
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%%
-%% Returns the whole task given a task id.
-%% 
-%% @end
-%%--------------------------------------------------------------------
-handle_call({get_task_info, TaskId}, _From, State) ->
-    Task = get_element_on_server(TaskId, task),
+handle_call({get_task, TaskId}, _From, State) ->
+    % First we need to find which table the task is in
+    TaskRelation = read(task_relations, TaskId),
+    % Then read the task from the correct table
+    Task = read(TaskRelation#task_relations.table_name, TaskId),
     {reply, Task, State};
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
 %%
-%% Sets the state of a task. 
 %% 
+%%
+%% @spec handle_call({get_node, TaskId::integer()}, 
+%%                    _From, State) ->
+%%                                 {reply, NodeId::integer(), State}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({get_node, TaskId}, _From, State) ->
+    AssignedTask = read(assigned_tasks, TaskId),
+    NodeId = AssignedTask#assigned_tasks.node_id,
+    {reply, NodeId, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Sets the state of a task and places the task and its relations in
+%% the correct tables.
+%%
+%% @spec handle_call({get_task, TaskId::integer(), NewState::atom()}, 
+%%                    _From, State) ->
+%%                                 {reply, Task, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_call({set_task_state, TaskId, NewState}, _From, State) ->
-    F = fun() ->
-		Task = get_element_on_server(TaskId, task),
-		remove_element_on_server(TaskId, Task),
-		add_task_on_server(TaskId, 
-			 Task#task.job_id, 
-			 Task#task.task_type,
-		         Task#task.input_path, 
-			 NewState,
-			 Task#task.priority)
-	end,
-    mnesia:transaction(F),
+    set_task_state(TaskId, NewState),
     {reply, ok, State};
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
 %%
-%% Sets the task as assigned to the given node.
-%% 
+%% Sets the state of a job.
+%%
+%% @spec handle_call({set_job_state, JobId::integer(), NewState::atom()}, 
+%%                    _From, State) ->
+%%                                 {reply, ok, State} | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({assign_task, TaskId, NodeId}, _From, State) ->
-    F = fun() ->
-		Task = get_element_on_server(TaskId, task),
-		remove_element_on_server(TaskId, assigned_task),
-		add_assigned_task_on_server(Task#task.task_id,
-					    Task#task.job_id,
-					    NodeId)
-	end,
-    mnesia:transaction(F),
+handle_call({set_job_state, JobId, NewState}, _From, State) ->
+    Job = read(job, JobId),
+    remove(job, JobId),
+    NewJob = Job#job{state = NewState},
+    add(job, NewJob),
     {reply, ok, State};
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
 %%
-%% Lists all tasks in the task table.
-%% 
+%% Sets the path of a job.
+%%
+%% @spec handle_call({set_job_path, JobId::integer(), NewPath::atom()}, 
+%%                    _From, State) ->
+%%                                 {reply, ok, State} | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({list_tasks}, _From, State) ->
+handle_call({set_job_path, JobId, NewPath}, _From, State) ->
+    Job = read(job, JobId),
+    remove(job, JobId),
+    NewJob = Job#job{path = NewPath},
+    add(job, NewJob),
+    {reply, ok, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Lists all items in the specified table.
+%%
+%% @spec handle_call({list, TableName::atom()}, _From, State) ->
+%%                                 {reply, List, State} | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({list, TableName}, _From, State) ->
     F = fun() ->
-		mnesia:all_keys(task)
+		mnesia:all_keys(TableName)
 	end,
     {atomic, Result} = mnesia:transaction(F),
     {reply, Result, State};
@@ -800,60 +737,23 @@ handle_call({list_tasks}, _From, State) ->
 %% @private
 %% @doc
 %%
-%% Lists all tasks that belong to the job with id JobId.
-%% 
-%% @end
-%%--------------------------------------------------------------------
-handle_call({list_tasks, JobId}, _From, State) ->
-    F = fun() ->
-		% List the tasks which are connected to
-		% the job with id JobId
-		MatchHead = #assigned_task{task_id = '$1',
-					   job_id = '$2',
-					   node_id = '_'},
- 		Result = '$1',
-		Guard = {'==', '$2', JobId},
- 	        mnesia:select(assigned_task, [{MatchHead, [Guard], [Result]}])
- 	end,
-    {atomic, Result} = mnesia:transaction(F),
-    {reply, Result, State};
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
+%% Lists all tasks that are assigned to the specified node.
 %%
-%% Lists all tasks that belong to the node with id NodeId.
-%% 
+%% @spec handle_call({list_node_tasks, NodeId::atom()}, _From, State) ->
+%%                                 {reply, List, State} | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 handle_call({list_node_tasks, NodeId}, _From, State) ->
     F = fun() ->
-		MatchHead = #assigned_task{task_id = '$1',
-	     				   job_id = '_',
-					   node_id = '$2'},
- 		Result = '$1',
+		MatchHead = #assigned_tasks{task_id = '$1',
+					    node_id = '$2',
+					    _ = '_'},
+		Result = '$1',
 		Guard = {'==', '$2', NodeId},
- 	        mnesia:select(assigned_task, [{MatchHead, [Guard], 
-				      [Result]}])
- 	end,
+		mnesia:select(assigned_tasks, [{MatchHead, [Guard], [Result]}])
+	end,
     {atomic, Result} = mnesia:transaction(F),
-    {reply, Result, State};
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%% Logs and discards unexpected messages.
-%%
-%% @spec handle_call(Msg, From, State) ->  {noreply, State}
-%% @end
-%%--------------------------------------------------------------------
-handle_call(Msg, From, State) ->
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected handle_call call.~n"
-                         "Message: ~p~n"
-                         "From: ~p~n",
-                         [?MODULE, Msg, From])),
-    {noreply, State}.
+    {reply, Result, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -861,12 +761,10 @@ handle_call(Msg, From, State) ->
 %%
 %% Stops the mnesia application.
 %% 
-%% 
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(stop, State) ->
     application:stop(mnesia),
-    chronicler:info(io_lib:format("db:Stopping database~n", [])),
     {stop, normal, State};
 
 %%--------------------------------------------------------------------
@@ -877,11 +775,10 @@ handle_cast(stop, State) ->
 %% @spec handle_cast(Msg, State) ->  {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast(Msg, State) ->
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected handle_cast call.~n"
-                         "Message: ~p~n",
-                         [?MODULE, Msg])),
+handle_cast(_Msg, State) ->
+%    chronicler:warning("~w:Received unexpected handle_cast call.~n"
+%                         "Message: ~p~n",
+%                         [?MODULE, Msg])),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -892,11 +789,10 @@ handle_cast(Msg, State) ->
 %% @spec handle_info(Info, State) -> {noreply, State} 
 %% @end
 %%--------------------------------------------------------------------
-handle_info(Info, State) -> 
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected handle_info call.~n"
-                         "Info: ~p~n",
-                         [?MODULE, Info])),
+handle_info(_Info, State) -> 
+%    chronicler:warning("~w:Received unexpected handle_info call.~n"
+%                         "Info: ~p~n",
+%                         [?MODULE, Info])),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -910,11 +806,10 @@ handle_info(Info, State) ->
 %% 
 %% @end
 %%--------------------------------------------------------------------
-terminate(Reason, _State) ->
-    chronicler:debug(io_lib:format(
-                         "~w:Received terminate call.~n"
-                         "Reason: ~p~n",
-                         [?MODULE, Reason])),
+terminate(_Reason, _State) ->
+%    chronicler:debug("~w:Received terminate call.~n"
+%                         "Reason: ~p~n",
+%                         [?MODULE, Reason])),
     application:stop(mnesia).
 %%--------------------------------------------------------------------
 %% @private
@@ -925,14 +820,12 @@ terminate(Reason, _State) ->
 %% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% @end
 %%--------------------------------------------------------------------
-code_change(OldVsn, State, Extra) -> 
-    chronicler:warning(io_lib:format(
-                         "~w:Received unexpected code_change call.~n"
-                         "Old version: ~p~n"
-                         "Extra: ~p~n",
-                         [?MODULE, OldVsn, Extra])),
+code_change(_OldVsn, State, _Extra) -> 
+%    chronicler:warning("~w:Received unexpected code_change call.~n"
+%                         "Old version: ~p~n"
+%                         "Extra: ~p~n",
+%                         [?MODULE, OldVsn, Extra])),
     {ok, State}.
-
 
 %%%===================================================================
 %%% Internal functions
@@ -948,75 +841,145 @@ code_change(OldVsn, State, Extra) ->
 %%--------------------------------------------------------------------
 generate_id() ->
     {Megaseconds, Seconds, Microseconds} = now(),
-    Id = list_to_integer(integer_to_list(Megaseconds) ++
-			    integer_to_list(Seconds) ++
-			    integer_to_list(Microseconds)),
-    Id.
+    _Id = list_to_integer(lists:concat([Megaseconds, Seconds, Microseconds])).
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
 %%
-%% Adds a job to the database.
+%% Tries to fetch a free split task from the split_free table, returns no_task
+%% if none is found. JobId denotes which job the task should be associated with.
 %%
-%% add_job_on_server(JobId::integer(), JobType::atom(),
-%%                   InputPath::integer(), CurrentState::atom(),
-%%                   CurrentProgress::integer(), Priority::integer()) -> 
-%%             {aborted, Reason} |{atomic, ok}
-%%             JobType = any() 
-%%
+%% @spec get_split(JobId) -> {ok, SplitTask::record()} | no_task 
 %% @end
 %%--------------------------------------------------------------------
-add_job_on_server(JobId, JobType, InputPath, CurrentState, 
-		  CurrentProgress, Priority) ->
-    F = fun() ->
-		mnesia:write(#job{job_id = JobId,
-				  job_type = JobType,
-				  input_path = InputPath,
-				  current_state = CurrentState,
-				  current_progress = CurrentProgress,
-				  priority = Priority})
-	end,
-    mnesia:transaction(F).
+get_split(JobId) ->
+    SplitTask = find_task_in_table(split_free, JobId),
+    case SplitTask of
+	no_task ->
+	    no_task;
+	Split -> {ok, Split}
+    end.
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
 %%
-%% Adds a task to the task table.
-%% 
-%% @spec add_task_on_server(TaskId::integer(), JobId::integer(), 
-%%                          TaskType::atom(), InputPath::string(), 
-%%                          CurrentState::atom(), Priority::integer()) -> 
-%%                      {aborted, Reason} | ok
+%% Tries to fetch a free map task from the map_free table, returns no_task
+%% if none is found. JobId denotes which job the task should be associated with.
+%%
+%% @spec get_map(JobId) -> {ok, MapTask::record()} | no_task 
 %% @end
 %%--------------------------------------------------------------------
-add_task_on_server(TaskId, JobId, TaskType, InputPath, 
-		   CurrentState, Priority) ->
+get_map(JobId) ->
+    MapTask = find_task_in_table(map_free, JobId),
+    case MapTask of
+	no_task ->
+	    no_task;
+	Map -> {ok, Map}
+    end.
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Tries to fetch a free reduce task from the reduce_free table, returns no_task
+%% if none is found. JobId denotes which job the task should be associated with.
+%%
+%% @spec get_reduce(JobId) -> {ok, ReduceTask::record()} | no_task 
+%% @end
+%%--------------------------------------------------------------------
+get_reduce(JobId) ->
+    ReduceTask = find_task_in_table(reduce_free, JobId),
+    case ReduceTask of
+	no_task ->
+	    no_task;
+	Reduce -> 
+	    SplitAssigned = find_task_in_table(split_assigned, JobId),
+	    case SplitAssigned of
+		no_task ->
+		    MapAssigned = find_task_in_table(map_assigned, JobId),
+		    case MapAssigned of
+			no_task ->
+			    {ok, Reduce};
+			_ ->
+			    no_task
+		    end;
+		_ ->
+		    no_task
+	    end
+    end.
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Tries to fetch a free finalize task from the finalize_free table, returns 
+%% no_task if none is found. 
+%% JobId denotes which job the task should be associated with.
+%%
+%% @spec get_finalize(JobId) -> {ok, FinalizeTask::record()} | no_task 
+%% @end
+%%--------------------------------------------------------------------
+get_finalize(JobId) ->
+    FinalizeTask = find_task_in_table(finalize_free, JobId),
+    case FinalizeTask of
+	no_task ->
+	    no_task;
+	Finalize -> 
+	    ReduceAssigned = find_task_in_table(reduce_assigned, JobId),
+	    case ReduceAssigned of
+		no_task ->
+		    {ok, Finalize};
+		_ ->
+		    no_task
+	    end
+    end.
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Adds a record to the specified table with name TableName.
+%%
+%% @spec add(TableName::atom(), Record) -> ok | {error, Error} 
+%% @end
+%%--------------------------------------------------------------------
+add(TableName, Record) ->
     F = fun() ->
-		mnesia:write(#task{task_id = TaskId,
-				   job_id = JobId,
-				   task_type = TaskType,
-				   input_path = InputPath,
-				   current_state = CurrentState,
-				   priority = Priority})
+		mnesia:write(TableName, Record, write)
 	end,
     mnesia:transaction(F),
-    TaskId.
+    ok.
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
 %%
-%% Fetches an element from the given table given a key.
-%% 
-%% @spec get_element_on_server(Key::integer(), TableName::atom()) -> Element
-%%                          TableName = job | task | assigned_task
+%% Removes all records from the given table with the given key.
+%%
+%% @spec remove(TableName::atom(), Key) -> ok | {error, Error} 
 %% @end
 %%--------------------------------------------------------------------
-get_element_on_server(Key, TableName) ->
+remove(TableName, Key) ->
     F = fun() ->
-		mnesia:read(TableName, Key, write)
+		mnesia:delete(TableName, Key, write)
+	end,
+    mnesia:transaction(F),
+    ok.
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Reads a record from a table.
+%%
+%% @spec read(TableName::atom(), Key) -> Record | {error, Error} 
+%% @end
+%%--------------------------------------------------------------------
+read(TableName, Key) ->
+    F = fun() ->
+		mnesia:read(TableName, Key)
 	end,
     {atomic, [Result]} = mnesia:transaction(F),
     Result.
@@ -1025,36 +988,104 @@ get_element_on_server(Key, TableName) ->
 %% @private
 %% @doc
 %%
-%% Add the relations of a task to the assigned_task table.
-%% 
-%% @spec add_assigned_task_on_server(TaskId::integer(), JobId::integer(),
-%%                                   NodeId::integer()) ->
-%%                       ok | {error, Error}
+%% Finds the next job to run. _Algorithm is used in case of future 
+%% implementations using different prioritizing algorithms to choose from.
+%%
+%% @spec fetch_job_internal(_Algorithm) -> JobId::integer() | {error, Error} 
 %% @end
 %%--------------------------------------------------------------------
-add_assigned_task_on_server(TaskId, JobId, NodeId) ->
+fetch_job_internal(_Algorithm) ->
     F = fun() ->
-		mnesia:write(#assigned_task{task_id = TaskId,
-					    job_id = JobId,
-					    node_id = NodeId})
+		MatchHead = #job{job_id = '$1',
+				 state = '$2',
+				 _ = '_'},
+		Guard = {'==', free, '$2'},
+		Result = '$1',
+		mnesia:select(job, [{MatchHead, [Guard], [Result]}], 1, read)
 	end,
-    mnesia:transaction(F),
+    Result = mnesia:transaction(F),
+    
+    case Result of
+	{atomic, {[First], _Cont}} ->
+	    First;
+ 	{atomic, '$end_of_table'} ->
+ 	    no_job
+    end.
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Finds the first free task in the given table associated to JobId.
+%%
+%% @spec find_task_in_table(TableName::atom(), JobId::integer()) ->
+%%                                 Task 
+%%                               | no_task
+%%                               | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+find_task_in_table(TableName, JobId) ->
+    F = fun() ->
+		MatchHead = #task{task_id = '$1',
+ 				  job_id = '$2',
+				  _ = '_'},
+		Guard = {'==', '$2', JobId},
+		Result = '$1',
+ 	        mnesia:select(TableName, 
+			      [{MatchHead, [Guard], [Result]}], 1, read)
+ 	end,
+
+    Result = mnesia:transaction(F),
+    case Result of
+	{atomic, {[First], _Cont}} ->
+	    _Task = read(TableName, First);
+	{atomic, '$end_of_table'} ->
+	    no_task
+    end.
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Sets the state of the specified task.
+%%
+%% @spec set_task_state(TaskId::integer(), NewState::atom()) -> ok 
+%%                                                            | {error, Error}
+%%                               NewState = free | assigned | done
+%% @end
+%%--------------------------------------------------------------------
+set_task_state(TaskId, NewState) ->
+    TaskRelation = read(task_relations, TaskId),
+    TableName = TaskRelation#task_relations.table_name,
+    Task = read(TableName, TaskId),
+    
+    remove(TableName, TaskId),
+    remove(task_relations, TaskId),
+    remove(assigned_tasks, TaskId),
+
+    NewTask = Task#task{state = NewState},
+    NewTableName = list_to_atom(lists:concat([Task#task.type, '_', NewState])),
+    add(NewTableName, NewTask),
+    add(task_relations, TaskRelation#task_relations{table_name = NewTableName}),
     ok.
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
 %%
-%% Removes an element from the specified table.
-%% 
-%% @spec remove_element_on_server(TaskId::integer(), TableName::atom()) -> 
-%%                           ok | {error, Error}
-%%                           TableName = job | task | assigned_task
+%% Lists all tasks that are associated to the specified job.
+%%
+%% @spec list_job_tasks(JobId::atom()) ->
+%%                                 List | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-remove_element_on_server(TaskId, TableName) ->
+list_job_tasks(JobId) ->
     F = fun() ->
-		mnesia:delete({TableName, TaskId})
+		MatchHead = #task_relations{task_id = '$1',
+					    job_id = '$2',
+					    _ = '_'},
+		Result = '$1',
+		Guard = {'==', '$2', JobId},
+		mnesia:select(task_relations, [{MatchHead, [Guard], [Result]}])
 	end,
-    mnesia:transaction(F),
-    ok.
+    {atomic, Result} = mnesia:transaction(F),
+    Result.

@@ -67,9 +67,19 @@ task_completed_test() ->
     JobId = db:add_job({raytracer, mapreduce, chabbrik, 0}),
     AssignedTask = {JobId, raytracer, map, "input data"},
     AId = db:add_task(AssignedTask),
-    ReceivedTask = dispatcher:fetch_task(node(), self()),
-    ?assertEqual(AId, ReceivedTask#task.task_id),
-    ?assertEqual(assigned, (db:get_task(AId))#task.state),
+    dispatcher:fetch_task(node(), self()),
+    receive
+        {task_response, Task} ->
+            ?assertEqual(map, Task#task.type),
+            ?assertEqual(JobId, Task#task.job_id),
+            ?assertEqual(AId, Task#task.task_id),
+            ?assertEqual(assigned, (db:get_task(AId))#task.state);
+        Msg ->
+            chronicler:error("Wrong message received: ~p", [Msg])  
+        after 1000 ->
+            chronicler:error("Fetching timed out: ~p", [])
+    end,
+    
     dispatcher:report_task_done(AId),
     DoneTask = db:get_task(AId),
     ?assertEqual(done, DoneTask#task.state),

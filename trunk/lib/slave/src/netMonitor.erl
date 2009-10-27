@@ -21,6 +21,8 @@
 %% on the network interface card.
 %%
 %% @spec get_net_stats() -> {Up, Down}
+%% @todo make get_net_stats() paramterized by interface name,
+%%       keep it in the config file
 %% @end
 %%--------------------------------------------------------------------
 

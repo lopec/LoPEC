@@ -11,7 +11,7 @@
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Ask the system what load it have.
+%% Ask the system what load it has.
 %%
 %% @spec get_load(Period) -> Load
 %% @end
@@ -20,11 +20,11 @@ get_load(Period) ->
     D = os:cmd("uptime") -- "\n",
     Avg = lists:reverse(hd(string:tokens(lists:reverse(D), ":"))),
     %% Checks if it's a Linux or Mac OSX system running
-    case os:cmd("uname") -- "\n" of
-        "Darwin" -> {ok, [L1, L5, L15], _} = io_lib:fread("~f ~f ~f", Avg);
-        "Linux" -> {ok, [L1, L5, L15], _} = io_lib:fread("~f, ~f, ~f", Avg);
-        _ -> L1 = 0, L5 = 0, L15 = 0
-    end,
+    {ok, [L1, L5, L15], _} =
+        case os:cmd("uname") -- "\n" of
+            "Darwin" -> io_lib:fread("~f ~f ~f", Avg);
+            "Linux" -> io_lib:fread("~f, ~f, ~f", Avg)
+        end,
     case Period of
         l1min -> L1;
         l5min -> L5;
@@ -43,13 +43,14 @@ get_watt(Period) ->
     Load = get_load(Period),
     {ok, Cores} = configparser:read_config("/etc/clusterbusters.conf", cores),
     %% This is not a very effective way to measure watt. But it's the only way right know.
+    {ok, HLW} =
+        configparser:read_config("/etc/clusterbusters.conf", high_load_watt),
+    {ok, LLW} =
+        configparser:read_config("/etc/clusterbusters.conf", low_load_watt),
     case Load of 
         Load when Load > Cores ->
-            {ok, HLW} = configparser:read_config("/etc/clusterbusters.conf", high_load_watt),
             HLW;
         _ -> 
-            {ok, HLW} = configparser:read_config("/etc/clusterbusters.conf", high_load_watt),
-            {ok, LLW} = configparser:read_config("/etc/clusterbusters.conf", low_load_watt),
             ((HLW-LLW)*(Load/Cores))+LLW
     end.
     

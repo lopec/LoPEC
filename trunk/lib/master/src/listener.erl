@@ -9,7 +9,7 @@
 -module(listener).
 -behaviour(gen_server).
 
--export([new_job/5, new_job/6, get_job_name/1, remove_job_name/1,
+-export([add_job/5, add_job/6, get_job_name/1, remove_job_name/1,
          is_valid_jobtype/1]).
 
 -export([start_link/0, init/1, handle_call/3, handle_cast/2, handle_info/2, 
@@ -44,16 +44,16 @@ start_link() ->
 %%                  -> JobID
 %% @end
 %%------------------------------------------------------------------------------
-new_job(ProgramName, ProblemType, Owner, Priority, InputData, Name) ->
+add_job(ProgramName, ProblemType, Owner, Priority, InputData, Name) ->
     chronicler:info("~w : called new_job with a name=~w~n", [?MODULE, Name]),
     gen_server:call(?MODULE, 
        {new_job, ProgramName, ProblemType, Owner, Priority, InputData, Name}).
 %% %@spec new_job(ProgramName, ProblemType, Owner, Priority, InputData)
 %% %@equiv new_job(JobType, InputData, no_name)
 %TODO: Burbas must fix the above two, only he knows how theyre meant to be
-new_job(ProgramName, ProblemType, Owner, Priority, InputData) ->
+add_job(ProgramName, ProblemType, Owner, Priority, InputData) ->
     chronicler:info("~w called new_job~n", [?MODULE]),
-    new_job(ProgramName, ProblemType, Owner, Priority, InputData, no_name).
+    add_job(ProgramName, ProblemType, Owner, Priority, InputData, no_name).
 
 %%------------------------------------------------------------------------------
 %% @doc
@@ -268,5 +268,5 @@ add_new_job(ProgramName, ProblemType, Owner, Priority, InputData) ->
      || SubDir <- ["map/", "reduce/", "input/", "results/"]],
     % Move the files to the right thing
     file:copy(InputData, Root ++ JobRoot ++ "/input/data.dat"),
-    dispatcher:create_task({JobId, split, JobRoot ++ "/input/data.dat", 0}),
+    dispatcher:add_task({JobId, split, JobRoot ++ "/input/data.dat", 0}),
     JobId.

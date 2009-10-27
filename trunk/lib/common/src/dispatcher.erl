@@ -51,7 +51,7 @@ start_link() ->
 %% {
 %%      JobId,
 %%      ProgramName,
-%%      Type - atoms 'map', 'reduce', 'finalise' or 'split' are
+%%      Type - atoms 'map', 'reduce', 'finalize' or 'split' are
 %%                  accepted at the moment (without quote marks '')
 %%      Path - input file name
 %% }

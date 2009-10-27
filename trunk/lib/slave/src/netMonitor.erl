@@ -17,8 +17,8 @@
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Asks the system about how much data that has been sent/received
-%% on the network interface card.
+%% Asks the system how much data has been sent/received on a network
+%% interface card (hardcoded as en0/eth0).
 %%
 %% @spec get_net_stats() -> {Up, Down}
 %% @todo make get_net_stats() paramterized by interface name,

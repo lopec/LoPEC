@@ -18,20 +18,24 @@ statistician_slave_test_() ->
      fun (Pid) ->
              {inorder,
               [
+               ?_assertNot(undefined == ets:info(stats)), % fail if table wasn't created
                ?_assertEqual({error, no_such_job_in_stats},
                              statistician:get_job_stats(2)),
-               ?_assertEqual(ok, statistician:update({{1, 2, 3},a,b,c,d,e,f})),
+               %Normally we'd wait for the flush, but in tests we're better
+               %off doing it manually (and instantly)
+               ?_assertEqual(flush, Pid ! flush), %flush when empty...
+               ?_assertEqual(ok,
+                             statistician:update({{1, 2, map},1,1,1,1,1,1})),
                ?_assertNot({error, no_such_job_in_stats} ==
                              statistician:get_job_stats(2)),
-               ?_assertMatch({noreply, []}, 
-                             statistician:handle_info({job_finished,2}, [])),
+               ?_assertEqual(flush, Pid ! flush), %flush with 1 element...
                ?_assertEqual({error, no_such_job_in_stats},
                              statistician:get_job_stats(2)),
                ?_assertEqual(ok,
-                             statistician:update({{1, 2, split},1,1,1,1,1,1})),
-               %Normally we'd wait for the flush, but in tests we're better
-               %off doing it manually (and instantly)
-               ?_assertEqual(flush, Pid ! flush),
+                             statistician:update({{2, 2, reduce},2,2,2,2,2,2})),
+               ?_assertEqual(ok,
+                             statistician:update({{1, 2, map},1,1,1,1,1,1})),
+               ?_assertEqual(flush, Pid ! flush), %flush with multiple elements
                ?_assertEqual({error, no_such_job_in_stats},
                              statistician:get_job_stats(2))
                ]}
@@ -42,18 +46,18 @@ statistician_master_test_() ->
     {setup,
      fun start_master/0,
      fun stop_master/1,
-     fun (_Pid) ->
+     fun (Pid) ->
              {inorder,
               [
                ?_assertEqual({error, no_such_job_in_stats},
                              statistician:get_job_stats(2)),
-               ?_assertEqual(ok, statistician:update({{1, 2, 3},a,b,c,d,e,f})),
+               ?_assertEqual(ok,
+                             statistician:update({{1, 2, 3},a,b,c,d,e,f})),
                ?_assertNot({error, no_such_job_in_stats} ==
                            statistician:get_job_stats(2)),
                %job_finished (API function) requires waiting for ~3 seconds,
                %which we don't really want to do in tests. Thus, a direct call:
-               ?_assertMatch({noreply, []}, 
-                             statistician:handle_info({job_finished,2}, [])),
+               ?_assertEqual({job_finished, 2}, Pid ! {job_finished, 2}),
                ?_assertEqual({error, no_such_job_in_stats},
                              statistician:get_job_stats(2)),
                ?_assertEqual(ok,
@@ -66,7 +70,7 @@ statistician_master_test_() ->
                              statistician:update({{4,2,finalize},2,2,2,2,2,2})),
                %Should add up to {{_,2,finalize},4,4,4,4,4}
                ?_assertEqual(ok,
-                             statistician:update({{5,2,finalize},2,2,2,2,2,2})),
+                             statistician:update({{4,2,finalize},2,2,2,2,2,2})),
                %Unfortunately we cannot test that the numbers are correct, as
                %it would require checking against a 30-line string, and one of
                %the values in it (Time passed) cannot be known until runtime.
@@ -76,12 +80,9 @@ statistician_master_test_() ->
                            statistician:get_job_stats(20)),
                ?_assertNot({error, no_such_job_in_stats} ==
                            statistician:get_job_stats(2)),
-               ?_assertEqual({noreply, []},
-                             statistician:handle_info({job_finished,1}, [])),
-               ?_assertEqual({noreply, []},
-                             statistician:handle_info({job_finished,20}, [])),
-               ?_assertEqual({noreply, []},
-                             statistician:handle_info({job_finished,2}, [])),
+               ?_assertEqual({job_finished, 1}, Pid ! {job_finished, 1}),
+               ?_assertEqual({job_finished, 20}, Pid ! {job_finished, 20}),
+               ?_assertEqual({job_finished, 2}, Pid ! {job_finished, 2}),
                ?_assertEqual({error, no_such_job_in_stats},
                              statistician:get_job_stats(1)),
                ?_assertEqual({error, no_such_job_in_stats},

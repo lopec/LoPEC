@@ -2,7 +2,7 @@
 %%% @author Bjoern Dahlman <>
 %%% @copyright (C) 2009, Bjoern Dahlman
 %%% @doc
-%%%
+%%% Fetches information about the network statistics on the system.
 %%% @end
 %%% Created : 26 Oct 2009 by Bjoern Dahlman <>
 %%%-------------------------------------------------------------------
@@ -15,19 +15,27 @@
 %%% API
 %%%===================================================================
 
-get_net_stats() ->
-    A = os:cmd("ifconfig eth0 | grep bytes"),
-    B = string:tokens(A, ":"),
-    C = hd(string:tokens(hd(tl(B)), " ")),
-    D = hd(string:tokens(hd(tl(tl(B))), " ")),
-    {C, D}.
-
 %%--------------------------------------------------------------------
 %% @doc
-%% @spec
+%% Asks the system about how much data that has been sent/received
+%% on the network interface card.
+%%
+%% @spec get_net_stats() -> {Up, Down}
 %% @end
 %%--------------------------------------------------------------------
 
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================
+get_net_stats() ->
+    case os:cmd("uname") -- "\n" of
+        "Darwin" ->
+	    A = lists:nth(2, string:tokens(os:cmd("netstat -I en0 -b"), "\n")),
+	    B = string:tokens(A, " "),
+	    {Up, Down} = {list_to_integer(lists:nth(10, B)),
+			  list_to_integer(lists:nth(7, B))};
+        "Linux" ->
+	    A = string:tokens(os:cmd("ifconfig eth0 | grep bytes"), ":"),
+	    Up = list_to_integer(hd(string:tokens(lists:nth(2, A), " "))),
+	    Down = list_to_integer(hd(string:tokens(lists:nth(3, A), " ")));
+        _ ->
+	    {Up, Down} = {0, 0}
+    end,
+    {Up, Down}.

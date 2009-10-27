@@ -71,7 +71,7 @@ new_task(Data, Type, Path) ->
 init(no_args) ->
     {ok, TimerRef} = timer:send_interval(1000, poll),
     {Upload, Download} = netMonitor:get_net_stats(),
-    NetStats = {list_to_integer(Upload), list_to_integer(Download)},
+    NetStats = {Upload, Download},
     {ok, {#state{timer = TimerRef}, NetStats}}.
 
 %%--------------------------------------------------------------------
@@ -119,12 +119,12 @@ handle_call(Msg, From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType}}, {LolTimer, {OldUp, OldDown}}) ->
+handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType}}, {_LolTimer, {OldUp, OldDown}}) ->
     %% Report to statistician
     Diff = timer:now_diff(now(), Time) / 1000000,
     Power = power_check:get_watt_per_task(Diff),
     {NewUpload, NewDownload} = netMonitor:get_net_stats(),
-    {NewUp, NewDown} = {list_to_integer(NewUpload), list_to_integer(NewDownload)},
+    {NewUp, NewDown} = {NewUpload, NewDownload},
     statistician:update({{node(), JobId, list_to_atom(TaskType)},
 		        Power, Diff, NewUp - OldUp, NewDown - OldDown, 1, 0}),
     

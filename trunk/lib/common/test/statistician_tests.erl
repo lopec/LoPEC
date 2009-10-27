@@ -101,7 +101,10 @@ statistician_master_test_() ->
                ?_assertEqual(ok,
                              statistician:terminate(foo, [])),
                ?_assertEqual({ok, []},
-                             statistician:code_change(bar, [], baz))
+                             statistician:code_change(bar, [], baz)),
+               ?_assertEqual(flush, Pid ! flush) %because global statistician
+               %does not exist when testing flush in slave, so don't get to
+               %that part of the code without this
               ]}
      end
      }.

@@ -2,7 +2,7 @@
 %%% @author Axel Andren <axelandren@gmail.com>
 %%% @copyright (C) 2009, Axel
 %%% @doc
-%%% Tests for the statistician module. big_test was originally just
+%%% Tests for the statistician module. Was originally just
 %%% a script for copypasting into erl console.
 %%%
 %%% @end
@@ -11,47 +11,63 @@
 -module(statistician_tests).
 -include_lib("eunit/include/eunit.hrl").
 
-init_test() ->
+statistician_test_() ->
+    {setup,
+     fun start_master/0,
+     fun stop_master/1,
+     fun (Pid) ->
+             {inorder,
+              [
+               ?_assertEqual({error, no_such_job_in_stats},
+                             statistician:get_job_stats(2)),
+               ?_assertEqual(ok, statistician:update({{1, 2, 3},a,b,c,d,e,f})),
+               ?_assertNot({error, no_such_job_in_stats} ==
+                             statistician:get_job_stats(2)),
+               %job_finished (API function) requires waiting for ~3 seconds,
+               %which we can't really do in tests. Thus the direct call.
+               ?_assertMatch({noreply, []}, 
+                             statistician:handle_info({job_finished,2}, [])),
+               ?_assertEqual({error, no_such_job_in_stats},
+                             statistician:get_job_stats(2)),
+               ?_assertEqual(ok,
+                             statistician:update({{1, 2, split},1,1,1,1,1,1})),
+               ?_assertEqual(ok,
+                             statistician:update({{2, 2, map},2,2,2,2,2,2})),
+               ?_assertEqual(ok,
+                             statistician:update({{3, 2, reduce},3,3,3,3,3,3})),
+               ?_assertEqual(ok,
+                             statistician:update({{4, 2, finalize},2,2,2,2,2,2})),
+               %Should add up to 4 in each field
+               ?_assertEqual(ok,
+                             statistician:update({{4, 2, finalize},2,2,2,2,2,2})),
+               ?_assertEqual(flush, Pid ! flush),
+               ?_assertNot({error, no_such_job_in_stats} ==
+                             statistician:get_job_stats(2))
+               %Cannot test that the numbers are correct, as it would require
+               %checking against a 30-line string, and one of the values in it
+               %cannot be known until runtime due to being time-based.
+               
+
+               ]}
+     end
+     }.
+
+
+
+
+start_master() ->
     application:start(chronicler),
     application:start(common),
-    statistician:start_link(master).
-    
-update_test() ->
-    {Mega, Sec, Milli} = now(),
-    Nu = list_to_integer(
-           integer_to_list(Mega) ++
-           integer_to_list(Sec) ++
-           integer_to_list(Milli)),
-    statistician:update({{"lolnode1", Nu, split}, 123, 456, 789, 101, 213}),
-    statistician:update({{"lolnode2", Nu, map}, 11, 12, 13, 14, 15}),
-    statistician:update({{"lolnode3", Nu, reduce}, 0, 1, 2, 4, 8}),%insert new
-    statistician:update({{"lolnode3", Nu, reduce}, 0, 1, 2, 4, 8}),%update it
-    statistician:update({{"lolnode4", Nu, finalize}, 30, 40, 70, 10, 20}).
-    
-get_job_stats_test() ->
-    {Mega, Sec, Milli} = now(),
-    Nu = list_to_integer(
-           integer_to_list(Mega) ++
-           integer_to_list(Sec) ++
-           integer_to_list(Milli)),
-    St1 = statistician:get_job_stats(Nu),
-    ?assert(St1 == {error, no_such_job_in_stats}),
-    statistician:update({{"lolnode", Nu, split}, 1,6,9,1,3}),
-    St2 = statistician:get_job_stats(Nu),
-    ?assertNot(St2 == {error, no_such_job_in_stats}).
+    {ok, Pid} = statistician:start_link(master),
+    Pid.
 
-job_finished_test() ->
-    {Mega, Sec, Milli} = now(),
-    Nu = list_to_integer(
-           integer_to_list(Mega) ++
-           integer_to_list(Sec) ++
-           integer_to_list(Milli)),
-    
-    statistician:update({{"lolnode", Nu, split}, 1,6,9,1,3}),
-    St1 = statistician:get_job_stats(Nu),
-    ?assertNot(St1 == {error, no_such_job_in_stats}),
-    statistician:job_finished(Nu),
-    timer:sleep(3000),
-    St2 = statistician:get_job_stats(Nu),
-    ?assert(St2 == {error, no_such_job_in_stats}).
+stop_master(_Pid) ->
+    statistician:stop().
+
+start_slave() ->
+    {ok, Pid} = statistician:start_link(slave),
+    Pid.
+
+stop_slave(_Pid) ->
+    ok.
 

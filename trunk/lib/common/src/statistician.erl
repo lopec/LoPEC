@@ -85,8 +85,7 @@ update(Data) ->
 %% Jobs that are finished in our cluster should be dumped to file and
 %% cleared out of our stats table, but we have to wait to make sure
 %% that all slaves have sent their stat updates. This is NOT exact,
-%% but the hope is that waiting two update intervals will be plenty
-%% of time.
+%% but we hope waiting two update intervals will be sufficient.
 %%
 %% @spec job_finished(JobID) -> please_wait_a_few_seconds
 %% @end

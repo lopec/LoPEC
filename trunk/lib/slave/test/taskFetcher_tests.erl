@@ -7,8 +7,8 @@
 errournous_user_app_value_test_() ->
     {setup,
         fun () ->
-                taskFetcher:start_link(),
                 application:start(chronicler),
+                taskFetcher:start_link(),
                 {ok, File} = file:open(nonode@nohost, read),
                 File
         end,
@@ -26,8 +26,15 @@ errournous_user_app_value_test_() ->
                         ?_assertMatch("Chronicler application started\n", io:get_line(File, "")),
                         ?_assertMatch("\n", io:get_line(File, "")),
                         ?_assertMatch("=INFO REPORT=" ++ _, io:get_line(File, "")),
-                        ?_assertEqual("taskFetcher : Process 1 exited unexpected with state state.\n",
-                            io:get_line(File, ""))
+                        ?_assertMatch("taskFetcher : module started\n", io:get_line(File, "")),
+                        ?_assertMatch("\n", io:get_line(File, "")),
+                        ?_assertMatch("=WARNING REPORT=" ++ _, io:get_line(File, "")),
+                        ?_assertMatch("taskFetcher : Process 1 exited unexpected with state state.\n", io:get_line(File, "")), 
+                        ?_assertEqual(ok, gen_server:cast(taskFetcher, "testtest")),
+                        ?_assertMatch("\n", io:get_line(File, "")),
+                        ?_assertMatch("=WARNING REPORT=" ++ _, io:get_line(File, "")),
+                        ?_assertMatch("taskFetcher : Received unexpected handle_cast call.\n", io:get_line(File, ""))
+
                     ]}
         end
     }.

@@ -39,7 +39,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
-    chronicler:info("~w started", [?MODULE]),
+    chronicler:info("~w : module started", [?MODULE]),
     gen_server:start_link({local, ?MODULE}, ?MODULE, no_args, []).
 
 %%--------------------------------------------------------------------
@@ -150,7 +150,7 @@ handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType}}, {_LolTimer, {OldUp, O
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({Pid, error, CallState}, State) ->
-    chronicler:user_info("~w : Process ~p exited unexpected with state ~w.", 
+    chronicler:warning("~w : Process ~p exited unexpected with state ~w.", 
         [?MODULE, Pid,CallState]),
     {noreply, State};
 %%--------------------------------------------------------------------

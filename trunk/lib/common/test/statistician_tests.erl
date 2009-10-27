@@ -11,10 +11,10 @@
 -module(statistician_tests).
 -include_lib("eunit/include/eunit.hrl").
 
-statistician_test_() ->
+statistician_slave_test_() ->
     {setup,
-     fun start_master/0,
-     fun stop_master/1,
+     fun start_slave/0,
+     fun stop_slave/1,
      fun (Pid) ->
              {inorder,
               [
@@ -23,36 +23,87 @@ statistician_test_() ->
                ?_assertEqual(ok, statistician:update({{1, 2, 3},a,b,c,d,e,f})),
                ?_assertNot({error, no_such_job_in_stats} ==
                              statistician:get_job_stats(2)),
-               %job_finished (API function) requires waiting for ~3 seconds,
-               %which we can't really do in tests. Thus the direct call.
                ?_assertMatch({noreply, []}, 
                              statistician:handle_info({job_finished,2}, [])),
                ?_assertEqual({error, no_such_job_in_stats},
                              statistician:get_job_stats(2)),
                ?_assertEqual(ok,
                              statistician:update({{1, 2, split},1,1,1,1,1,1})),
-               ?_assertEqual(ok,
-                             statistician:update({{2, 2, map},2,2,2,2,2,2})),
-               ?_assertEqual(ok,
-                             statistician:update({{3, 2, reduce},3,3,3,3,3,3})),
-               ?_assertEqual(ok,
-                             statistician:update({{4, 2, finalize},2,2,2,2,2,2})),
-               %Should add up to 4 in each field
-               ?_assertEqual(ok,
-                             statistician:update({{4, 2, finalize},2,2,2,2,2,2})),
+               %Normally we'd wait for the flush, but in tests we're better
+               %off doing it manually (and instantly)
                ?_assertEqual(flush, Pid ! flush),
-               ?_assertNot({error, no_such_job_in_stats} ==
+               ?_assertEqual({error, no_such_job_in_stats},
                              statistician:get_job_stats(2))
-               %Cannot test that the numbers are correct, as it would require
-               %checking against a 30-line string, and one of the values in it
-               %cannot be known until runtime due to being time-based.
-               
-
                ]}
      end
      }.
 
-
+statistician_master_test_() ->
+    {setup,
+     fun start_master/0,
+     fun stop_master/1,
+     fun (_Pid) ->
+             {inorder,
+              [
+               ?_assertEqual({error, no_such_job_in_stats},
+                             statistician:get_job_stats(2)),
+               ?_assertEqual(ok, statistician:update({{1, 2, 3},a,b,c,d,e,f})),
+               ?_assertNot({error, no_such_job_in_stats} ==
+                           statistician:get_job_stats(2)),
+               %job_finished (API function) requires waiting for ~3 seconds,
+               %which we don't really want to do in tests. Thus, a direct call:
+               ?_assertMatch({noreply, []}, 
+                             statistician:handle_info({job_finished,2}, [])),
+               ?_assertEqual({error, no_such_job_in_stats},
+                             statistician:get_job_stats(2)),
+               ?_assertEqual(ok,
+                             statistician:update({{1, 1, split},1,1,1,1,1,1})),
+               ?_assertEqual(ok,
+                             statistician:update({{20, 20, map},2,2,2,2,2,2})),
+               ?_assertEqual(ok,
+                             statistician:update({{3, 2, reduce},3,3,3,3,3,3})),
+               ?_assertEqual(ok,
+                             statistician:update({{4,2,finalize},2,2,2,2,2,2})),
+               %Should add up to {{_,2,finalize},4,4,4,4,4}
+               ?_assertEqual(ok,
+                             statistician:update({{5,2,finalize},2,2,2,2,2,2})),
+               %Unfortunately we cannot test that the numbers are correct, as
+               %it would require checking against a 30-line string, and one of
+               %the values in it (Time passed) cannot be known until runtime.
+               ?_assertNot({error, no_such_job_in_stats} ==
+                           statistician:get_job_stats(1)),
+               ?_assertNot({error, no_such_job_in_stats} ==
+                           statistician:get_job_stats(20)),
+               ?_assertNot({error, no_such_job_in_stats} ==
+                           statistician:get_job_stats(2)),
+               ?_assertEqual({noreply, []},
+                             statistician:handle_info({job_finished,1}, [])),
+               ?_assertEqual({noreply, []},
+                             statistician:handle_info({job_finished,20}, [])),
+               ?_assertEqual({noreply, []},
+                             statistician:handle_info({job_finished,2}, [])),
+               ?_assertEqual({error, no_such_job_in_stats},
+                             statistician:get_job_stats(1)),
+               ?_assertEqual({error, no_such_job_in_stats},
+                             statistician:get_job_stats(20)),
+               ?_assertEqual({error, no_such_job_in_stats},
+                             statistician:get_job_stats(2)),
+               %GARBAGE TESTS FOR 100% COVERAGE FOLLOW, MAY BE REMOVED FREELY
+               ?_assertEqual(please_wait_a_few_seconds,
+                             statistician:job_finished(1)),
+               ?_assertEqual({noreply, []},
+                             statistician:handle_call(aaa, self(), [])),
+               ?_assertEqual({noreply, []},
+                             statistician:handle_cast(bbb, [])),
+               ?_assertEqual({noreply, []},
+                             statistician:handle_info(ccc, [])),
+               ?_assertEqual(ok,
+                             statistician:terminate(foo, [])),
+               ?_assertEqual({ok, []},
+                             statistician:code_change(bar, [], baz))
+              ]}
+     end
+     }.
 
 
 start_master() ->
@@ -62,12 +113,18 @@ start_master() ->
     Pid.
 
 stop_master(_Pid) ->
+    application:stop(chronicler),
+    application:stop(common),
     statistician:stop().
 
 start_slave() ->
+    application:start(chronicler),
+    application:start(common),
     {ok, Pid} = statistician:start_link(slave),
     Pid.
 
 stop_slave(_Pid) ->
-    ok.
+    application:stop(chronicler),
+    application:stop(common),
+    statistician:stop().
 

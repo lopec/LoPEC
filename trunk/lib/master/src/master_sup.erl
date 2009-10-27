@@ -47,9 +47,10 @@ init(no_args) ->
     Dispatcher = child(dispatcher, worker, no_args),
     Listener = child(listener, worker, no_args),    
     DbDaemon = child(db, worker, no_args),
+    Statistician = child(statistician, worker, [master]),
     
     % Returning supervisor specification
-    {ok,{{one_for_one,1,60}, [Dispatcher, DbDaemon, Listener]}}.
+    {ok,{{one_for_one,1,60}, [Dispatcher, DbDaemon, Listener, Statistician]}}.
 
 %%%===================================================================
 %%% Internal functions

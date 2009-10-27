@@ -56,7 +56,7 @@ start_link() ->
 %%      Path - input file name
 %% }
 %% </pre>
-%% @spec create_task(TaskSpec) -> TaskID
+%% @spec add_task(TaskSpec) -> TaskID
 %% @end
 %%--------------------------------------------------------------------
 add_task(TaskSpec) ->
@@ -95,7 +95,7 @@ add_job(JobSpec) ->
 %% Sends a message to the caller with the first available task.
 %% If no tasks are available, we just let the request time out.
 %%
-%% @spec get_task(NodeID, PID) -> ok
+%% @spec fetch_task(NodeID, PID) -> ok
 %% @end
 %%--------------------------------------------------------------------
 fetch_task(NodeId, PID) ->

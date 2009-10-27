@@ -14,7 +14,9 @@
 init_test() ->
     application:start(chronicler),
     application:start(common),
-    statistician:start_link(slave).
+    %% start_link in another process so we don't die when we kill
+    %% statistician in end_test().
+    spawn(fun () -> statistician:start_link(slave) end).
 
 slave_test() ->
     {Mega, Sec, Milli} = now(),
@@ -30,10 +32,6 @@ slave_test() ->
     ?assert(St2 == {error, no_such_job_in_stats}). 
 
 end_test() ->
-    statistician:handle_call(aababab, self(), []),
-    statistician:handle_cast(bbbabab, []),
-    statistician:handle_cast({update_with_list, []}, []),
-    statistician:handle_info(ababb, []),
-    statistician:terminate(abab, []),
-    statistician:code_change(0, [], olo),
+    application:stop(chronicler),
+    application:stop(common),
     exit(whereis(statistician), kill).

@@ -26,10 +26,10 @@
 -define(SERVER, ?MODULE).
 -define(UPDATE_INTERVAL, 1000).
 
--ifdef(debug).
--define(DELETE_TABLE(), true).
+-ifndef(debug).
+-define(DELETE_TABLE(), delete).
 -else.
--define(DELETE_TABLE(), false).
+-define(DELETE_TABLE(), dont).
 -endif.
 
 
@@ -284,9 +284,9 @@ handle_cast({update_with_list, List}, State) ->
 handle_cast({job_finished, JobId}, State) ->
     JobStats = job_stats(JobId),
     case ?DELETE_TABLE() of
-	true ->
+	delete ->
 	    ets:match_delete(stats, {{'_', JobId, '_'},'_','_','_','_','_','_'});
-	_False ->
+	_Dont ->
 	    ok
     end,
     {ok, Root} =

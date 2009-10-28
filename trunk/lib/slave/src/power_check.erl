@@ -6,6 +6,7 @@
 %%% @end
 %%% Created : 23 Oct 2009 by Burbas
 %%%-------------------------------------------------------------------
+
 -module(power_check).
 -export([get_load/1, get_watt/1, get_watt_per_task/1]).
 

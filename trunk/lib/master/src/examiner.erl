@@ -164,7 +164,7 @@ handle_call({update_entry, JobId, TaskType, NewTaskState},
         #job_stats{split = {0,0,_},
                    map = {0,0,_},
                    reduce = {0,0,_},
-                   finalize = {0,0,_}} ->
+                   finalize = {0,0,_}} when TaskType == finalize ->
             ets:delete(job_status, JobId);
         UpdatedJob ->
             ets:insert(job_status, UpdatedJob)

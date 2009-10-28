@@ -257,8 +257,8 @@ handle_cast(stop, State) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Breaks the received list into small bits and updates the master table
-%% with the contents.
+%% Splits the received list and updates the master table with each 
+%% element in the lists.
 %%
 %% @spec handle_cast({update_with_list, List}, State) -> {noreply, State} 
 %% @end

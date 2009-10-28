@@ -46,7 +46,7 @@ init(no_args) ->
     chronicler:info("~w : creating children~n", [?MODULE]),
     Dispatcher = child(dispatcher, worker, no_args),
     Listener = child(listener, worker, no_args),    
-    DbDaemon = child(db, worker, no_args),
+    DbDaemon = child(db, worker, [test]),
     Statistician = child(statistician, worker, [master]),
     
     % Returning supervisor specification

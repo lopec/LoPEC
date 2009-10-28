@@ -38,6 +38,6 @@ get_net_stats() ->
             Up = list_to_integer(hd(string:tokens(lists:nth(2, A), " "))),
             Down = list_to_integer(hd(string:tokens(lists:nth(3, A), " ")));
         _ ->
-            {Up, Down} = {0, 0}
+	    {Up, Down} = {olol, din_dummis}
     end,
     {Up, Down}.

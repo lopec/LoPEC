@@ -19,7 +19,7 @@
 -define(SERVER, db_server).
 
 %% APIs for management of the database
--export([start/0, start/1, start_link/0, stop/0, create_tables/1]).
+-export([start/0, start_link/0, start_link/1, stop/0, create_tables/1]).
 
 %% APIs for handling jobs
 -export([add_job/1, remove_job/1, set_job_path/2, set_job_state/2,
@@ -44,9 +44,10 @@
 %% @spec start(test:atom()) -> ok | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start(test) ->
-    start_link(),
-    create_tables(ram_copies).
+start_link(test) ->
+    {ok, Pid} = start_link(),
+    create_tables(ram_copies),
+    {ok, Pid}.
 %    chronicler:info("~w:Database started in test environment.~n",
 %                         [?MODULE])).
 

@@ -52,7 +52,7 @@ start_link(Path, Op, JobId, InputPath, TaskId) ->
 			"results/" ++ StringId
         end,
     gen_server:start_link({local, ?SERVER},?MODULE,
-			  [Prog, atom_to_list(Op), LoadPath, SavePath, JobId, TaskId], []).
+			  [Path, Prog, atom_to_list(Op), LoadPath, SavePath, JobId, TaskId], []).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -81,21 +81,21 @@ stop() ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([Path, "split", LoadPath, SavePath, JobId, TaskId]) ->
+init([Progname, Path, "split", LoadPath, SavePath, JobId, TaskId]) ->
     {ok, Val} = configparser:read_config("/etc/clusterbusters.conf", split_value),
     chronicler:debug("~w : Path: ~ts~nOperation: ~ts~nLoadpath: ~ts~nSavepath: ~ts~nJobId: ~p~n",
                      [?MODULE, Path, "split", LoadPath, SavePath, JobId]),
     open_port({spawn_executable, Path},
 	      [use_stdio, exit_status, {line, 512},
 	       {args, ["split", LoadPath, SavePath, integer_to_list(Val)]}]),
-    {ok, {JobId, TaskId, now(), "split"}};
-init([Path, Op, LoadPath, SavePath, JobId, TaskId]) ->
+    {ok, {JobId, TaskId, now(), "split", Progname}};
+init([Progname, Path, Op, LoadPath, SavePath, JobId, TaskId]) ->
     chronicler:debug("~w : Path: ~ts~nOperation: ~ts~nLoadpath: ~ts~nSavepath: ~ts~nJobId: ~p~n",
                      [?MODULE, Path, Op, LoadPath, SavePath, JobId]),
     open_port({spawn_executable, Path},
 	      [use_stdio, exit_status, {line, 512},
 	       {args, [Op, LoadPath, SavePath]}]),
-    {ok, {JobId, TaskId, now(), Op}}.
+    {ok, {JobId, TaskId, now(), Op, Progname}}.
 
 %%--------------------------------------------------------------------
 %% @private

@@ -119,7 +119,8 @@ handle_call(Msg, From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType}}, {_LolTimer, {OldUp, OldDown}}) ->
+handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType, _Progname}},
+	    {_LolTimer, {OldUp, OldDown}}) ->
     %% Report to statistician
     Diff = timer:now_diff(now(), Time) / 1000000,
     Power = power_check:get_watt_per_task(Diff),
@@ -245,7 +246,7 @@ code_change(OldVsn, State, Extra) ->
 %% @end
 %%--------------------------------------------------------------------
 request_task() ->
-    dispatcher:get_task(node(), self()).
+    dispatcher:fetch_task(node(), self()).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -255,9 +256,9 @@ request_task() ->
 %% @end
 %%--------------------------------------------------------------------
 
-give_task({JobId, _TaskId, _Time, _OldType}, Type, Path) ->
-    dispatcher:create_task({JobId, Type,
-			    "tmp/" ++ integer_to_list(JobId) ++ Path, 1}).
+give_task({JobId, _TaskId, _Time, _OldType, Progname}, Type, Path) ->
+    dispatcher:add_task({JobId, Progname, Type,
+			    "tmp/" ++ integer_to_list(JobId) ++ Path}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -267,7 +268,7 @@ give_task({JobId, _TaskId, _Time, _OldType}, Type, Path) ->
 %% @end
 %%--------------------------------------------------------------------
 
-start_task({_Lool, TaskId, JobId, Op, Path, Name}) ->
+start_task({_Lool, TaskId, JobId, Name, Op, Path, _OLOLOL}) ->
     ChildSpec = {?WORKER,
 		 {?WORKER,
 		  start_link,

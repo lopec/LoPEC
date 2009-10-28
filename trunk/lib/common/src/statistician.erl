@@ -438,13 +438,12 @@ job_stats(JobId) ->
             
             SumAll = sum_stats([SumSplit, SumMap, SumReduce, SumFinal], Zeroes),
 
-            {Mega, Sec, Micro} = now(),
-
-	    TimePassed = ((list_to_integer(
-			     integer_to_list(Mega) ++
-			     integer_to_list(Sec) ++
-			     integer_to_list(Micro))) - JobId) / 1000000,
-            
+	    TimeList = integer_to_list(JobID),
+	    Then = {list_to_integer(lists:sublist(TimeList, 4)),
+		    list_to_integer(lists:sublist(TimeList, 5, 6)),
+		    list_to_integer(lists:sublist(TimeList, 11, 6))},
+	    TimePassed = timer:now_diff(now(), Then) / 1000000,
+	    
             SplitStrings = taskstats_string_formatter(split, SumSplit),
             MapStrings = taskstats_string_formatter(map, SumMap),
             ReduceStrings = taskstats_string_formatter(reduce, SumReduce),
@@ -550,7 +549,7 @@ jobstats_string_formatter(
         "Upload: ~p bytes~n"
 	"Download: ~p bytes~n"
         "Number of tasks: ~p~n"
-        "Number of restarts:~p~n",
+        "Number of restarts: ~p~n",
         [JobId, SplitString, MapString, ReduceString, FinalizeString, Nodes,
 	 TimePassed,TimeExecuted, Power, Upload,Download, Numtasks, Restarts])).
 

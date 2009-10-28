@@ -573,7 +573,7 @@ handle_call({fetch_task, NodeId}, _From, State) ->
 		JobId = fetch_job_internal(no_arg),
  		case JobId of
  		    no_job ->
- 			Task = no_job;
+ 			Task = no_task;
 		    _ ->
  			case get_split(JobId) of
  			    {ok, SplitTask} ->
@@ -591,7 +591,13 @@ handle_call({fetch_task, NodeId}, _From, State) ->
  						    {ok, FinalizeTask} -> 
  							Task = FinalizeTask;
  						    _ -> 
+				% If there are no tasks, set the state of the job
+			    	% to no_tasks, so it won't be chosen until it
+				% has free tasks associated to it
+							set_job_state_internal(
+							  JobId, no_tasks),
  							Task = no_task
+
  						end
  					end
  				end
@@ -599,23 +605,17 @@ handle_call({fetch_task, NodeId}, _From, State) ->
  		end,
  
  		case Task of
-		    no_job ->
-			Result = no_task;
  		    no_task ->
-			% If there are no tasks, set the state of the job
-			% to no_tasks, so it won't be chosen until it
-			% has free tasks associated to it
-			set_job_state(JobId, no_tasks),
- 			Result = no_task;
+			no_task;
  		    _ ->
   			TaskId = Task#task.task_id,
   			set_task_state(TaskId, assigned),
-  			Result = add(assigned_tasks, 
-				     #assigned_tasks{task_id = TaskId,
-						     job_id  = JobId,
-						     node_id = NodeId})
+  			add(assigned_tasks, 
+			    #assigned_tasks{task_id = TaskId,
+					    job_id  = JobId,
+					    node_id = NodeId})
  		end,
-		Result
+		Task
 	end,
     {atomic, Result} = mnesia:transaction(F),
     %chronicler:debug("~w:Retrieved task."

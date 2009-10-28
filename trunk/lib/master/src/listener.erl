@@ -268,5 +268,5 @@ add_new_job(ProgramName, ProblemType, Owner, Priority, InputData) ->
      || SubDir <- ["map/", "reduce/", "input/", "results/"]],
     % Move the files to the right thing
     file:copy(InputData, Root ++ JobRoot ++ "/input/data.dat"),
-    dispatcher:add_task({JobId, split, JobRoot ++ "/input/data.dat", 0}),
+    dispatcher:add_task({JobId, ProgramName, split, JobRoot ++ "/input/data.dat"}),
     JobId.

@@ -138,7 +138,7 @@ report_task_done(TaskId, TaskSpec) ->
 %%--------------------------------------------------------------------
 init([]) ->
     application:start(chronicler),
-    chronicler:info("dispatcher: Application started~n", []),
+    chronicler:info("?MODULE: Application started~n", []),
     {ok, []}.
 
 %%--------------------------------------------------------------------

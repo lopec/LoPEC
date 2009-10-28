@@ -2,7 +2,7 @@
 APPNAME = master
 ERLC_FLAGS= -I include +debug_info
 SOURCES= $(wildcard src/*.erl)
-TESTFILES= $(wildcard test/*.erl)
+TESTFILES= $(wildcard test/*_tests.erl)
 HEADERS= $(wildcard include/*.hrl)
 OBJECTS= $(SOURCES:src/%.erl=ebin/%.beam)
 TESTOBJECTS= $(TESTFILES:test/%.erl=test/%.beam)
@@ -24,7 +24,7 @@ clean:
 	-rm -f ebin/*.beam test/*.beam test/*.html
 
 .PHONY: test
-test: chronicler
+test: $(TESTOBJECTS) chronicler
 	../../testscript.escript $(SOURCES)
 
 chronicler:

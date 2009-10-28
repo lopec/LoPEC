@@ -4,7 +4,7 @@ ERLC_FLAGS= -I include +debug_info
 C_FLAGS= -I/usr/local/lib/erlang/usr/include -I/usr/lib/erlang/usr/include/
 SOURCES= $(wildcard src/*.erl)
 HEADERS= $(wildcard include/*.hrl)
-TESTFILES= $(wildcard test/*.erl)
+TESTFILES= $(wildcard test/*_tests.erl)
 TESTOBJECTS= $(TESTFILES:test/%.erl=test/%.beam)
 OBJECTS= $(SOURCES:src/%.erl=ebin/%.beam)
 DOC_OPTS=
@@ -23,7 +23,7 @@ clean:
 	rm -f ebin/*.beam test/*.beam test/*.html
 
 .PHONY: test
-test:
+test: $(TESTOBJECTS)
 	../../testscript.escript $(SOURCES)
 
 docs: 

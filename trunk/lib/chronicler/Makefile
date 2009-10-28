@@ -9,9 +9,9 @@ TESTOBJECTS= $(TESTFILES:test/%.erl=test/%.beam)
 OBJECTS= $(SOURCES:src/%.erl=ebin/%.beam)
 DOC_OPTS=
 
-build: $(OBJECTS) $(TESTOBJECTS)
+all: build test docs
 
-all: $(OBJECTS) $(TESTOBJECTS) test docs
+build: $(OBJECTS)
 
 ebin/%.beam : src/%.erl $(HEADERS) Makefile
 	erlc $(ERLC_FLAGS) -o ebin/ $<

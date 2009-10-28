@@ -1,7 +1,5 @@
-build:
-	$(MAKE) -C lib build
-
 all:
+	$(MAKE) -C lib build
 	$(MAKE) -C lib all
 
 test:

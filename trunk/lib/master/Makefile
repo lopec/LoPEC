@@ -7,9 +7,9 @@ HEADERS= $(wildcard include/*.hrl)
 OBJECTS= $(SOURCES:src/%.erl=ebin/%.beam)
 TESTOBJECTS= $(TESTFILES:test/%.erl=test/%.beam)
 
-build: $(OBJECTS) $(TESTOBJECTS)
+all: build permissions test docs
 
-all: $(OBJECTS) $(TESTOBJECTS) permissions test docs
+build: $(OBJECTS)
 
 permissions:
 	chmod 400 ~/.erlang.cookie
@@ -21,15 +21,15 @@ test/%.beam : test/%.erl $(HEADERS) Makefile
 	erlc $(ERLC_FLAGS) -o test/ $<
 
 clean:
-	-rm -f ebin/*.beam test/*.beam
+	-rm -f ebin/*.beam test/*.beam test/*.html
 
 .PHONY: test
-test: $(TESTOBJECTS)
+test: $(TESTOBJECTS) chronicler
 	../../testscript.escript $(SOURCES)
-#	erl -sname test -noshell -pa ../common/ebin -pa ../ecg/ebin -pa ../logger/ebin -pa ebin -pa test -eval 'eunit:test("test",[verbose])' -s init stop
+#	erl -sname test -noshell -pa ../common/ebin -pa ../ecg/ebin -pa ../chronicler/ebin -pa ebin -pa test -eval 'eunit:test("test",[verbose])' -s init stop
 
-logger:
-	erlc $(ERLC_FLAGS) src/logger/*.erl -o $(PWD)/ebin/
+chronicler:
+	erlc $(ERLC_FLAGS) ../chronicler/src/*.erl -o $(PWD)/ebin/
 	-mv *.beam ebin/    
 
 docs: 

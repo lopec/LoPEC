@@ -1,16 +1,16 @@
-build:
-	$(MAKE) -C common build
-	$(MAKE) -C chronicler build
-	$(MAKE) -C ecg build
-	$(MAKE) -C master build
-	$(MAKE) -C slave build
-
 all:
 	$(MAKE) -C common all
 	$(MAKE) -C chronicler all
 	$(MAKE) -C ecg all
 	$(MAKE) -C master all
 	$(MAKE) -C slave all
+
+build:
+	$(MAKE) -C common build
+	$(MAKE) -C chronicler build
+	$(MAKE) -C ecg build
+	$(MAKE) -C master build
+	$(MAKE) -C slave build
 
 test:
 	$(MAKE) -C common test

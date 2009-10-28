@@ -2,8 +2,8 @@ all:
 	$(MAKE) -C lib build
 	$(MAKE) -C lib all
 
-test:
-	$(MAKE) -C lib test
+#test:
+#	$(MAKE) -C lib test
 
 clean:
 	$(MAKE) -C lib clean
@@ -49,3 +49,9 @@ testing_script: master slave
 	    -pa lib/common/ebin -pa lib/slave/ebin \
 	    -eval "systools:make_script(\"releases/testing/start_testing\", [local])" \
 	    -s init stop
+
+test.spec: test.spec.in
+	    cat test.spec.in | sed -e "s,@PATH@,$(PWD)," > $(PWD)/test.spec
+
+test: test.spec build
+	    run_test -pa $(PWD)/lib/*/ebin -spec test.spec

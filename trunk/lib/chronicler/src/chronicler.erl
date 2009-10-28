@@ -21,17 +21,17 @@
 
 %% API
 -export([start_link/0,
-         error/1,
-         info/1,
-         warning/1,
-         debug/1,
-         user_info/1,
-         error/2,
-         info/2,
-         warning/2,
-         debug/2,
-         user_info/2,
-         set_logging_level/1
+        error/1,
+        info/1,
+        warning/1,
+        debug/1,
+        user_info/1,
+        error/2,
+        info/2,
+        warning/2,
+        debug/2,
+        user_info/2,
+        set_logging_level/1
     ]).
 
 %% gen_server callbacks
@@ -160,7 +160,7 @@ set_logging_level(NewLevel) ->
 %% @end
 %%--------------------------------------------------------------------
 init(no_args) ->
-    error_logger:logfile({open, node()}),
+    error_logger:logfile({open, "/var/log/busters/commonTest"}),
 
     %TODO add module information logging level
     State = #state{loggingLevel = [error, user_info, info, warning, debug]},
@@ -186,9 +186,9 @@ init(no_args) ->
 %%--------------------------------------------------------------------
 handle_call(Msg, From, State) ->
     chronicler:warning("~w:Received unexpected handle_call call.~n"
-                       "Message: ~p~n"
-                       "From: ~p~n",
-                       [?MODULE, Msg, From]),
+        "Message: ~p~n"
+        "From: ~p~n",
+        [?MODULE, Msg, From]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -204,7 +204,7 @@ handle_call(Msg, From, State) ->
 %%--------------------------------------------------------------------
 handle_cast({new_level, all}, State) ->
     {noreply, State#state{loggingLevel =
-                          [info, debug, user_info, warning, error]}};
+            [info, debug, user_info, warning, error]}};
 handle_cast({new_level, NewLevel}, State) ->
     {noreply, State#state{loggingLevel = NewLevel}};
 handle_cast({Level, Msg}, State) ->
@@ -233,8 +233,8 @@ handle_cast({Level, From, Msg}, State) ->
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
     chronicler:warning("~w:Received unexpected handle_cast call.~n"
-                       "Message: ~p~n",
-                       [?MODULE, Msg]),
+        "Message: ~p~n",
+        [?MODULE, Msg]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -242,13 +242,13 @@ handle_cast(Msg, State) ->
 %% @doc
 %% Logs and discards unexpected messages.
 %%
-%% @spec handle_info(Info, State) -> {noreply, State} 
+%% @spec handle_info(Info, State) -> {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(Info, State) -> 
+handle_info(Info, State) ->
     chronicler:warning("~w:Received unexpected handle_info call.~n"
-                       "Info: ~p~n",
-                       [?MODULE, Info]),
+        "Info: ~p~n",
+        [?MODULE, Info]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -284,11 +284,11 @@ terminate(Reason, State) ->
 %% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% @end
 %%--------------------------------------------------------------------
-code_change(OldVsn, State, Extra) -> 
+code_change(OldVsn, State, Extra) ->
     chronicler:debug("~w:Received code_change call.~n"
-                     "Old version: ~p~n"
-                     "Extra: ~p~n",
-                     [?MODULE, OldVsn, Extra]),
+        "Old version: ~p~n"
+        "Extra: ~p~n",
+        [?MODULE, OldVsn, Extra]),
     {ok, State}.
 
 %%%===================================================================

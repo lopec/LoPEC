@@ -1,0 +1,3 @@
+{logdir, "@PATH@/log"}.
+{alias, chronicler, "@PATH@/lib/chronicler"}.
+{suites, chronicler, [chronicler_SUITE]}.

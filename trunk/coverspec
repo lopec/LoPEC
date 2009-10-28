@@ -1,0 +1,2 @@
+{incl_dirs, ["lib/chronicler/ebin"]}.
+{level, details}.

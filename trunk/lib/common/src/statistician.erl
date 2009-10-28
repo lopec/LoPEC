@@ -108,7 +108,7 @@ job_finished(JobId) ->
 %% @doc
 %% If a node dies, we should remove it from our (global) stats.
 %%
-%% @spec remove_node(NodeId) -> ok.
+%% @spec remove_node(NodeId) -> ok
 %% @end
 %%--------------------------------------------------------------------
 remove_node(NodeId) ->

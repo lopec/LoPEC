@@ -14,6 +14,7 @@
 -module(dispatcher).
 -behaviour(gen_server).
 -include("../../master/include/db.hrl").
+-include("../../master/include/global.hrl").
 
 %% API
 -export([start_link/0,
@@ -161,9 +162,8 @@ handle_cast({task_request, NodeId, From}, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({free_tasks, NodeId}, State) ->
-    chronicler:info("NodeId: ~p", [NodeId]),
-    db:free_tasks(NodeId),
-    %%Todo - reset counter for tasks freed.
+    Jobs = db:free_tasks(NodeId),
+    examiner:report_free(Jobs),
     {noreply, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -188,9 +188,7 @@ handle_cast(Msg, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({task_done, TaskId, no_task}, _From, State) ->
-    db:mark_done(TaskId),
-    Task = db:get_task(TaskId),
-%%     examiner:update_count(Task#task.job_id, Task#task.type, done),
+    mark_done(TaskId),
     {reply, ok, State};
 %%--------------------------------------------------------------------
 %% @doc
@@ -202,15 +200,9 @@ handle_call({task_done, TaskId, no_task}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({task_done, TaskId, TaskSpec}, _From, State) ->
-    db:mark_done(TaskId),
-    Task = db:get_task(TaskId),
-%%     examiner:update_count(Task#task.job_id, Task#task.type, done),
-    
-    NewTaskId = db:add_task(TaskSpec),
-    JobId = element(1, TaskSpec),
-    Type = element(3, TaskSpec),
-%%     examiner:update_count(JobId, Type, free),
-
+    chronicler:debug("TaskSpec: ~p", [TaskSpec]),
+    NewTaskId = create_task(TaskSpec),
+    mark_done(TaskId),
     {reply, NewTaskId, State};
 %%--------------------------------------------------------------------
 %% @doc
@@ -221,11 +213,8 @@ handle_call({task_done, TaskId, TaskSpec}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({add_task, TaskSpec}, _From, State) ->
-    chronicler:debug("TaskSpec: ~p", [TaskSpec]),
-    NewTaskId = db:add_task(TaskSpec),
-    JobId = element(1, TaskSpec),
-    Type = element(3, TaskSpec),
-%%     examiner:update_count(JobId, Type, free),
+    NewTaskId = create_task(TaskSpec),
+    chronicler:debug("Created: ~p", [NewTaskId]),
     {reply, NewTaskId, State};
 
 %%--------------------------------------------------------------------
@@ -239,7 +228,9 @@ handle_call({add_task, TaskSpec}, _From, State) ->
 handle_call({add_job, JobSpec}, _From, State) ->
     chronicler:debug("JobSpec: ~p", [JobSpec]),
     NewJobId = db:add_job(JobSpec),
-%%     examiner:insert(NewJobId),
+    chronicler:debug("JobId: ~p", [NewJobId]),
+    examiner:insert(NewJobId),
+    chronicler:debug("Job Examiner: ~p", [examiner:get_progress(NewJobId)]),
     {reply, NewJobId, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -279,11 +270,26 @@ find_task(RequesterPID, NodeId) ->
             chronicler:debug("~p: Found no tasks.~n",[?MODULE]),
             ok;
         Task ->
-            chronicler:debug("~p: Found task ~p.~n",[?MODULE, Task]),
+            chronicler:debug("~p: Found task ~p.~n",[?MODULE, Task#task.task_id]),
             RequesterPID ! {task_response, Task},
-            ecg_server:accept_message({new_node, NodeId})
-%%             examiner:update_count(Task#task.job_id, Task#task.type, assigned)
+            ecg_server:accept_message({new_node, NodeId}),
+            chronicler:debug("Assign Examiner: ~p", [examiner:get_progress(Task#task.job_id)]),
+            examiner:report_assigned(Task#task.job_id, Task#task.type)
     end.
+
+mark_done(TaskId) ->
+    db:mark_done(TaskId),
+    Task = db:get_task(TaskId),
+    chronicler:debug("Done Examiner: ~p", [examiner:get_progress(Task#task.job_id)]),
+    examiner:report_done(Task#task.job_id, Task#task.type).
+
+create_task(TaskSpec) ->
+    chronicler:debug("TaskSpec: ~p", [TaskSpec]),
+    NewTaskId = db:add_task(TaskSpec),
+    Task = db:get_task(NewTaskId),
+    chronicler:debug("Create Examiner: ~p", [examiner:get_progress(Task#task.job_id)]),
+    examiner:report_created(Task#task.job_id, Task#task.type),
+    NewTaskId.
 
 %%%===================================================================
 %%% Not implemented stuff

@@ -21,7 +21,9 @@ init_test() ->
     application:start(chronicler),
     application:start(ecg),
     dispatcher:start_link(),
-    db:start_link(test).
+    db:start_link(test),
+    examiner:start_link().
+    
 
 task_allocation_test() ->
     JobId = dispatcher:add_job({raytracer, mapreduce, chabbrik, 0}),
@@ -35,7 +37,7 @@ task_allocation_test() ->
     dispatcher:fetch_task(node(), self()),
     receive
         {task_response, Task} ->
-            ?assert(Task#task.task_id =:= TaskId),
+            ?assert(Task#task.task_id == TaskId),
             ?assertEqual(split, Task#task.type),
             ?assertEqual(JobId, Task#task.job_id);
         Msg ->
@@ -58,6 +60,7 @@ timeout_test() ->
     end.
 
 task_completed_test() ->
+    chronicler:error("Task_completed", []),
     JobId = dispatcher:add_job({ProgramName = raytracer, mapreduce, chabbrik, 0}),
     dispatcher:add_task({JobId, ProgramName, split, "/input/data.dat"}),
     dispatcher:fetch_task(node(), self()),
@@ -68,10 +71,12 @@ task_completed_test() ->
             ?assertEqual(assigned, (db:get_task(Task#task.task_id))#task.state),
             MapTaskSpec = {JobId, raytracer, map, "input data"},
             dispatcher:report_task_done(Task#task.task_id, MapTaskSpec),
+            chronicler:error("Task_completed: Report done", []),
             DoneTask = db:get_task(Task#task.task_id),
             ?assertEqual(done, DoneTask#task.state),
             AssignedTask = {JobId, raytracer, map, "input data"},
             AId = dispatcher:add_task(AssignedTask),
+            chronicler:error("Task_completed: add another task", []),
             ?assertEqual(free, (db:get_task(AId))#task.state);
         Msg ->
             chronicler:error("Wrong message received: ~p", [Msg])  

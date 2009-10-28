@@ -24,7 +24,7 @@ configparser_test_() ->
                 ?_assertEqual({ok, "jansson"}, 
                         configparser:parse("Apan", [{"Sven", "Kartofell"}, {"Apan", "jansson"}])),
                 ?_assertEqual({error, not_found}, 
-                        configparser:parse("Hitman Sedrik", [{"Apan", "jansson"}, {"Peter", "grävling"}])
+                        configparser:parse("Hitman Sedrik", [{"Apan", "jansson"}, {"Peter", "grävling"}]))
             ]
           }
     end

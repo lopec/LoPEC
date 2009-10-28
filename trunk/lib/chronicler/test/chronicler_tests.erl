@@ -12,7 +12,7 @@ testing_log(LoggingLevel, LevelString, Msg, Arg) ->
                     [
                         ?_assertEqual(ok, chronicler:LoggingLevel(Msg, Arg)),
                         ?_assertMatch("\n", io:get_line(File, "")),
-                        ?_assertMatch("=INFO REPORT=" ++ _, io:get_line(File, "")),
+                        ?_assertMatch("=INF0 REPORT=" ++ _, io:get_line(File, "")),
                         ?_assertMatch("Chronicler application started\n", io:get_line(File, "")),
                         ?_assertMatch("\n", io:get_line(File, "")),
                         ?_assert(lists:prefix(LevelString, io:get_line(File, ""))),

@@ -13,6 +13,7 @@
 % Specify a list of all unit test functions
 all() ->
     [
+        unittest,
         info_log_test,
         error_log_test,
         debug_log_test,
@@ -49,6 +50,10 @@ end_per_testcase(TestCase, Config) ->
 %%%%%%%%%%%%%%%%
 %% test cases %%
 %%%%%%%%%%%%%%%%
+
+unittest(_Config) ->
+    ok = eunit:test("../../lib/chronicler/test", []),
+    ok.
 
 testing_log(File, LoggingLevel, LevelString, Msg, Arg) ->
     ok = chronicler:LoggingLevel(Msg, Arg),

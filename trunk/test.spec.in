@@ -1,3 +1,13 @@
 {logdir, "@PATH@/log"}.
+
 {alias, chronicler, "@PATH@/lib/chronicler"}.
+{alias, slave, "@PATH@/lib/slave"}.
+{alias, ecg, "@PATH@/lib/ecg"}.
+{alias, master, "@PATH@/lib/master"}.
+{alias, common, "@PATH@/lib/common"}.
+
 {suites, chronicler, [chronicler_SUITE]}.
+{suites, master, [master_SUITE]}.
+{suites, ecg, [ecg_SUITE]}.
+{suites, common, [common_SUITE]}.
+{suites, slave, [slave_SUITE]}.

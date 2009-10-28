@@ -4,6 +4,5 @@
                 "lib/slave/ebin",
                 "lib/master/ebin",
                 "lib/common/ebin"
-
             ]}.
 {level, details}.

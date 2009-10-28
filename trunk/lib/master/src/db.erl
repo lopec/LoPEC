@@ -1148,7 +1148,7 @@ set_task_state(TaskId, NewState) ->
 %%
 %% Sets the state of the specified job.
 %%
-%% @spec set_job_state(JobId::integer(), NewState::atom()) -> ok 
+%% @spec set_job_state_internal(JobId::integer(), NewState::atom()) -> ok 
 %%                                                            | {error, Error}
 %%                               NewState = free | paused | stopped | no_tasks
 %% @end

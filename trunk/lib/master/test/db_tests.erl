@@ -4,7 +4,7 @@
 
 init_per_test_case() ->
     error_logger:tty(true),
-    db:start(test).
+    db:start_link(test).
 
 end_per_test_case() ->
     db:stop().

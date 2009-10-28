@@ -12,13 +12,3 @@
 -include_lib("eunit/include/eunit.hrl").
 -export([]).
 
-%%
-%% API Functions
-%%
-
-
-
-%%
-%% Local Functions
-%%
-

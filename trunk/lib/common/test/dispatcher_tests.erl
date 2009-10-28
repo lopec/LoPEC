@@ -14,7 +14,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 init_per_test_case() ->    
-    db:start(test).
+    db:start_link(test).
 
 end_per_test_case() ->
     db:stop().
@@ -26,7 +26,7 @@ init_test() ->
 
 task_allocation_test() ->
     init_per_test_case(),
-    JobId = db:add_job({raytracer, mapreduce, chabbrik, 0}),
+    JobId = dispatcher:add_job({raytracer, mapreduce, chabbrik, 0}),
     TaskSpec = {JobId, raytracer, split, "input_path"},
     TaskId =  dispatcher:add_task(TaskSpec),
     
@@ -64,27 +64,49 @@ timeout_test() ->
 
 task_completed_test() ->
     init_per_test_case(),
-    JobId = db:add_job({raytracer, mapreduce, chabbrik, 0}),
-    AssignedTask = {JobId, raytracer, map, "input data"},
-    AId = db:add_task(AssignedTask),
+    JobId = dispatcher:add_job({raytracer, mapreduce, chabbrik, 0}),
     dispatcher:fetch_task(node(), self()),
     receive
         {task_response, Task} ->
-            ?assertEqual(map, Task#task.type),
+            ?assertEqual(split, Task#task.type),
             ?assertEqual(JobId, Task#task.job_id),
-            ?assertEqual(AId, Task#task.task_id),
-            ?assertEqual(assigned, (db:get_task(AId))#task.state);
+            ?assertEqual(assigned, (db:get_task(Task#task.task_id))#task.state),
+            MapTaskSpec = {JobId, raytracer, map, "input data"},
+            dispatcher:report_task_done(Task#task.task_id, MapTaskSpec),
+            DoneTask = db:get_task(Task#task.task_id),
+            ?assertEqual(done, DoneTask#task.state),
+            AssignedTask = {JobId, raytracer, map, "input data"},
+            AId = dispatcher:add_task(AssignedTask),
+            ?assertEqual(free, (db:get_task(AId))#task.state);
         Msg ->
             chronicler:error("Wrong message received: ~p", [Msg])  
         after 1000 ->
-            chronicler:error("Fetching timed out: ~p", [])
+            chronicler:error("Fetching timed out", [])
     end,
-    
-    dispatcher:report_task_done(AId),
-    DoneTask = db:get_task(AId),
-    ?assertEqual(done, DoneTask#task.state),
     end_per_test_case().
 
-end_test() ->
-    db:stop(),
-    dispatcher:terminate(finished, []).
+free_tasks_test() ->
+    init_per_test_case(),
+    JobId = dispatcher:add_job({raytracer, mapreduce, owner, 0}),
+    dispatcher:fetch_task(node(), self()),
+    receive
+        {task_response, Task} ->
+            dispatcher:report_task_done(Task#task.task_id),
+            MapTask1 = {JobId, raytracer, map, "input data1"},
+            MapTask2 = {JobId, raytracer, map, "input data2"},
+            dispatcher:add_task(MapTask1),
+            dispatcher:add_task(MapTask2),
+            %Expecting to get added tasks back
+            ?assert(no_task /= db:fetch_task(node())),
+            ?assert(no_task /= db:fetch_task(node())),
+            dispatcher:free_tasks(node()),
+            ?assertEqual([], db:list(map_assigned));
+        Msg ->
+            chronicler:error("Wrong message received: ~p", [Msg])  
+        after 1000 ->
+            chronicler:error("Fetching timed out", [])
+    end,
+    end_per_test_case().
+
+handle_info_test() ->
+    global:send(dispatcher, "Stuff flying your way. Make sure to log it.").

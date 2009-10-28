@@ -56,4 +56,5 @@ test.spec: test.spec.in
 	cat test.spec.in | sed -e "s,@PATH@,$(PWD)," > $(PWD)/test.spec
 
 common_test: test.spec build
+	mkdir -p log
 	run_test -pa $(PWD)/lib/*/ebin -spec test.spec -cover coverspec

@@ -438,7 +438,7 @@ job_stats(JobId) ->
             
             SumAll = sum_stats([SumSplit, SumMap, SumReduce, SumFinal], Zeroes),
 
-	    TimeList = integer_to_list(JobID),
+	    TimeList = integer_to_list(JobId),
 	    Then = {list_to_integer(lists:sublist(TimeList, 4)),
 		    list_to_integer(lists:sublist(TimeList, 5, 6)),
 		    list_to_integer(lists:sublist(TimeList, 11, 6))},

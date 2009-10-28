@@ -51,10 +51,14 @@ statistician_master_test_() ->
               [
                ?_assertEqual({error, no_such_job_in_stats},
                              statistician:get_job_stats(2)),
+               ?_assertEqual({error, no_such_node_in_stats},
+                             statistician:get_node_stats(1)),
                ?_assertEqual(ok,
-                             statistician:update({{1, 2, 3},a,b,c,d,e,f})),
+                             statistician:update({{1, 2, 3},0,0,0,0,0,0})),
                ?_assertNot({error, no_such_job_in_stats} ==
                            statistician:get_job_stats(2)),
+               ?_assertNot({error, no_such_node_in_stats} ==
+                           statistician:get_node_stats(1)),
                %job_finished (API function) requires waiting for ~3 seconds,
                %which we don't really want to do in tests. Thus, a direct call:
                ?_assertEqual({job_finished, 2}, Pid ! {job_finished, 2}),

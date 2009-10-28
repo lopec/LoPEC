@@ -41,7 +41,7 @@
 %% Starts the database gen_server in a test environment, with all tables
 %% as ram copies only.
 %%
-%% @spec start(test:atom()) -> ok | {error, Error}
+%% @spec start_link(test:atom()) -> ok | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 start_link(test) ->

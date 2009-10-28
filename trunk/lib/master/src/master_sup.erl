@@ -13,6 +13,12 @@
 -module(master_sup).
 -behaviour(supervisor).
 
+-ifdef(debug).
+-define(DB_START_VAL(), [test]).
+-else.
+-define(DB_START_VAL(), no_args).
+-endif.
+
 -export([start_link/0]).
 
 %% --------------------------------------------------------------------
@@ -46,7 +52,7 @@ init(no_args) ->
     chronicler:info("~w : creating children~n", [?MODULE]),
     Dispatcher = child(dispatcher, worker, no_args),
     Listener = child(listener, worker, no_args),
-    DbDaemon = child(db, worker, [test]),
+    DbDaemon = child(db, worker, ?DB_START_VAL()),
     Statistician = child(statistician, worker, [master]),
     Examiner = child(examiner, worker, no_args),
     % Returning supervisor specification

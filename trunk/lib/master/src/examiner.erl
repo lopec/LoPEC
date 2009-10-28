@@ -90,9 +90,9 @@ report_done(JobId, TaskType) ->
                     {update_entry, JobId, TaskType, done}).
 
 %% @doc
-%% Report that all tasks ({JobId, TaskType, Count}) in Jobs were freed.
+%% Report that all tasks ({JobId, TaskType}) in Tasks were freed.
 %%
-%% @spec report_free(Jobs) -> ok
+%% @spec report_free(Tasks) -> ok
 %% @end
 report_free(Jobs) ->
     gen_server:call({global, ?MODULE},
@@ -171,18 +171,14 @@ handle_call({update_entry, JobId, TaskType, NewTaskState},
     end,
     {reply, ok, State};
 
-handle_call({free_entries, Jobs}, _From, State) ->
-    UpdateTasks =
-        fun (F) ->
-                fun ({_JobId, _TaskType, 0}) -> ok;
-                    ({JobId, TaskType, Count}) when Count > 0 ->
-                        [Job] = ets:lookup(job_status, JobId),
-                        UpdatedJob = update_job(Job, TaskType, free),
-                        ets:insert(job_status, UpdatedJob),
-                        F({JobId, TaskType, Count - 1})
-                end
+handle_call({free_entries, Tasks}, _From, State) ->
+    UpdateTask =
+        fun ({JobId, TaskType}) ->
+                [Job] = ets:lookup(job_status, JobId),
+                UpdatedJob = update_job(Job, TaskType, free),
+                ets:insert(job_status, UpdatedJob)
         end,
-    lists:foreach(fun (JobEntry) -> (y(UpdateTasks))(JobEntry) end, Jobs),
+    lists:foreach(fun (TaskEntry) -> UpdateTask(TaskEntry) end, Tasks),
     {reply, ok, State};
 
 handle_call({insert_entry, JobId}, _From, State) ->

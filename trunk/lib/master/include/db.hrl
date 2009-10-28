@@ -6,7 +6,8 @@
 	  path,         % Path to the directory containing input data
 	  state = free, % [free | stopped | paused]
 	  owner, % Name of the user who submitted job
-	  priority % for future use, not supported right now}).
+	  priority % for future use, not supported right now
+	 }).
 
 %% The NEW task record.
 -record(task, {

@@ -107,6 +107,7 @@ job_finished(JobId) ->
 %%--------------------------------------------------------------------
 %% @doc
 %% If a node dies, we should remove it from our (global) stats.
+%% It should be safe to do so immediately, since it has left the cluster.
 %%
 %% @spec remove_node(NodeId) -> ok
 %% @end

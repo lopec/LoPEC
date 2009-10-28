@@ -92,9 +92,10 @@ update(Data) ->
 %%--------------------------------------------------------------------
 %% @doc
 %% Jobs that are finished in our cluster should have their stats dumped to 
-%% file and cleared out of the table, but we have to wait to make sure
-%% that all slaves have sent their stat updates. This is NOT exact,
-%% but we hope waiting two update intervals will be sufficient.
+%% file and their entry cleared out of the table, but we have to wait
+%% to make sure that all slaves have sent their stats updates. This is
+%% NOT guaranteed, but we hope waiting two update intervals will be
+%% sufficient.
 %%
 %% @spec job_finished(JobId) -> please_wait_a_few_seconds
 %% @end

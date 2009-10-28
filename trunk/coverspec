@@ -1,2 +1,9 @@
-{incl_dirs, ["lib/chronicler/ebin"]}.
+{incl_dirs, [
+                "lib/chronicler/ebin",
+                "lib/ecg/ebin",
+                "lib/slave/ebin",
+                "lib/master/ebin",
+                "lib/common/ebin"
+
+            ]}.
 {level, details}.

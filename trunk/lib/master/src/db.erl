@@ -186,26 +186,38 @@ fetch_task(NodeId) ->
 %% @end
 %%--------------------------------------------------------------------
 add_task({JobId, ProgramName, Type, Path}) ->
-     case Type of
+    case Type of
  	split ->
- 	    TableName = split_free;
+	    TableName = split_free,
+	    AddFlag = false;
  	map ->
- 	    TableName = map_free;
+	    TableName = map_free,
+	    AddFlag = false;
  	reduce ->
- 	    TableName = reduce_free;
- 	finalize ->
- 	    TableName = finalize_free;
+ 	    TableName = reduce_free,
+	    AddFlag = gen_server:call(?SERVER, 
+				      {exists_path, TableName, JobId, Path});
+	 finalize ->
+ 	    TableName = finalize_free,
+	    AddFlag = gen_server:call(?SERVER, 
+				      {exists_path, TableName, JobId, Path});
  	_NotAType ->
- 	    TableName = '$not_a_table'
+ 	    TableName = '$not_a_table',
+	    AddFlag = true
  	    %chronicler:error("~w:add_task failed: 
             %Incorrect input type: ~p~n", [?MODULE, Type]))
      end,
-    gen_server:call(?SERVER, {add_task, 
-			      TableName, 
-			      #task{job_id       = JobId, 
-				    program_name = ProgramName, 
-				    type         = Type, 
-				    path         = Path}}).
+    case AddFlag of
+	false ->
+	    gen_server:call(?SERVER, {add_task, 
+				      TableName, 
+				      #task{job_id       = JobId, 
+					    program_name = ProgramName, 
+					    type         = Type, 
+					    path         = Path}});
+	_ ->
+	    task_not_added
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -226,8 +238,8 @@ get_task(TaskId) ->
 %% @spec get_job(JobId::integer()) -> Job::record() | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-get_job(TaskId) ->
-    gen_server:call(?SERVER, {get_job, TaskId}).
+get_job(JobId) ->
+    gen_server:call(?SERVER, {get_job, JobId}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -559,39 +571,51 @@ handle_call({fetch_job}, _From, State) ->
 handle_call({fetch_task, NodeId}, _From, State) ->
     F = fun() ->
 		JobId = fetch_job_internal(no_arg),
-		case get_split(JobId) of
-		    {ok, SplitTask} ->
-			Task = SplitTask;
-   		    _ -> 
-			case get_map(JobId) of
-			    {ok, MapTask} ->
-				Task = MapTask;
-			    _ -> 
-				case get_reduce(JobId) of
-				    {ok, ReduceTask} ->
-					Task = ReduceTask;
-				    _ -> 
-					case get_finalize(JobId) of
-					    {ok, FinalizeTask} -> 
-						Task = FinalizeTask;
-					    _ -> 
-						Task = no_task
-					end
-				end
-			end
-   		end,
-		case Task of
-		    no_task ->
-			no_task;
+ 		case JobId of
+ 		    no_job ->
+ 			Task = no_job;
 		    _ ->
-			TaskId = Task#task.task_id,
-			set_task_state(TaskId, assigned),
-			add(assigned_tasks, 
-			    #assigned_tasks{task_id = TaskId,
-					    job_id  = JobId,
-					    node_id = NodeId})
-		end,
-		Task
+ 			case get_split(JobId) of
+ 			    {ok, SplitTask} ->
+ 				Task = SplitTask;
+ 			    _ -> 
+ 				case get_map(JobId) of
+ 				    {ok, MapTask} ->
+ 					Task = MapTask;
+ 				    _ -> 
+ 					case get_reduce(JobId) of
+ 					    {ok, ReduceTask} ->
+ 						Task = ReduceTask;
+ 					    _ -> 
+ 						case get_finalize(JobId) of
+ 						    {ok, FinalizeTask} -> 
+ 							Task = FinalizeTask;
+ 						    _ -> 
+ 							Task = no_task
+ 						end
+ 					end
+ 				end
+ 			end
+ 		end,
+ 
+ 		case Task of
+		    no_job ->
+			Result = no_task;
+ 		    no_task ->
+			% If there are no tasks, set the state of the job
+			% to no_tasks, so it won't be chosen until it
+			% has free tasks associated to it
+			set_job_state(JobId, no_tasks),
+ 			Result = no_task;
+ 		    _ ->
+  			TaskId = Task#task.task_id,
+  			set_task_state(TaskId, assigned),
+  			Result = add(assigned_tasks, 
+				     #assigned_tasks{task_id = TaskId,
+						     job_id  = JobId,
+						     node_id = NodeId})
+ 		end,
+		Result
 	end,
     {atomic, Result} = mnesia:transaction(F),
     %chronicler:debug("~w:Retrieved task."
@@ -617,6 +641,7 @@ handle_call({add_task, TableName, Task}, _From, State) ->
 				   job_id     = Task#task.job_id,
 				   table_name = TableName},
     add(task_relations, TaskRelation),
+    set_job_state_internal(Task#task.job_id, free),
     %chronicler:debug("~w:Added task."
     %                 "TaskId:~p~n"
     %                 "JobId:~p~n"
@@ -721,10 +746,7 @@ handle_call({set_task_state, TaskId, NewState}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({set_job_state, JobId, NewState}, _From, State) ->
-    Job = read(job, JobId),
-    remove(job, JobId),
-    NewJob = Job#job{state = NewState},
-    add(job, NewJob),
+    set_job_state_internal(JobId, NewState),
     {reply, ok, State};
 
 %%--------------------------------------------------------------------
@@ -744,6 +766,24 @@ handle_call({set_job_path, JobId, NewPath}, _From, State) ->
     NewJob = Job#job{path = NewPath},
     add(job, NewJob),
     {reply, ok, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Checks to see if a task exists in the given table with the
+%% specified JobId and Path.
+%%
+%% @spec handle_call({exists_path, TableName::atom(), JobId::integer(), 
+%%                    Path::atom()}, _From, State) ->
+%%                                 {reply, true, State} 
+%%                               | {reply, false, State}
+%%                               | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({exists_path, TableName, JobId, Path}, _From, State) ->
+    Flag = exists_path(TableName, JobId, Path),
+    {reply, Flag, State};
 
 %%--------------------------------------------------------------------
 %% @private
@@ -1095,7 +1135,29 @@ set_task_state(TaskId, NewState) ->
     NewTableName = list_to_atom(lists:concat([Task#task.type, '_', NewState])),
     add(NewTableName, NewTask),
     add(task_relations, TaskRelation#task_relations{table_name = NewTableName}),
+    case NewState of
+	free ->
+	    set_job_state_internal(Task#task.job_id, NewState);
+	_ ->
+	    ok
+    end,
     ok.
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Sets the state of the specified job.
+%%
+%% @spec set_job_state(JobId::integer(), NewState::atom()) -> ok 
+%%                                                            | {error, Error}
+%%                               NewState = free | paused | stopped | no_tasks
+%% @end
+%%--------------------------------------------------------------------
+set_job_state_internal(JobId, NewState) ->
+    Job = read(job, JobId),
+    remove(job, JobId),
+    NewJob = Job#job{state = NewState},
+    add(job, NewJob).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -1118,3 +1180,28 @@ list_job_tasks(JobId) ->
 	end,
     {atomic, Result} = mnesia:transaction(F),
     Result.
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Returns true if there exists a task in the specified table
+%% with job_id JobId and path Path. Otherwise false.
+%%
+%% @spec exists_path(TableName::atom(), JobId::integer(), Path::list()) 
+%%                                             -> true | false       
+%% @end
+%%--------------------------------------------------------------------
+exists_path(TableName, JobId, Path) ->
+    F = fun() ->
+		mnesia:match_object(TableName, 
+				    #task{job_id = JobId, path = Path, _ = '_'},
+				   read)
+	end,
+    {atomic, Result} = mnesia:transaction(F),
+    case Result of
+	[] ->
+	    false;
+	List ->
+	    List
+    end.

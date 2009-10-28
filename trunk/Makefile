@@ -17,6 +17,7 @@ master:
 	$(MAKE) -C lib/master build
 	$(MAKE) -C lib/ecg build
 	$(MAKE) -C lib/common build
+	$(MAKE) -C lib/chronicler build
 
 slave:
 	$(MAKE) -C lib/slave build

@@ -27,44 +27,7 @@ job_test() ->
     ?assertMatch([_A], db:list(job)),
     end_per_test_case().    
 
-%% task_test() ->
-%%      init_per_test_case(),
-%%      JobTuple = {raytracer, mapreduce, owner, 15},
-%%      JobId = db:add_job(JobTuple),
-%%      SplitTaskSpec = {JobId, raytracer, split, SplitPath = "./din_pappa"},
-%%      SplitTaskId = db:add_task(SplitTaskSpec),
-%%      ?assertEqual(free, (db:get_task(SplitTaskId))#task.state),
-%%      SplitTask = db:fetch_task(node()),
-%%      ?assertEqual(assigned, (db:get_task(SplitTask#task.task_id))#task.state),
-%%      ?assertEqual(SplitPath, SplitTask#task.path),
-%%      db:mark_done(SplitTaskId),
-%%      ?assertEqual(done, (db:get_task(SplitTaskId))#task.state),
-%%      %TODO refactor into comprehensions
-%%      %% Do not allow marking as done, if task was not assigned.
-%%      MapTask1Spec = {JobId, raytracer, map, './map/file1'},
-%%      MapTask2Spec = {JobId, raytracer, map, './map/file2'},
-%%      MapTask3Spec = {JobId, raytracer, map, './map/file3'},
-%%      MapTask1Id = db:add_task(MapTask1Spec),
-%%      _MapTask2Id = db:add_task(MapTask2Spec),
-%%      _MapTask3Id = db:add_task(MapTask3Spec),
-%%      MapTask = db:fetch_task(node()),
-%%      ?assertEqual(assigned, (db:get_task(MapTask#task.task_id))#task.state),
-%%      ?assertEqual(map, MapTask#task.type),
-%%      db:mark_done(MapTask1Id),
-%%      ReduceTaskSpec = {JobId, raytracer, reduce, './reduce/file1'},
-%%      _ReduceTaskId = db:add_task(ReduceTaskSpec),
-%%      NextTask = db:fetch_task(node()),
-%%      %We expect to get maps before reduces
-%%      ?assertEqual(map, NextTask#task.type),
-%%      %There should be no finalise tasks 
-%%      FinalisedTasks = lists:concat([db:list(finalize_free), 
-%% 				    db:list(finalize_assigned), 
-%% 				    db:list(finalize_done)]),
-%%      ?assertMatch([], FinalisedTasks),
-%%      end_per_test_case.
-
-
-monster_test() ->
+db_test() ->
     init_per_test_case(),
     % chronicler:set_logging_level(all),    
     % Check to see that the database doesn't blow up
@@ -120,7 +83,7 @@ monster_test() ->
 
     Task3Id = db:add_task(Task3),
     db:add_task(Task4),
-    Task5Id = db:add_task(Task5),
+    _Task5Id = db:add_task(Task5),
     db:add_task(Task6),
     db:add_task(Task7),
     
@@ -190,7 +153,7 @@ monster_test() ->
 				     db:list(finalize_assigned),
 				     db:list(finalize_done),
 				     db:list(assigned_tasks), 
-				     db:list(tasks_relations),
+				     db:list(task_relations),
 				     db:list(job)]),
     ?assertEqual([], MotherOfAllLists),
 

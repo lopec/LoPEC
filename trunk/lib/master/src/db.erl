@@ -336,8 +336,9 @@ resume_job(JobId) ->
 %%
 %% Marks all assigned tasks of the specified node as free.
 %%
-%% @spec free_tasks(NodeId::atom()) -> ok 
+%% @spec free_tasks(NodeId::atom()) -> List
 %%                                  | {error, Error}
+%%                   List = [{JobId::integer(), TaskType::atom()}]
 %% @end
 %%--------------------------------------------------------------------
 free_tasks(NodeId) ->
@@ -346,10 +347,17 @@ free_tasks(NodeId) ->
 		   gen_server:call(?SERVER, {set_task_state, H, free})
 	   end,
     lists:foreach(Free, ListOfTasks),
+
+    MakeReturn = fun(H) ->
+			 Task = gen_server:call(?SERVER, {get_task, H}),
+			 JobId = Task#task.job_id,
+			 TaskType = Task#task.type,
+			 {JobId, TaskType}
+		 end,
 %    chronicler:debug("~w:Freed tasks from node:~p~n"
 %                     "Tasks:~p~n",
 %                         [?MODULE, NodeId, ListOfTasks])).
-    [].
+    _ReturnList = lists:map(MakeReturn, ListOfTasks).
 
 %%--------------------------------------------------------------------
 %% @doc

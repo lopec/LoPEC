@@ -1,6 +1,8 @@
-all:
-	$(MAKE) -C lib build
+all: build
 	$(MAKE) -C lib all
+
+build:
+	$(MAKE) -C lib build
 
 test:
 	$(MAKE) -C lib test
@@ -51,7 +53,7 @@ testing_script: master slave
 	    -s init stop
 
 test.spec: test.spec.in
-	    cat test.spec.in | sed -e "s,@PATH@,$(PWD)," > $(PWD)/test.spec
+	cat test.spec.in | sed -e "s,@PATH@,$(PWD)," > $(PWD)/test.spec
 
 common_test: test.spec build
-	    run_test -pa $(PWD)/lib/*/ebin -spec test.spec -cover coverspec
+	run_test -pa $(PWD)/lib/*/ebin -spec test.spec -cover coverspec

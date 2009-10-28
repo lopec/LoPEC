@@ -264,6 +264,7 @@ handle_cast(stop, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({update_with_list, List}, State) ->
+    chronicler:debug("Master received flush from a node.~n", []),
     lists:foreach(fun (X) -> gen_server:cast(?SERVER, {update, X}) end, List),
     {noreply, State};
 %%--------------------------------------------------------------------
@@ -281,6 +282,7 @@ handle_cast({job_finished, JobId}, State) ->
         configparser:read_config("/etc/clusterbusters.conf", cluster_root),
     file:write_file(Root ++ "results/" ++
                   integer_to_list(JobId) ++ "/stats", JobStats),
+    chronicler:info("Job finished! Stats:~n~p~n", [JobStats]),
     {noreply, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -301,6 +303,7 @@ handle_cast({remove_node, NodeId}, State) ->
         configparser:read_config("/etc/clusterbusters.conf", cluster_root),
     file:write_file(Root ++ "results/node_" ++
                   integer_to_list(NodeId) ++ "_stats", NodeStats),
+    chronicler:info("Node removed from cluster! Stats:~n~p~n", [NodeStats]),
     {noreply, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -326,6 +329,7 @@ handle_cast(Msg, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(flush, State) ->
+    chronicler:debug("Node ~p flushing stats.~n", [node()]),
     Stats = ets:tab2list(stats),
     gen_server:cast({global, ?SERVER}, {update_with_list, Stats}),
     ets:delete_all_objects(stats),

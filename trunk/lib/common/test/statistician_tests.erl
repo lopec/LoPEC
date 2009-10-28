@@ -93,6 +93,13 @@ statistician_master_test_() ->
                              statistician:get_job_stats(20)),
                ?_assertEqual({error, no_such_job_in_stats},
                              statistician:get_job_stats(2)),
+               %Jobs are finished and removed, but node should remain...
+               ?_assertNot({error, no_such_node_in_stats} ==
+                           statistician:get_node_stats(1)),
+               %...Until now!
+               ?_assertEqual(ok, statistician:remove_node(1)),
+               ?_assertEqual({error, no_such_node_in_stats},
+                           statistician:get_node_stats(1)),
                %GARBAGE TESTS FOR 100% COVERAGE FOLLOW, MAY BE REMOVED FREELY
                ?_assertEqual(please_wait_a_few_seconds,
                              statistician:job_finished(1)),

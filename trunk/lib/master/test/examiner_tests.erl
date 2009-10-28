@@ -12,12 +12,9 @@
 -include_lib("eunit/include/eunit.hrl").
 -export([]).
 
-%% -export([get_promising_job/0, get_progress/1, insert/1, remove/1, start_link/0,
-%%          report_created/2, report_assigned/2, report_done/2, report_free/1]).
-
-
 report_test() ->
-    JobId = 123456,
+    db:start_link(test),
+    JobId = db:add_job({raytracer, mapreduce, chabbrik, 0}),
     examiner:start_link(),
     examiner:insert(JobId),
     ?assertEqual({0,0,0}, (examiner:get_progress(JobId))#job_stats.split),
@@ -45,7 +42,24 @@ report_test() ->
     ?assertEqual({0,1,1}, (examiner:get_progress(JobId))#job_stats.map),
     examiner:report_assigned(JobId, reduce),
     ?assertEqual({2,1,0}, (examiner:get_progress(JobId))#job_stats.reduce),
-    examiner:report_free([{JobId, map, 1}, {JobId, reduce, 1}]),
+    examiner:report_free([{JobId, map}, {JobId, reduce}]),
     ?assertEqual({1,0,1}, (examiner:get_progress(JobId))#job_stats.map),
     ?assertEqual({3,0,0}, (examiner:get_progress(JobId))#job_stats.reduce),
+    ?assertEqual({ok, JobId}, examiner:get_promising_job()),
+    examiner:report_assigned(JobId, reduce),
+    examiner:report_assigned(JobId, reduce),
+    examiner:report_assigned(JobId, reduce),
+    examiner:report_assigned(JobId, map),
+    examiner:report_done(JobId, map),
+    examiner:report_done(JobId, reduce),
+    examiner:report_done(JobId, reduce),
+    examiner:report_done(JobId, reduce),
+    examiner:report_created(JobId, finalize),
+    examiner:report_assigned(JobId, finalize),
+    examiner:report_done(JobId, finalize),
     examiner:remove(JobId).
+
+out_of_bounds_test() ->
+    examiner:start_link(),
+    ?assertEqual({error, "There are no jobs."}, examiner:get_promising_job()).
+    

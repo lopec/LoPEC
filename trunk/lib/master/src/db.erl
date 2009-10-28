@@ -1011,7 +1011,7 @@ read(TableName, Key) ->
 %% Finds the next job to run. _Algorithm is used in case of future 
 %% implementations using different prioritizing algorithms to choose from.
 %%
-%% @spec fetch_job_internal(_Algorithm) -> JobId::integer() | {error, Error} 
+%% @spec fetch_job(_Algorithm) -> JobId::integer() | {error, Error} 
 %% @end
 %%--------------------------------------------------------------------
 fetch_job(_Algorithm) ->

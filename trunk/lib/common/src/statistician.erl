@@ -432,10 +432,11 @@ job_stats(JobId) ->
             UniqueNodes = lists:umerge(Nodes),
             
             Zeroes = [0,0,0,0,0,0],
-            SumSplit = sum_stats(Split, Zeroes),
-            SumMap = sum_stats(Map, Zeroes),
+            
+            SumSplit  = sum_stats(Split, Zeroes),
+            SumMap    = sum_stats(Map, Zeroes),
             SumReduce = sum_stats(Reduce, Zeroes),
-            SumFinal = sum_stats(Finalize, Zeroes),
+            SumFinal  = sum_stats(Finalize, Zeroes),
             
             SumAll = sum_stats([SumSplit, SumMap, SumReduce, SumFinal], Zeroes),
 
@@ -445,10 +446,10 @@ job_stats(JobId) ->
 		    list_to_integer(lists:sublist(TimeList, 11, 6))},
 	    TimePassed = timer:now_diff(now(), Then) / 1000000,
 	    
-            SplitStrings = taskstats_string_formatter(split, SumSplit),
-            MapStrings = taskstats_string_formatter(map, SumMap),
+            SplitStrings  = taskstats_string_formatter(split, SumSplit),
+            MapStrings    = taskstats_string_formatter(map, SumMap),
             ReduceStrings = taskstats_string_formatter(reduce, SumReduce),
-            FinalStrings = taskstats_string_formatter(finalize, SumFinal),
+            FinalStrings  = taskstats_string_formatter(finalize, SumFinal),
             Reply = jobstats_string_formatter({JobId,
                                                SplitStrings,
                                                MapStrings,
@@ -507,7 +508,7 @@ nodestats_string_formatter(
         "Stats for node: ~p~n"
         "------------------------------------------------------------~n"
         "Jobs worked on by node: ~p~n"
-        "Time passed: ~p seconds~n"
+        "Time executing: ~p seconds~n"
         "Power used: ~p watts~n"
         "Upload: ~p bytes~n"
 	"Download: ~p bytes~n"

@@ -161,6 +161,7 @@ handle_cast({task_request, NodeId, From}, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({free_tasks, NodeId}, State) ->
+    chronicler:info("NodeId: ~p", [NodeId]),
     db:free_tasks(NodeId),
     %%Todo - reset counter for tasks freed.
     {noreply, State};
@@ -220,6 +221,7 @@ handle_call({task_done, TaskId, TaskSpec}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({add_task, TaskSpec}, _From, State) ->
+    chronicler:debug("TaskSpec: ~p", [TaskSpec]),
     NewTaskId = db:add_task(TaskSpec),
     JobId = element(1, TaskSpec),
     Type = element(3, TaskSpec),
@@ -235,6 +237,7 @@ handle_call({add_task, TaskSpec}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({add_job, JobSpec}, _From, State) ->
+    chronicler:debug("JobSpec: ~p", [JobSpec]),
     NewJobId = db:add_job(JobSpec),
 %%     examiner:insert(NewJobId),
     {reply, NewJobId, State};

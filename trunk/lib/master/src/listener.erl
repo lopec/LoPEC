@@ -48,6 +48,7 @@ add_job(ProgramName, ProblemType, Owner, Priority, InputData, Name) ->
     chronicler:info("~w : called new_job with a name=~w~n", [?MODULE, Name]),
     gen_server:call(?MODULE, 
        {new_job, ProgramName, ProblemType, Owner, Priority, InputData, Name}).
+
 %% %@spec add_job(ProgramName, ProblemType, Owner, Priority, InputData)
 %% %@equiv add_job(JobType, InputData, no_name)
 %TODO: Burbas must fix the above two, only he knows how they should look
@@ -258,15 +259,22 @@ is_valid_jobtype(JobType) ->
     end.
 
 add_new_job(ProgramName, ProblemType, Owner, Priority, InputData) ->
-    JobId = dispatcher:add_job({ProgramName, ProblemType, Owner, Priority}),
-    % Read the structurepath from configfile
-    {ok, Root} =
-        configparser:read_config("/etc/clusterbusters.conf", cluster_root),
-    JobRoot = lists:flatten(io_lib:format("/tmp/~p/", [JobId])),
-    % Make the directory-structure
-    [filelib:ensure_dir(Root ++ JobRoot ++ SubDir)
-     || SubDir <- ["map/", "reduce/", "input/", "results/"]],
-    % Move the files to the right thing
-    file:copy(InputData, Root ++ JobRoot ++ "/input/data.dat"),
-    dispatcher:add_task({JobId, ProgramName, split, JobRoot ++ "/input/data.dat"}),
-    JobId.
+    case is_valid_jobtype(ProgramName) of
+        {ok} ->
+           JobId = dispatcher:add_job({ProgramName, ProblemType, Owner, Priority}),
+           % Read the structurepath from configfile
+            {ok, Root} =
+                configparser:read_config("/etc/clusterbusters.conf", cluster_root),
+            JobRoot = lists:flatten(io_lib:format("/tmp/~p/", [JobId])),
+            % Make the directory-structure
+            [filelib:ensure_dir(Root ++ JobRoot ++ SubDir)
+                || SubDir <- ["map/", "reduce/", "input/", "results/"]],
+            % Move the files to the right thing
+            file:copy(InputData, Root ++ JobRoot ++ "/input/data.dat"),
+            dispatcher:add_task({JobId, ProgramName, split, JobRoot ++ "/input/data.dat"}),
+            JobId;
+        {error, Reason} ->
+            chronicler:info_user("~w : Could not add job. Reason: ~p~n", [?MODULE, Reason]),
+            {error, Reason}
+    end.
+    

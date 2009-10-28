@@ -448,13 +448,16 @@ node_stats(NodeName) ->
             Download=ets:match(T,{{NodeName,'_','_'},'_','_','_','$1','_','_'}),
             Numtasks=ets:match(T,{{NodeName,'_','_'},'_','_','_','_','$1','_'}),
             Restarts=ets:match(T,{{NodeName,'_','_'},'_','_','_','_','_','$1'}),
-            
-            PowerTot = lists:sum(Power),
-            TimeTot = lists:sum(Time),
-            UploadTot = lists:sum(Upload),
-            DownloadTot = lists:sum(Download),
-            NumtasksTot = lists:sum(Numtasks),
-            RestartsTot = lists:sum(Restarts),
+
+            %instead of lists:sum(lists:flatten()) we could use a foldl
+            %that takes out the head of each sublist and adds it to an
+            %accumulator, but it probably wouldn't be as readable
+            PowerTot    = lists:sum(lists:flatten(Power)),
+            TimeTot     = lists:sum(lists:flatten(Time)),
+            UploadTot   = lists:sum(lists:flatten(Upload)),
+            DownloadTot = lists:sum(lists:flatten(Download)),
+            NumtasksTot = lists:sum(lists:flatten(Numtasks)),
+            RestartsTot = lists:sum(lists:flatten(Restarts)),
             
             Reply = nodestats_string_formatter({NodeName, UniqueJobs,
                                                 PowerTot, TimeTot,

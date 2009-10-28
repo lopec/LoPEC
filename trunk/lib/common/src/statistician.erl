@@ -193,18 +193,18 @@ handle_cast({update,
     case Job of
         [] ->
             ets:insert(T, {{NodeName, JobID, TaskType},
-                               Power, Time, Upload, Download, Numtasks, Restarts});
+                           Power, Time, Upload, Download, Numtasks, Restarts});
         
         [{{NodeName, JobID, TaskType},
-          OldPower, OldTime, OldUpload, OldDownload, OldNumtasks, OldRestarts}] ->
+          OldPower,OldTime, OldUpload,OldDownload, OldNumtasks,OldRestarts}] ->
             
             ets:insert(T, {{NodeName, JobID, TaskType},
-                        Power+OldPower,
-                        Time+OldTime,
-                        Upload+OldUpload,
-                        Download+OldDownload,
-                        Numtasks+OldNumtasks,
-                        Restarts+OldRestarts})
+                        Power    + OldPower,
+                        Time     + OldTime,
+                        Upload   + OldUpload,
+                        Download + OldDownload,
+                        Numtasks + OldNumtasks,
+                        Restarts + OldRestarts})
     end,
     T2 = global_stats_master,
     case ets:info(T2) of
@@ -215,7 +215,8 @@ handle_cast({update,
             case Node of
                 [] ->
                     ets:insert(T2, {{NodeName, JobID, TaskType},
-                                    Power, Time, Upload, Download, Numtasks, Restarts});
+                                    Power, Time, Upload,
+                                    Download, Numtasks, Restarts});
                 
                 [{{NodeName, JobID, TaskType},
                   OldNodePower, OldNodeTime, OldNodeUpload, OldNodeDownload,
@@ -386,11 +387,16 @@ job_stats(JobID) ->
         [] ->
             {error, no_such_job_in_stats};
         _Other ->
-            Split    = ets:match(T, {{'_', JobID, split}, '$1', '$2', '$3', '$4', '$5', '$6'}),
-            Map      = ets:match(T, {{'_', JobID, map}, '$1', '$2', '$3', '$4', '$5', '$6'}),
-            Reduce   = ets:match(T, {{'_', JobID, reduce}, '$1', '$2', '$3', '$4', '$5', '$6'}),
-            Finalize = ets:match(T, {{'_', JobID, finalize}, '$1', '$2', '$3', '$4', '$5', '$6'}),
-            Nodes    = ets:match(T, {{'$1', JobID, '_'},'_','_','_','_','_','_'}),
+            Split    = ets:match(T, {{'_', JobID, split},
+                                     '$1', '$2', '$3', '$4', '$5', '$6'}),
+            Map      = ets:match(T, {{'_', JobID, map},
+                                     '$1', '$2', '$3', '$4', '$5', '$6'}),
+            Reduce   = ets:match(T, {{'_', JobID, reduce},
+                                     '$1', '$2', '$3', '$4', '$5', '$6'}),
+            Finalize = ets:match(T, {{'_', JobID, finalize},
+                                     '$1', '$2', '$3', '$4', '$5', '$6'}),
+            Nodes    = ets:match(T, {{'$1', JobID, '_'},
+                                     '_','_','_','_','_','_'}),
             UniqueNodes = lists:umerge(Nodes),
             
             Zeroes = [0,0,0,0,0,0],
@@ -515,7 +521,7 @@ jobstats_string_formatter(
         "Number of tasks: ~p~n"
         "Number of restarts:~p~n",
         [JobID, SplitString, MapString, ReduceString, FinalizeString, Nodes,
-	 TimePassed, TimeExecuted, Power, Upload, Download, Numtasks, Restarts])).
+	 TimePassed,TimeExecuted, Power, Upload,Download, Numtasks, Restarts])).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -525,7 +531,8 @@ jobstats_string_formatter(
 %% 
 %% @end
 %%--------------------------------------------------------------------
-taskstats_string_formatter(TaskType, [Power, Time, Upload, Download, NumTasks, Restarts]) ->
+taskstats_string_formatter(TaskType,
+                           [Power,Time,Upload,Download,NumTasks,Restarts]) ->
     io_lib:format(
       "------------------------------------------------------------~n"
       "~p~n"
@@ -550,11 +557,11 @@ taskstats_string_formatter(TaskType, [Power, Time, Upload, Download, NumTasks, R
 sum_stats([],Data) ->
     Data;
 sum_stats([H|T], Data) ->
-    [TempPower, TempTime, TempUpload, TempDownload, TempNumtasks, TempRestarts]  = H,
-    [AccPower, AccTime, AccUpload, AccDownload, AccNumtasks, AccRestarts] = Data,
-    sum_stats(T, [TempPower + AccPower,
-                  TempTime + AccTime,
-                  TempUpload + AccUpload,
+    [TempPower,TempTime,TempUpload,TempDownload,TempNumtasks,TempRestarts]  = H,
+    [AccPower,AccTime,AccUpload,AccDownload,AccNumtasks,AccRestarts] = Data,
+    sum_stats(T, [TempPower    + AccPower,
+                  TempTime     + AccTime,
+                  TempUpload   + AccUpload,
 		  TempDownload + AccDownload,
                   TempNumtasks + AccNumtasks,
                   TempRestarts + AccRestarts]).

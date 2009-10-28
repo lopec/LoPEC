@@ -478,28 +478,17 @@ node_stats(NodeId) ->
         _Other ->
             Jobs = ets:match(T, {{NodeId, '$1','_'},'_','_','_','_','_','_'}),
             UniqueJobs = lists:umerge(Jobs),
-            
-            Power   =ets:match(T,{{NodeId,'_','_'},'$1','_','_','_','_','_'}),
-            Time    =ets:match(T,{{NodeId,'_','_'},'_','$1','_','_','_','_'}),
-            Upload  =ets:match(T,{{NodeId,'_','_'},'_','_','$1','_','_','_'}),
-            Download=ets:match(T,{{NodeId,'_','_'},'_','_','_','$1','_','_'}),
-            Numtasks=ets:match(T,{{NodeId,'_','_'},'_','_','_','_','$1','_'}),
-            Restarts=ets:match(T,{{NodeId,'_','_'},'_','_','_','_','_','$1'}),
 
-            %instead of lists:sum(lists:flatten()) we could use a foldl
-            %that takes out the head of each sublist and adds it to an
-            %accumulator, but it probably wouldn't be as readable
-            PowerTot    = lists:sum(lists:flatten(Power)),
-            TimeTot     = lists:sum(lists:flatten(Time)),
-            UploadTot   = lists:sum(lists:flatten(Upload)),
-            DownloadTot = lists:sum(lists:flatten(Download)),
-            NumtasksTot = lists:sum(lists:flatten(Numtasks)),
-            RestartsTot = lists:sum(lists:flatten(Restarts)),
+            Stats = ets:match(T, {{NodeId,'_','_'},
+                                 '$1','$2','$3','$4','$5','$6'}),
+            [Power, Time, Upload, Download, Numtasks, Restarts] =
+                sum_stats(Stats, [0,0,0,0,0,0]),
+
             
             Reply = nodestats_string_formatter({NodeId, UniqueJobs,
-                                                PowerTot, TimeTot,
-                                                UploadTot, DownloadTot,
-                                                NumtasksTot, RestartsTot}),
+                                                Power, Time,
+                                                Upload, Download,
+                                                Numtasks, Restarts}),
             Reply
     end.
 

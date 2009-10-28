@@ -6,6 +6,7 @@
 %%% -------------------------------------------------------------------
 -module(examiner).
 -behaviour(gen_server).
+-include("../include/global.hrl").
 
 %% --------------------------------------------------------------------
 %% External exports
@@ -19,19 +20,12 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--record(job_stats, { job_id,
-                     split = {0, 0, 0},
-                     map = {0, 0, 0},
-                     reduce = {0, 0, 0},
-                     finalize = {0, 0, 0}
-                    }).
-
 %% ====================================================================
 %% External functions
 %% ====================================================================
 
 %% @doc
-%% Returns the jobid of the job that is closest to finishing.
+%% Returns the jobid of the job that is closest to be completed.
 %%
 %% @spec get_promising_job() -> {ok, JobId} | {error, Reason}
 %% @end
@@ -39,7 +33,7 @@ get_promising_job() ->
     gen_server:call({global, ?MODULE}, {get_promising_job}).
 
 %% @doc
-%% Returns the current progress of the job with id JobId.
+%% Returns the current information about all tasks created by given JobId.
 %% 
 %% @spec get_progress(JobId) ->
 %%           {job_stats, JobId,
@@ -100,6 +94,7 @@ report_free(Jobs) ->
 
 %% @doc
 %% Insert a new job to be tracked by examiner.
+%% IMPORTANT: if job is not inserted before usage, it will crash examiner.
 %%
 %% @spec insert(JobId) -> ok
 %% @end

@@ -160,7 +160,7 @@ set_logging_level(NewLevel) ->
 %% @end
 %%--------------------------------------------------------------------
 init(no_args) ->
-    error_logger:logfile({open, "/var/log/busters/commonTest"}),
+    error_logger:logfile({open, node()}),
 
     %TODO add module information logging level
     State = #state{loggingLevel = [error, user_info, info, warning, debug]},

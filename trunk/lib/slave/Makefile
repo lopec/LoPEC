@@ -9,7 +9,7 @@ OBJECTS= $(SOURCES:src/%.erl=ebin/%.beam)
 TESTOBJECTS= $(TESTFILES:test/%.erl=test/%.beam)
 DOC_OPTS= 
 
-all: build port test docs
+all: build test docs
 
 build: $(OBJECTS)
 
@@ -26,11 +26,6 @@ clean:
 test: $(TESTOBJECTS)
 	../../testscript.escript $(SOURCES)
 #	erl -noshell -pa ebin -pa test -eval 'eunit:test("test",[verbose])' -s init stop
-
-port:
-	mkdir tests
-	gcc -o tests/port_test examples/port_example.c
-	rm -rf tests
 
 docs: 
 	erl -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS)])" -s init stop

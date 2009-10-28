@@ -19,7 +19,7 @@
 -define(SERVER, db_server).
 
 %% APIs for management of the database
--export([start/0, start_link/0, start_link/1, stop/0, create_tables/1]).
+-export([start_link/0, start_link/1, stop/0, create_tables/1]).
 
 %% APIs for handling jobs
 -export([add_job/1, remove_job/1, set_job_path/2, set_job_state/2,
@@ -49,20 +49,6 @@ start_link(test) ->
     create_tables(ram_copies),
     {ok, Pid}.
 %    chronicler:info("~w:Database started in test environment.~n",
-%                         [?MODULE])).
-
-
-%%--------------------------------------------------------------------
-%% @doc
-%%
-%% Starts the database gen_server.
-%%
-%% @spec start() -> ok | {error, Error}
-%% @end
-%%--------------------------------------------------------------------
-start() ->
-    start_link().
-%    chronicler:info("~w:Database started.~n",
 %                         [?MODULE])).
 
 %%--------------------------------------------------------------------
@@ -282,7 +268,6 @@ mark_done(TaskId) ->
 %                     "TaskId:~p~n",
 %                         [?MODULE, TaskId])).
 
-
 %%--------------------------------------------------------------------
 %% @doc
 %%
@@ -293,7 +278,7 @@ mark_done(TaskId) ->
 %% @end
 %%--------------------------------------------------------------------
 pause_job(JobId) ->
-    gen_server:call(?SERVER, {set_job_state, JobId, paused}).
+    set_job_state(JobId, paused).
 %    chronicler:info("~w:Paused job.~n"
 %                     "JobId:~p~n",
 %                         [?MODULE, JobId])).
@@ -308,7 +293,7 @@ pause_job(JobId) ->
 %% @end
 %%--------------------------------------------------------------------
 stop_job(JobId) ->
-    gen_server:call(?SERVER, {set_job_state, JobId, stopped}),
+    set_job_state(JobId, stopped),
     ListOfTasks = list_job_tasks(JobId),
     Filter = fun(H) ->
 		     Task = get_task(H),
@@ -341,7 +326,7 @@ stop_job(JobId) ->
 %% @end
 %%--------------------------------------------------------------------
 resume_job(JobId) ->
-    gen_server:call(?SERVER, {set_job_state, JobId, free}).
+    set_job_state(JobId, free).
 %    chronicler:info("~w:Resumed job.~n"
 %                     "JobId:~p~n",
 %                         [?MODULE, JobId])).
@@ -364,7 +349,7 @@ free_tasks(NodeId) ->
 %    chronicler:debug("~w:Freed tasks from node:~p~n"
 %                     "Tasks:~p~n",
 %                         [?MODULE, NodeId, ListOfTasks])).
-    ok.
+    [].
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -537,24 +522,11 @@ handle_call({remove_job, JobId}, _From, State) ->
     Remove = fun(H) ->
 		     Task = read(task_relations, H), 
 		     remove(Task#task_relations.table_name, H),
+		     remove(assigned_tasks, H),
 		     remove(task_relations, H)
 	   end,
     lists:foreach(Remove, ListOfTasks),
     {reply, ok, State};
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%%
-%% Returns the id of the job which is the next to be worked on.
-%%
-%% @spec handle_call({get_job}, _From, State) ->
-%%                                 {reply, JobId::integer(), State}
-%% @end
-%%--------------------------------------------------------------------
-handle_call({fetch_job}, _From, State) ->
-    Job = fetch_job_internal(no_arg),
-    {reply, Job, State};
 
 %%--------------------------------------------------------------------
 %% @private
@@ -571,7 +543,7 @@ handle_call({fetch_job}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({fetch_task, NodeId}, _From, State) ->
     F = fun() ->
-		JobId = fetch_job_internal(no_arg),
+		JobId = fetch_job(no_arg),
  		case JobId of
  		    no_job ->
  			Task = no_task;
@@ -587,18 +559,16 @@ handle_call({fetch_task, NodeId}, _From, State) ->
  					case get_reduce(JobId) of
  					    {ok, ReduceTask} ->
  						Task = ReduceTask;
+					    wait ->
+						Task = no_task;
  					    _ -> 
  						case get_finalize(JobId) of
  						    {ok, FinalizeTask} -> 
  							Task = FinalizeTask;
  						    _ -> 
-				% If there are no tasks, set the state of the job
-			    	% to no_tasks, so it won't be chosen until it
-				% has free tasks associated to it
 							set_job_state_internal(
 							  JobId, no_tasks),
  							Task = no_task
-
  						end
  					end
  				end
@@ -649,26 +619,6 @@ handle_call({add_task, TableName, Task}, _From, State) ->
     %                 "Type:~p~n",    
     %                 [?MODULE, TaskId, JobId, Task#task.type]),
     {reply, TaskId, State};
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%%
-%% Removes a task from the database.
-%%
-%% @spec handle_call({remove_task, TaskId::integer()}, 
-%%                    _From, State) ->
-%%                                 {reply, ok, State} | {error, Error}
-%% @end
-%%--------------------------------------------------------------------
-handle_call({remove_task, TaskId}, _From, State) ->
-    TaskRelation = read(task_relations, TaskId),
-    remove(TaskRelation#task_relations.table_name, TaskId),
-    remove(task_relations, TaskId),
-    %chronicler:debug("~w:Removed task."
-    %                 "TaskId:~p~n",    
-    %                 [?MODULE, TaskId]),
-    {reply, ok, State};
 
 %%--------------------------------------------------------------------
 %% @private
@@ -973,10 +923,10 @@ get_reduce(JobId) ->
 			no_task ->
 			    {ok, Reduce};
 			_ ->
-			    no_task
+			    wait
 		    end;
 		_ ->
-		    no_task
+		    wait
 	    end
     end.
 
@@ -1064,7 +1014,7 @@ read(TableName, Key) ->
 %% @spec fetch_job_internal(_Algorithm) -> JobId::integer() | {error, Error} 
 %% @end
 %%--------------------------------------------------------------------
-fetch_job_internal(_Algorithm) ->
+fetch_job(_Algorithm) ->
     F = fun() ->
 		MatchHead = #job{job_id = '$1',
 				 state = '$2',
@@ -1139,6 +1089,28 @@ set_task_state(TaskId, NewState) ->
     case NewState of
 	free ->
 	    set_job_state_internal(Task#task.job_id, NewState);
+	done ->
+	    JobId = Task#task.job_id,
+	    FreeTasks = [find_task_in_table(split_free, JobId),
+ 			 find_task_in_table(map_free, JobId),
+ 			 find_task_in_table(reduce_free, JobId),
+ 			 find_task_in_table(finalize_free, JobId)],
+	    F = fun(H) ->
+			case H of
+			    no_task ->
+				false;
+			    _ ->
+				true
+			end
+		end,
+	    
+ 	    ExistsTask = lists:any(F, FreeTasks),
+	    case ExistsTask of
+		true ->
+		    set_job_state_internal(JobId, free);
+		_ ->
+		    ok
+	    end;
 	_ ->
 	    ok
     end,

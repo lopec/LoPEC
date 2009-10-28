@@ -231,18 +231,20 @@ update_task({Free, Assigned, Done}, NewState) ->
         case NewState of
             created ->
                 {Free + 1, Assigned, Done};
-            assigned ->
+            assigned when Free > 0 ->
                 {Free - 1, Assigned + 1, Done};
-            done ->
+            done when Assigned > 0 ->
                 {Free, Assigned - 1, Done + 1};
-            free ->
+            free when Assigned > 0 ->
                 {Free + 1, Assigned - 1, Done}
         end,
     Event =
         case UpdatedTask of
             {_, 1, 0} -> first_assigned;
             {0, 0, _} -> all_done;
-            _ -> nothing
+            {NFree, NAssigned, NDone} when NFree >= 0,
+                                           NAssigned >= 0,
+                                           NDone >= 0 -> nothing
         end,
     {Event, UpdatedTask}.
 
@@ -313,11 +315,3 @@ update_job(JobStats, TaskType, NewTaskState) ->
     end,
     _UpdatedJob = set_task(JobStats, TaskType, UpdatedTask).
 
-%% @doc
-%% λf·(λx·f (x x)) (λx·f (x x))
-%%
-%% @spec y(M) -> fun()
-%% @end
-y(M) ->
-    G = fun (F) -> M(fun(A) -> (F(F))(A) end) end,
-    G(G).

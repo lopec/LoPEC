@@ -142,7 +142,9 @@ handle_cast(Msg, State) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Handling all non call/cast messages
+%% Handling all non call/cast messages. Handles message sent from
+%% the program started with open_port in init, logs them and reports
+%% new split/reduce/result tasks to the taskFetcher.
 %%
 %% @spec handle_info(Info, State) -> {noreply, State} |
 %%                                   {noreply, State, Timeout} |

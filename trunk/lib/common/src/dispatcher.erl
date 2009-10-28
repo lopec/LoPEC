@@ -189,7 +189,7 @@ handle_cast(Msg, State) ->
 handle_call({task_done, TaskId, no_task}, _From, State) ->
     db:mark_done(TaskId),
     Task = db:get_task(TaskId),
-    examiner:update_count(Task#task.job_id, Task#task.type, done),
+%%     examiner:update_count(Task#task.job_id, Task#task.type, done),
     {reply, ok, State};
 %%--------------------------------------------------------------------
 %% @doc
@@ -203,12 +203,12 @@ handle_call({task_done, TaskId, no_task}, _From, State) ->
 handle_call({task_done, TaskId, TaskSpec}, _From, State) ->
     db:mark_done(TaskId),
     Task = db:get_task(TaskId),
-    examiner:update_count(Task#task.job_id, Task#task.type, done),
+%%     examiner:update_count(Task#task.job_id, Task#task.type, done),
     
     NewTaskId = db:add_task(TaskSpec),
     JobId = element(1, TaskSpec),
     Type = element(3, TaskSpec),
-    examiner:update_count(JobId, Type, free),
+%%     examiner:update_count(JobId, Type, free),
 
     {reply, NewTaskId, State};
 %%--------------------------------------------------------------------
@@ -223,7 +223,7 @@ handle_call({add_task, TaskSpec}, _From, State) ->
     NewTaskId = db:add_task(TaskSpec),
     JobId = element(1, TaskSpec),
     Type = element(3, TaskSpec),
-    examiner:update_count(JobId, Type, free),
+%%     examiner:update_count(JobId, Type, free),
     {reply, NewTaskId, State};
 
 %%--------------------------------------------------------------------
@@ -236,7 +236,7 @@ handle_call({add_task, TaskSpec}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({add_job, JobSpec}, _From, State) ->
     NewJobId = db:add_job(JobSpec),
-    examiner:insert(NewJobId),
+%%     examiner:insert(NewJobId),
     {reply, NewJobId, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -278,8 +278,8 @@ find_task(RequesterPID, NodeId) ->
         Task ->
             chronicler:debug("~p: Found task ~p.~n",[?MODULE, Task]),
             RequesterPID ! {task_response, Task},
-            ecg_server:accept_message({new_node, NodeId}),
-            examiner:update_count(Task#task.job_id, Task#task.type, assigned)
+            ecg_server:accept_message({new_node, NodeId})
+%%             examiner:update_count(Task#task.job_id, Task#task.type, assigned)
     end.
 
 %%%===================================================================
@@ -304,7 +304,6 @@ terminate(Reason, _State) ->
                      [?MODULE, Reason]),
     ok.
 
-
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -320,7 +319,6 @@ code_change(OldVsn, State, Extra) ->
                      "Extra: ~p~n",
                      [?MODULE, OldVsn, Extra]),
     {ok, State}.
-
 
 %%--------------------------------------------------------------------
 %% @private

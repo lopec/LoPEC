@@ -23,9 +23,9 @@ clean:
 	-rm -f ebin/*.beam test/*.beam test/*.html
 
 .PHONY: test
-test: $(TESTOBJECTS)
+test:
 	../../testscript.escript $(SOURCES)
-#	erl -noshell -pa ebin -pa test -eval 'eunit:test("test",[verbose])' -s init stop
 
 docs: 
-	erl -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS)])" -s init stop
+	erl -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS)])" \
+	    -s init stop

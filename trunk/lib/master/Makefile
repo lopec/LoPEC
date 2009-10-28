@@ -24,9 +24,8 @@ clean:
 	-rm -f ebin/*.beam test/*.beam test/*.html
 
 .PHONY: test
-test: $(TESTOBJECTS) chronicler
+test: chronicler
 	../../testscript.escript $(SOURCES)
-#	erl -sname test -noshell -pa ../common/ebin -pa ../ecg/ebin -pa ../chronicler/ebin -pa ebin -pa test -eval 'eunit:test("test",[verbose])' -s init stop
 
 chronicler:
 	erlc $(ERLC_FLAGS) ../chronicler/src/*.erl -o $(PWD)/ebin/

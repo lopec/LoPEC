@@ -23,7 +23,7 @@ clean:
 	rm -f ebin/*.beam test/*.beam test/*.html
 
 .PHONY: test
-test: $(TESTOBJECTS)
+test:
 	../../testscript.escript $(SOURCES)
 
 docs: 

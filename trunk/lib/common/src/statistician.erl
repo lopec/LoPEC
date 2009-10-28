@@ -16,7 +16,8 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/1, update/1, job_finished/1, get_job_stats/1, stop/0]).
+-export([start_link/1, update/1, job_finished/1, stop/0,
+         get_job_stats/1, get_node_stats/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -66,6 +67,15 @@ get_job_stats(JobID) ->
     gen_server:call(?SERVER,{get_job_stats, JobID}).
 
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns a formatted string of all the stats related to NodeName
+%%
+%% @spec get_node_stats(NodeName) -> String
+%% @end
+%%--------------------------------------------------------------------
+get_node_stats(NodeName) ->
+    gen_server:call(?SERVER,{get_node_stats, NodeName}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -131,12 +141,24 @@ init([slave]) ->
 %% @doc
 %% @see job_stats/1
 %%
-%% @spec handle_call({get_jobs_stats, JobID}, From, State) ->
+%% @spec handle_call({get_job_stats, JobID}, From, State) ->
 %%                                   {reply, Reply, State} 
 %% @end
 %%--------------------------------------------------------------------
 handle_call({get_job_stats, JobID}, _From, State) ->
     Reply = job_stats(JobID),
+    {reply, Reply, State};
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% @see node_stats/1
+%%
+%% @spec handle_call({get_node_stats, NodeName}, From, State) ->
+%%                                   {reply, Reply, State} 
+%% @end
+%%--------------------------------------------------------------------
+handle_call({get_node_stats, NodeName}, _From, State) ->
+    Reply = node_stats(NodeName),
     {reply, Reply, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -166,22 +188,47 @@ handle_cast({update,
              {{NodeName, JobID, TaskType},
               Power, Time, Upload, Download, Numtasks, Restarts}},
             State) ->
-    
-    Item = ets:lookup(stats, {NodeName, JobID, TaskType}),
-    case Item of
+    T = stats,
+    Job = ets:lookup(T, {NodeName, JobID, TaskType}),
+    case Job of
         [] ->
-            ets:insert(stats, {{NodeName, JobID, TaskType},
+            ets:insert(T, {{NodeName, JobID, TaskType},
                                Power, Time, Upload, Download, Numtasks, Restarts});
+        
         [{{NodeName, JobID, TaskType},
           OldPower, OldTime, OldUpload, OldDownload, OldNumtasks, OldRestarts}] ->
-            ets:insert(stats,
-                       {{NodeName, JobID, TaskType},
+            
+            ets:insert(T, {{NodeName, JobID, TaskType},
                         Power+OldPower,
                         Time+OldTime,
                         Upload+OldUpload,
                         Download+OldDownload,
                         Numtasks+OldNumtasks,
                         Restarts+OldRestarts})
+    end,
+    T2 = global_stats_master,
+    case ets:info(T2) of
+        undefined ->
+            foo; %slaves do not have global_stats_master defined
+        _Other ->
+            Node = ets:lookup(T2, {NodeName, JobID, TaskType}),
+            case Node of
+                [] ->
+                    ets:insert(T2, {{NodeName, JobID, TaskType},
+                                    Power, Time, Upload, Download, Numtasks, Restarts});
+                
+                [{{NodeName, JobID, TaskType},
+                  OldNodePower, OldNodeTime, OldNodeUpload, OldNodeDownload,
+                  OldNodeNumtasks, OldNodeRestarts}] ->
+                    
+                    ets:insert(T2, {{NodeName, JobID, TaskType},
+                                Power+OldNodePower,
+                                Time+OldNodeTime,
+                                Upload+OldNodeUpload,
+                                Download+OldNodeDownload,
+                                Numtasks+OldNodeNumtasks,
+                                Restarts+OldNodeRestarts})
+            end
     end,
     {noreply, State};
 %%--------------------------------------------------------------------
@@ -376,6 +423,68 @@ job_stats(JobID) ->
             Reply
     end.
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Extracts info about the given node and returns a formatted string
+%% with its stats. Similar in effect to job_stats, but surprisingly
+%% different in execution.
+%%
+%% @spec node_stats(NodeName) -> String
+%% 
+%% @end
+%%--------------------------------------------------------------------
+node_stats(NodeName) ->
+    T = global_stats_master,
+    case ets:match(T, {{NodeName, '_', '_'}, '$1', '_', '_', '_', '_', '_'}) of
+        [] ->
+            {error, no_such_node_in_stats};
+        _Other ->
+            Jobs = ets:match(T, {{NodeName, '$1','_'},'_','_','_','_','_','_'}),
+            UniqueJobs = lists:umerge(Jobs),
+            
+            Power   =ets:match(T,{{NodeName,'_','_'},'$1','_','_','_','_','_'}),
+            Time    =ets:match(T,{{NodeName,'_','_'},'_','$1','_','_','_','_'}),
+            Upload  =ets:match(T,{{NodeName,'_','_'},'_','_','$1','_','_','_'}),
+            Download=ets:match(T,{{NodeName,'_','_'},'_','_','_','$1','_','_'}),
+            Numtasks=ets:match(T,{{NodeName,'_','_'},'_','_','_','_','$1','_'}),
+            Restarts=ets:match(T,{{NodeName,'_','_'},'_','_','_','_','_','$1'}),
+            
+            PowerTot = lists:sum(Power),
+            TimeTot = lists:sum(Time),
+            UploadTot = lists:sum(Upload),
+            DownloadTot = lists:sum(Download),
+            NumtasksTot = lists:sum(Numtasks),
+            RestartsTot = lists:sum(Restarts),
+            
+            Reply = nodestats_string_formatter({NodeName, UniqueJobs,
+                                                PowerTot, TimeTot,
+                                                UploadTot, DownloadTot,
+                                                NumtasksTot, RestartsTot}),
+            Reply
+    end.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns a neatly formatted string for the given job and its stats
+%%
+%% @spec nodestats_string_formatter(Data) -> String
+%% 
+%% @end
+%%--------------------------------------------------------------------
+nodestats_string_formatter(
+  {NodeName, Jobs, Power, Time, Upload, Download, Numtasks, Restarts}) ->
+    lists:flatten(
+      io_lib:format(
+        "Stats for node: ~p~n"
+        "------------------------------------------------------------~n"
+        "Jobs worked on by node: ~p~n"
+        "Time passed: ~p seconds"
+        "Power used: ~p watts~n"
+        "Upload: ~p bytes~n"
+	"Download: ~p bytes~n"
+        "Number of tasks: ~p~n"
+        "Number of task restarts:~p~n",
+        [NodeName, Jobs, Power, Time, Upload, Download, Numtasks, Restarts])).
 
 %%--------------------------------------------------------------------
 %% @doc

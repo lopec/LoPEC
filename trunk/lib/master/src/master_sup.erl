@@ -45,12 +45,13 @@ init(no_args) ->
     % Used modules
     chronicler:info("~w : creating children~n", [?MODULE]),
     Dispatcher = child(dispatcher, worker, no_args),
-    Listener = child(listener, worker, no_args),    
+    Listener = child(listener, worker, no_args),
     DbDaemon = child(db, worker, [test]),
     Statistician = child(statistician, worker, [master]),
-    
+    Examiner = child(examiner, worker, no_args),
     % Returning supervisor specification
-    {ok,{{one_for_one,1,60}, [Dispatcher, DbDaemon, Listener, Statistician]}}.
+    {ok,{{one_for_one,1,60},
+         [Dispatcher, DbDaemon, Listener, Examiner, Statistician]}}.
 
 %%%===================================================================
 %%% Internal functions

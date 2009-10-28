@@ -16,7 +16,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/1, update/1, job_finished/1, stop/0,
+-export([start_link/1, update/1, job_finished/1, remove_node/1, stop/0,
          get_job_stats/1, get_node_stats/1]).
 
 %% gen_server callbacks
@@ -58,24 +58,24 @@ stop() ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Returns a formatted string of all the stats related to JobID
+%% Returns a formatted string of all the stats related to JobId
 %%
-%% @spec get_job_stats(JobID) -> String
+%% @spec get_job_stats(JobId) -> String
 %% @end
 %%--------------------------------------------------------------------
-get_job_stats(JobID) ->
-    gen_server:call(?SERVER,{get_job_stats, JobID}).
+get_job_stats(JobId) ->
+    gen_server:call(?SERVER,{get_job_stats, JobId}).
 
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Returns a formatted string of all the stats related to NodeName
+%% Returns a formatted string of all the stats related to NodeId
 %%
-%% @spec get_node_stats(NodeName) -> String
+%% @spec get_node_stats(NodeId) -> String
 %% @end
 %%--------------------------------------------------------------------
-get_node_stats(NodeName) ->
-    gen_server:call(?SERVER,{get_node_stats, NodeName}).
+get_node_stats(NodeId) ->
+    gen_server:call(?SERVER,{get_node_stats, NodeId}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -91,18 +91,28 @@ update(Data) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Jobs that are finished in our cluster should be dumped to file and
-%% cleared out of our stats table, but we have to wait to make sure
+%% Jobs that are finished in our cluster should have their stats dumped to 
+%% file and cleared out of the table, but we have to wait to make sure
 %% that all slaves have sent their stat updates. This is NOT exact,
 %% but we hope waiting two update intervals will be sufficient.
 %%
-%% @spec job_finished(JobID) -> please_wait_a_few_seconds
+%% @spec job_finished(JobId) -> please_wait_a_few_seconds
 %% @end
 %%--------------------------------------------------------------------
-job_finished(JobID) ->
+job_finished(JobId) ->
     {ok, _TimerRef} = timer:send_after(?UPDATE_INTERVAL*2, ?SERVER,
-                                       {job_finished, JobID}),
+                                       {job_finished, JobId}),
     please_wait_a_few_seconds.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% If a node dies, we should remove it from our (global) stats.
+%%
+%% @spec remove_node(NodeId) -> ok.
+%% @end
+%%--------------------------------------------------------------------
+remove_node(NodeId) ->
+    gen_server:cast(?SERVER, {remove_node, NodeId}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -141,24 +151,24 @@ init([slave]) ->
 %% @doc
 %% @see job_stats/1
 %%
-%% @spec handle_call({get_job_stats, JobID}, From, State) ->
+%% @spec handle_call({get_job_stats, JobId}, From, State) ->
 %%                                   {reply, Reply, State} 
 %% @end
 %%--------------------------------------------------------------------
-handle_call({get_job_stats, JobID}, _From, State) ->
-    Reply = job_stats(JobID),
+handle_call({get_job_stats, JobId}, _From, State) ->
+    Reply = job_stats(JobId),
     {reply, Reply, State};
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
 %% @see node_stats/1
 %%
-%% @spec handle_call({get_node_stats, NodeName}, From, State) ->
+%% @spec handle_call({get_node_stats, NodeId}, From, State) ->
 %%                                   {reply, Reply, State} 
 %% @end
 %%--------------------------------------------------------------------
-handle_call({get_node_stats, NodeName}, _From, State) ->
-    Reply = node_stats(NodeName),
+handle_call({get_node_stats, NodeId}, _From, State) ->
+    Reply = node_stats(NodeId),
     {reply, Reply, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -185,20 +195,20 @@ handle_call(Msg, From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({update,
-             {{NodeName, JobID, TaskType},
+             {{NodeId, JobId, TaskType},
               Power, Time, Upload, Download, Numtasks, Restarts}},
             State) ->
     T = stats,
-    Job = ets:lookup(T, {NodeName, JobID, TaskType}),
+    Job = ets:lookup(T, {NodeId, JobId, TaskType}),
     case Job of
         [] ->
-            ets:insert(T, {{NodeName, JobID, TaskType},
+            ets:insert(T, {{NodeId, JobId, TaskType},
                            Power, Time, Upload, Download, Numtasks, Restarts});
         
-        [{{NodeName, JobID, TaskType},
+        [{{NodeId, JobId, TaskType},
           OldPower,OldTime, OldUpload,OldDownload, OldNumtasks,OldRestarts}] ->
             
-            ets:insert(T, {{NodeName, JobID, TaskType},
+            ets:insert(T, {{NodeId, JobId, TaskType},
                         Power    + OldPower,
                         Time     + OldTime,
                         Upload   + OldUpload,
@@ -211,18 +221,18 @@ handle_cast({update,
         undefined ->
             foo; %slaves do not have global_stats_master defined
         _Other ->
-            Node = ets:lookup(T2, {NodeName, JobID, TaskType}),
+            Node = ets:lookup(T2, {NodeId, JobId, TaskType}),
             case Node of
                 [] ->
-                    ets:insert(T2, {{NodeName, JobID, TaskType},
+                    ets:insert(T2, {{NodeId, JobId, TaskType},
                                     Power, Time, Upload,
                                     Download, Numtasks, Restarts});
                 
-                [{{NodeName, JobID, TaskType},
+                [{{NodeId, JobId, TaskType},
                   OldNodePower, OldNodeTime, OldNodeUpload, OldNodeDownload,
                   OldNodeNumtasks, OldNodeRestarts}] ->
                     
-                    ets:insert(T2, {{NodeName, JobID, TaskType},
+                    ets:insert(T2, {{NodeId, JobId, TaskType},
                                 Power+OldNodePower,
                                 Time+OldNodeTime,
                                 Upload+OldNodeUpload,
@@ -248,7 +258,7 @@ handle_cast(stop, State) ->
 %% Breaks the received list into small bits and updates the master table
 %% with the contents.
 %%
-%% @spec handle_cast(Msg, State) -> {noreply, State} 
+%% @spec handle_cast({update_with_list, List}, State) -> {noreply, State} 
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({update_with_list, List}, State) ->
@@ -259,16 +269,36 @@ handle_cast({update_with_list, List}, State) ->
 %% @doc
 %% @see job_finished/1
 %%
-%% @spec handle_cast(Msg, State) -> {noreply, State} 
+%% @spec handle_cast({job_finished, JobId}, State) -> {noreply, State} 
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({job_finished, JobID}, State) ->
-    JobStats = job_stats(JobID),
-    ets:match_delete(stats, {{'_', JobID, '_'},'_','_','_','_','_','_'}),
+handle_cast({job_finished, JobId}, State) ->
+    JobStats = job_stats(JobId),
+    ets:match_delete(stats, {{'_', JobId, '_'},'_','_','_','_','_','_'}),
     {ok, Root} =
         configparser:read_config("/etc/clusterbusters.conf", cluster_root),
     file:write_file(Root ++ "results/" ++
-                  integer_to_list(JobID) ++ "/stats", JobStats),
+                  integer_to_list(JobId) ++ "/stats", JobStats),
+    {noreply, State};
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% @see remove_node/1
+%% We do not delete data from the job stats tables when a node leaves,
+%% only from the global stats. 
+%% Should produce a file: /storage/test/results/node_#_stats
+%%
+%% @spec handle_cast({remove_node, NodeId}, State) -> {noreply, State} 
+%% @end
+%%--------------------------------------------------------------------
+handle_cast({remove_node, NodeId}, State) ->
+    NodeStats = node_stats(NodeId),
+    ets:match_delete(global_stats_master, 
+                     {{NodeId, '_', '_'},'_','_','_','_','_','_'}),
+    {ok, Root} =
+        configparser:read_config("/etc/clusterbusters.conf", cluster_root),
+    file:write_file(Root ++ "results/node_" ++
+                  integer_to_list(NodeId) ++ "_stats", NodeStats),
     {noreply, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -303,11 +333,11 @@ handle_info(flush, State) ->
 %% @doc
 %% @see job_finished/1
 %%
-%% @spec handle_info({job_finished, JobID}, State) -> {noreply, State} 
+%% @spec handle_info({job_finished, JobId}, State) -> {noreply, State} 
 %% @end
 %%--------------------------------------------------------------------
-handle_info({job_finished, JobID}, State) ->
-    gen_server:cast(?SERVER, {job_finished, JobID}),
+handle_info({job_finished, JobId}, State) ->
+    gen_server:cast(?SERVER, {job_finished, JobId}),
     {noreply, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -377,25 +407,25 @@ code_change(OldVsn, State, Extra) ->
 %% Extracts info about the given job and returns a formatted string
 %% with its stats.
 %%
-%% @spec job_stats(JobID) -> String
+%% @spec job_stats(JobId) -> String
 %% 
 %% @end
 %%--------------------------------------------------------------------
-job_stats(JobID) ->
+job_stats(JobId) ->
     T = stats,
-    case ets:match(T, {{'_', JobID, '_'}, '$1', '_', '_', '_', '_', '_'}) of
+    case ets:match(T, {{'_', JobId, '_'}, '$1', '_', '_', '_', '_', '_'}) of
         [] ->
             {error, no_such_job_in_stats};
         _Other ->
-            Split    = ets:match(T, {{'_', JobID, split},
+            Split    = ets:match(T, {{'_', JobId, split},
                                      '$1', '$2', '$3', '$4', '$5', '$6'}),
-            Map      = ets:match(T, {{'_', JobID, map},
+            Map      = ets:match(T, {{'_', JobId, map},
                                      '$1', '$2', '$3', '$4', '$5', '$6'}),
-            Reduce   = ets:match(T, {{'_', JobID, reduce},
+            Reduce   = ets:match(T, {{'_', JobId, reduce},
                                      '$1', '$2', '$3', '$4', '$5', '$6'}),
-            Finalize = ets:match(T, {{'_', JobID, finalize},
+            Finalize = ets:match(T, {{'_', JobId, finalize},
                                      '$1', '$2', '$3', '$4', '$5', '$6'}),
-            Nodes    = ets:match(T, {{'$1', JobID, '_'},
+            Nodes    = ets:match(T, {{'$1', JobId, '_'},
                                      '_','_','_','_','_','_'}),
             UniqueNodes = lists:umerge(Nodes),
             
@@ -412,13 +442,13 @@ job_stats(JobID) ->
 	    TimePassed = ((list_to_integer(
 			     integer_to_list(Mega) ++
 			     integer_to_list(Sec) ++
-			     integer_to_list(Micro))) - JobID) / 1000000,
+			     integer_to_list(Micro))) - JobId) / 1000000,
             
             SplitStrings = taskstats_string_formatter(split, SumSplit),
             MapStrings = taskstats_string_formatter(map, SumMap),
             ReduceStrings = taskstats_string_formatter(reduce, SumReduce),
             FinalStrings = taskstats_string_formatter(finalize, SumFinal),
-            Reply = jobstats_string_formatter({JobID,
+            Reply = jobstats_string_formatter({JobId,
                                                SplitStrings,
                                                MapStrings,
                                                ReduceStrings,
@@ -435,25 +465,25 @@ job_stats(JobID) ->
 %% with its stats. Similar in effect to job_stats, but surprisingly
 %% different in execution.
 %%
-%% @spec node_stats(NodeName) -> String
+%% @spec node_stats(NodeId) -> String
 %% 
 %% @end
 %%--------------------------------------------------------------------
-node_stats(NodeName) ->
+node_stats(NodeId) ->
     T = global_stats_master,
-    case ets:match(T, {{NodeName, '_', '_'}, '$1', '_', '_', '_', '_', '_'}) of
+    case ets:match(T, {{NodeId, '_', '_'}, '$1', '_', '_', '_', '_', '_'}) of
         [] ->
             {error, no_such_node_in_stats};
         _Other ->
-            Jobs = ets:match(T, {{NodeName, '$1','_'},'_','_','_','_','_','_'}),
+            Jobs = ets:match(T, {{NodeId, '$1','_'},'_','_','_','_','_','_'}),
             UniqueJobs = lists:umerge(Jobs),
             
-            Power   =ets:match(T,{{NodeName,'_','_'},'$1','_','_','_','_','_'}),
-            Time    =ets:match(T,{{NodeName,'_','_'},'_','$1','_','_','_','_'}),
-            Upload  =ets:match(T,{{NodeName,'_','_'},'_','_','$1','_','_','_'}),
-            Download=ets:match(T,{{NodeName,'_','_'},'_','_','_','$1','_','_'}),
-            Numtasks=ets:match(T,{{NodeName,'_','_'},'_','_','_','_','$1','_'}),
-            Restarts=ets:match(T,{{NodeName,'_','_'},'_','_','_','_','_','$1'}),
+            Power   =ets:match(T,{{NodeId,'_','_'},'$1','_','_','_','_','_'}),
+            Time    =ets:match(T,{{NodeId,'_','_'},'_','$1','_','_','_','_'}),
+            Upload  =ets:match(T,{{NodeId,'_','_'},'_','_','$1','_','_','_'}),
+            Download=ets:match(T,{{NodeId,'_','_'},'_','_','_','$1','_','_'}),
+            Numtasks=ets:match(T,{{NodeId,'_','_'},'_','_','_','_','$1','_'}),
+            Restarts=ets:match(T,{{NodeId,'_','_'},'_','_','_','_','_','$1'}),
 
             %instead of lists:sum(lists:flatten()) we could use a foldl
             %that takes out the head of each sublist and adds it to an
@@ -465,7 +495,7 @@ node_stats(NodeName) ->
             NumtasksTot = lists:sum(lists:flatten(Numtasks)),
             RestartsTot = lists:sum(lists:flatten(Restarts)),
             
-            Reply = nodestats_string_formatter({NodeName, UniqueJobs,
+            Reply = nodestats_string_formatter({NodeId, UniqueJobs,
                                                 PowerTot, TimeTot,
                                                 UploadTot, DownloadTot,
                                                 NumtasksTot, RestartsTot}),
@@ -481,19 +511,19 @@ node_stats(NodeName) ->
 %% @end
 %%--------------------------------------------------------------------
 nodestats_string_formatter(
-  {NodeName, Jobs, Power, Time, Upload, Download, Numtasks, Restarts}) ->
+  {NodeId, Jobs, Power, Time, Upload, Download, Numtasks, Restarts}) ->
     lists:flatten(
       io_lib:format(
         "Stats for node: ~p~n"
         "------------------------------------------------------------~n"
         "Jobs worked on by node: ~p~n"
-        "Time passed: ~p seconds"
+        "Time passed: ~p seconds~n"
         "Power used: ~p watts~n"
         "Upload: ~p bytes~n"
 	"Download: ~p bytes~n"
         "Number of tasks: ~p~n"
         "Number of task restarts:~p~n",
-        [NodeName, Jobs, Power, Time, Upload, Download, Numtasks, Restarts])).
+        [NodeId, Jobs, Power, Time, Upload, Download, Numtasks, Restarts])).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -504,7 +534,7 @@ nodestats_string_formatter(
 %% @end
 %%--------------------------------------------------------------------
 jobstats_string_formatter(
-  {JobID, SplitString, MapString, ReduceString, FinalizeString, TimePassed,
+  {JobId, SplitString, MapString, ReduceString, FinalizeString, TimePassed,
    Nodes, [Power, TimeExecuted, Upload, Download, Numtasks, Restarts]}) ->
     lists:flatten(
       io_lib:format(
@@ -520,7 +550,7 @@ jobstats_string_formatter(
 	"Download: ~p bytes~n"
         "Number of tasks: ~p~n"
         "Number of restarts:~p~n",
-        [JobID, SplitString, MapString, ReduceString, FinalizeString, Nodes,
+        [JobId, SplitString, MapString, ReduceString, FinalizeString, Nodes,
 	 TimePassed,TimeExecuted, Power, Upload,Download, Numtasks, Restarts])).
 
 %%--------------------------------------------------------------------

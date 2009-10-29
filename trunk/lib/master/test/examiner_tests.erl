@@ -62,4 +62,6 @@ report_test() ->
 out_of_bounds_test() ->
     examiner:start_link(),
     ?assertEqual({error, "There are no jobs."}, examiner:get_promising_job()).
-    
+
+stop_test() ->
+    db:stop().

@@ -314,7 +314,7 @@ handle_cast({remove_node, NodeId}, State) ->
     {ok, Root} =
         configparser:read_config(?CONFIGFILE, cluster_root),
     file:write_file(Root ++ "results/node_" ++
-                  integer_to_list(NodeId) ++ "_stats", NodeStats),
+                  NodeId ++ "_stats", NodeStats),
     chronicler:info("Node removed from cluster! Stats:~n~p~n", [NodeStats]),
     {noreply, State};
 %%--------------------------------------------------------------------

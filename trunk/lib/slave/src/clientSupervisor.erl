@@ -50,9 +50,9 @@ start_link() ->
 %%--------------------------------------------------------------------
 init(no_args) ->
     {ok,{{one_for_one, 1, 60},
-	 [child(taskSupervisor, supervisor, no_args),
-	  child(dynamicSupervisor, supervisor, no_args),
-          child(statistician, worker, [slave])
+	 [child(dynamicSupervisor, supervisor, no_args),
+          child(statistician, worker, [slave]),
+	  child(taskFetcher, worker, [])
 	 ]
 	}
     }.

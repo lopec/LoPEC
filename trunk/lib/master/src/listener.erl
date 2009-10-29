@@ -7,6 +7,8 @@
 %%% Created : 12 Okt 2009 by Burbas
 %%%-----------------------------------------------------------------------------
 -module(listener).
+-include("../include/env.hrl").
+
 -behaviour(gen_server).
 
 -export([add_job/5, add_job/6, get_job_name/1, remove_job_name/1,
@@ -248,7 +250,7 @@ code_change(OldVsn, State, Extra) ->
 %%------------------------------------------------------------------------------
 is_valid_jobtype(JobType) ->
     {ok, Root} = 
-        configparser:read_config("/etc/clusterbusters.conf", cluster_root),
+        configparser:read_config(?CONFIGFILE, cluster_root),
     JobTypeString = atom_to_list(JobType),
     ProgramFile = Root++"programs/"++JobTypeString++"/script.sh",
     % Because there is no function to check if file exists.
@@ -264,7 +266,7 @@ add_new_job(ProgramName, ProblemType, Owner, Priority, InputData) ->
            JobId = dispatcher:add_job({ProgramName, ProblemType, Owner, Priority}),
            % Read the structurepath from configfile
             {ok, Root} =
-                configparser:read_config("/etc/clusterbusters.conf", cluster_root),
+                configparser:read_config(?CONFIGFILE, cluster_root),
             JobRoot = lists:flatten(io_lib:format("/tmp/~p/", [JobId])),
             % Make the directory-structure
             [filelib:ensure_dir(Root ++ JobRoot ++ SubDir)

@@ -10,6 +10,7 @@
 %%%-------------------------------------------------------------------
 
 -module(computingProcess).
+-include("../include/env.hrl").
 
 -behaviour(gen_server).
 
@@ -40,7 +41,7 @@
 start_link(Path, Op, JobId, InputPath, TaskId) ->
     chronicler:info("~w : application started~n", [?MODULE]),
     StringId = integer_to_list(JobId),
-    {ok, Root} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
+    {ok, Root} = configparser:read_config(?CONFIGFILE, cluster_root),
     Prog = Root ++ "programs/" ++ atom_to_list(Path) ++ "/script.sh",
     LoadPath = Root ++ InputPath,
     SavePath = Root ++
@@ -82,7 +83,7 @@ stop() ->
 %% @end
 %%--------------------------------------------------------------------
 init([Progname, Path, "split", LoadPath, SavePath, JobId, TaskId]) ->
-    {ok, Val} = configparser:read_config("/etc/clusterbusters.conf", split_value),
+    {ok, Val} = configparser:read_config(?CONFIGFILE, split_value),
     chronicler:debug("~w : Path: ~ts~nOperation: ~ts~nLoadpath: ~ts~nSavepath: ~ts~nJobId: ~p~n",
                      [?MODULE, Path, "split", LoadPath, SavePath, JobId]),
     open_port({spawn_executable, Path},

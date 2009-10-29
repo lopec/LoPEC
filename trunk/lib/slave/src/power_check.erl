@@ -8,6 +8,8 @@
 %%%-------------------------------------------------------------------
 
 -module(power_check).
+-include("../include/env.hrl").
+
 -export([get_load/1, get_watt/1, get_watt_per_task/1]).
 
 %%--------------------------------------------------------------------
@@ -42,12 +44,12 @@ get_load(Period) ->
 %%--------------------------------------------------------------------
 get_watt(Period) ->
     Load = get_load(Period),
-    {ok, Cores} = configparser:read_config("/etc/clusterbusters.conf", cores),
+    {ok, Cores} = configparser:read_config(?CONFIGFILE, cores),
     %% This is not a very effective way to measure watt. But it's the only way right know.
     {ok, HLW} =
-        configparser:read_config("/etc/clusterbusters.conf", high_load_watt),
+        configparser:read_config(?CONFIGFILE, high_load_watt),
     {ok, LLW} =
-        configparser:read_config("/etc/clusterbusters.conf", low_load_watt),
+        configparser:read_config(?CONFIGFILE, low_load_watt),
     case Load of 
         Load when Load > Cores ->
             HLW;

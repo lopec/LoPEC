@@ -163,7 +163,7 @@ init(no_args) ->
     error_logger:logfile({open, node()}),
 
     %TODO add module information logging level
-    State = #state{loggingLevel = [error, user_info, info, warning, debug]},
+    State = #state{loggingLevel = [error, user_info, info, warning]},
 
     %register the externalLogger if we are not the logger process
     case "logger" == lists:takewhile(fun(X)->X /= $@ end, atom_to_list(node())) of

@@ -12,6 +12,7 @@
 %%% Created : 21 Oct 2009 by Axel Andren <axelandren@gmail.com>
 %%%-------------------------------------------------------------------
 -module(statistician).
+-include("../include/env.hrl").
 
 -behaviour(gen_server).
 
@@ -290,7 +291,7 @@ handle_cast({job_finished, JobId}, State) ->
 	    ok
     end,
     {ok, Root} =
-        configparser:read_config("/etc/clusterbusters.conf", cluster_root),
+        configparser:read_config(?CONFIGFILE, cluster_root),
     file:write_file(Root ++ "results/" ++
                   integer_to_list(JobId) ++ "/stats", JobStats),
     chronicler:info("Job finished! Stats:~n~p~n", [JobStats]),
@@ -311,7 +312,7 @@ handle_cast({remove_node, NodeId}, State) ->
     ets:match_delete(global_stats_master, 
                      {{NodeId, '_', '_'},'_','_','_','_','_','_'}),
     {ok, Root} =
-        configparser:read_config("/etc/clusterbusters.conf", cluster_root),
+        configparser:read_config(?CONFIGFILE, cluster_root),
     file:write_file(Root ++ "results/node_" ++
                   integer_to_list(NodeId) ++ "_stats", NodeStats),
     chronicler:info("Node removed from cluster! Stats:~n~p~n", [NodeStats]),

@@ -298,6 +298,7 @@ get_progress_percentage(Job) ->
 update_job(JobStats, TaskType, NewTaskState) ->
     JobId = JobStats#job_stats.job_id,
     Task = get_task(TaskType, JobStats),
+    chronicler:debug("Tuple: ~p", [Task]),
     {Event, UpdatedTask} = update_task(Task, NewTaskState),
     case Event of
         first_assigned ->

@@ -163,6 +163,7 @@ handle_cast({task_request, NodeId, From}, State) ->
 %%--------------------------------------------------------------------
 handle_cast({free_tasks, NodeId}, State) ->
     Jobs = db:free_tasks(NodeId),
+    chronicler:debug("Freed tasks: ~p", [Jobs]),
     examiner:report_free(Jobs),
     {noreply, State};
 %%--------------------------------------------------------------------
@@ -285,11 +286,17 @@ mark_done(TaskId) ->
 
 create_task(TaskSpec) ->
     chronicler:debug("TaskSpec: ~p", [TaskSpec]),
-    NewTaskId = db:add_task(TaskSpec),
-    Task = db:get_task(NewTaskId),
-    chronicler:debug("Create Examiner: ~p", [examiner:get_progress(Task#task.job_id)]),
-    examiner:report_created(Task#task.job_id, Task#task.type),
-    NewTaskId.
+    case db:add_task(TaskSpec) of
+        task_not_added ->
+            chronicler:debug
+                ("Duplicate task was not created", []);
+        NewTaskId ->
+            Task = db:get_task(NewTaskId),
+            chronicler:debug
+                ("Create: ~p", [examiner:get_progress(Task#task.job_id)]),
+            examiner:report_created(Task#task.job_id, Task#task.type),
+            NewTaskId
+    end.
 
 %%%===================================================================
 %%% Not implemented stuff

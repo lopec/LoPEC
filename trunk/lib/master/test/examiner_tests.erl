@@ -57,7 +57,8 @@ report_test() ->
     examiner:report_created(JobId, finalize),
     examiner:report_assigned(JobId, finalize),
     examiner:report_done(JobId, finalize),
-    examiner:remove(JobId).
+    examiner:remove(JobId),
+    db:stop().
 
 out_of_bounds_test() ->
     examiner:start_link(),

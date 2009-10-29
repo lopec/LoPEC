@@ -98,7 +98,9 @@ free_tasks_test() ->
             dispatcher:add_task(MapTask2),
             %Expecting to get added tasks back
             Task1 = db:fetch_task(node()),
+            examiner:report_assigned(Task1#task.job_id, Task1#task.type),
             Task2 = db:fetch_task(node()),
+            examiner:report_assigned(Task2#task.job_id, Task2#task.type),
             chronicler:debug("~p: Found task1 ~p.~n",[?MODULE, Task1]),
             chronicler:debug("~p: Found task2 ~p.~n",[?MODULE, Task2]),
             ?assert(no_task /= Task1),
@@ -114,3 +116,6 @@ free_tasks_test() ->
             chronicler:error("free_tasks: Fetching timed out", [])
     end,
     end_per_test_case(JobId).
+
+end_test() ->
+    db:stop().

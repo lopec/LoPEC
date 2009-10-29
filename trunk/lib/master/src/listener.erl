@@ -11,8 +11,8 @@
 
 -behaviour(gen_server).
 
--export([add_job/5, add_job/6, get_job_name/1, remove_job_name/1,
-         is_valid_jobtype/1]).
+-export([add_job/5, add_job/6, pause_job/1, resume_job/1, stop_job/1,
+         get_job_name/1, remove_job_name/1, is_valid_jobtype/1]).
 
 -export([start_link/0, init/1, handle_call/3, handle_cast/2, handle_info/2, 
         terminate/2, code_change/3]).
@@ -57,6 +57,18 @@ add_job(ProgramName, ProblemType, Owner, Priority, InputData, Name) ->
 add_job(ProgramName, ProblemType, Owner, Priority, InputData) ->
     chronicler:info("~w called new_job~n", [?MODULE]),
     add_job(ProgramName, ProblemType, Owner, Priority, InputData, no_name).
+
+
+pause_job(JobId) ->
+    chronicler:user_info("~w : Paused job with Id=~p~n", [?MODULE, JobId]),
+    gen_server:call(?MODULE, {pause_job, JobId}).
+
+resume_job(JobId) ->
+    chronicler:user_info("~w : Resumed job with Id=~p~n", [?MODULE, JobId]),
+    gen_server:call(?MODULE, {resume_job, JobId}).
+
+stop_job(JobId) ->
+    chronicler:user_info("~w : Stopped job with Id=~p~n", [?MODULE, JobId]).
 
 %%------------------------------------------------------------------------------
 %% @doc
@@ -158,6 +170,47 @@ handle_call({remove_job_name, JobId}, _From, State) ->
     NewJobs = dict:erase(JobId, State#state.active_jobs),
     NewState = State#state{active_jobs = NewJobs},
     {reply, Reply, NewState};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Pauses a job
+%%
+%% @spec handle_call({pause_job, JobId}, From, State) ->
+%%           {reply, ok, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({pause_job, JobId}, _From, State) ->
+    db:pause_job(JobId),
+    {reply, ok, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Resumes a job
+%%
+%% @spec handle_call({resume_job, JobId}, From, State) ->
+%%           {reply, ok, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({resume_job, JobId}, _From, State) ->
+    db:resume_job(JobId),
+    {reply, ok, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Stops a job
+%%
+%% @spec handle_call({stop_job, JobId}, From, State) ->
+%%           {reply, ok, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({stop_job, JobId}, _From, State) ->
+    db:stop_job(JobId),
+    {reply, ok, State};
+
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc

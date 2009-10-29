@@ -84,9 +84,9 @@ report_done(JobId, TaskType) ->
                     {update_entry, JobId, TaskType, done}).
 
 %% @doc
-%% Report that all tasks ({JobId, TaskType}) in Tasks were freed.
+%% Report that all tasks ({JobId, TaskType}) in Jobs were freed.
 %%
-%% @spec report_free(Tasks) -> ok
+%% @spec report_free(Jobs) -> ok
 %% @end
 report_free(Jobs) ->
     gen_server:call({global, ?MODULE},

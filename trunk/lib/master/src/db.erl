@@ -47,9 +47,9 @@
 start_link(test) ->
     {ok, Pid} = start_link(),
     create_tables(ram_copies),
+    chronicler:info("~w:Database started in test environment.~n",
+		    [?MODULE]),
     {ok, Pid}.
-%    chronicler:info("~w:Database started in test environment.~n",
-%                         [?MODULE])).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -72,10 +72,9 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 stop() ->
-    gen_server:cast(?SERVER, stop).
-%    chronicler:info("~w:Database stopped.~n",
-%                         [?MODULE])).
-
+    gen_server:cast(?SERVER, stop),
+    chronicler:info("~w:Database stopped.~n",
+		    [?MODULE]).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -94,10 +93,10 @@ stop() ->
 %% @end
 %%--------------------------------------------------------------------
 create_tables(StorageType) ->
-    gen_server:call(?SERVER, {create_tables, StorageType}).
-%    chronicler:info("~w:Tables created.~n"
-%                    "Type:~p~n",
-%                         [?MODULE, StorageType])).
+    gen_server:call(?SERVER, {create_tables, StorageType}),
+    chronicler:info("~w:Tables created.~n"
+                    "Type:~p~n",
+		    [?MODULE, StorageType]).
 
 		
 %%====================================================================
@@ -117,21 +116,12 @@ create_tables(StorageType) ->
 %% @end
 %%--------------------------------------------------------------------
 add_job({ProgramName, ProblemType, Owner, Priority}) ->
-    gen_server:call(?SERVER, {add_job, 
-			      #job{program_name = ProgramName,
-				   problem_type = ProblemType,
-				   owner        = Owner,
-				   priority     = Priority}}).
-%    chronicler:debug("~w:Added job.~n"
-%                     "JobId:~p~n"
-%                     "Program name:~p~n"
-%                     "Problem type:~p~n"
-%                     "Owner:~p~n"
-%                     "Priority:~p~n",
-%                         [?MODULE, JobId, ProgramName, ProblemType,
-%                          Owner, Priority])).
+    _JobId = gen_server:call(?SERVER, {add_job, 
+				       #job{program_name = ProgramName,
+					    problem_type = ProblemType,
+					    owner        = Owner,
+					    priority     = Priority}}).
 
-    
 %%--------------------------------------------------------------------
 %% @doc
 %%
@@ -142,10 +132,6 @@ add_job({ProgramName, ProblemType, Owner, Priority}) ->
 %%--------------------------------------------------------------------
 remove_job(JobId) ->
     gen_server:call(?SERVER, {remove_job, JobId}).
-%    chronicler:debug("~w:Removed job.~n"
-%                     "JobId:~p~n",
-%                         [?MODULE, JobId])).
-
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -190,9 +176,9 @@ add_task({JobId, ProgramName, Type, Path}) ->
 				      {exists_path, TableName, JobId, Path});
  	_NotAType ->
  	    TableName = '$not_a_table',
-	    AddFlag = true
- 	    %chronicler:error("~w:add_task failed: 
-            %Incorrect input type: ~p~n", [?MODULE, Type]))
+	    AddFlag = true,
+ 	    chronicler:error("~w:add_task failed:" 
+			     "Incorrect input type: ~p~n", [?MODULE, Type])
      end,
     case AddFlag of
 	false ->
@@ -263,10 +249,10 @@ set_job_path(JobId, NewPath) ->
 %% @end
 %%--------------------------------------------------------------------
 mark_done(TaskId) ->
-    gen_server:call(?SERVER, {set_task_state, TaskId, done}).
-%    chronicler:debug("~w:Marked task as done.~n"
-%                     "TaskId:~p~n",
-%                         [?MODULE, TaskId])).
+    gen_server:call(?SERVER, {set_task_state, TaskId, done}),
+    chronicler:debug("~w:Marked task as done.~n"
+                     "TaskId:~p~n",
+		     [?MODULE, TaskId]).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -278,10 +264,10 @@ mark_done(TaskId) ->
 %% @end
 %%--------------------------------------------------------------------
 pause_job(JobId) ->
-    set_job_state(JobId, paused).
-%    chronicler:info("~w:Paused job.~n"
-%                     "JobId:~p~n",
-%                         [?MODULE, JobId])).
+    set_job_state(JobId, paused),
+    chronicler:info("~w:Paused job.~n"
+                     "JobId:~p~n",
+		    [?MODULE, JobId]).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -308,14 +294,14 @@ stop_job(JobId) ->
     GetNode = fun(H) ->
 		      gen_server:call(?SERVER, {get_node, H})
 	      end,
-    _ListOfNodes = lists:map(GetNode, 
-			     lists:filter(Filter, ListOfTasks)).
-%    chronicler:info("~w:Stopped job.~n"
-%                     "JobId:~p~n"
-%                     "Affected nodes:~p~n",
-%                         [?MODULE, JobId, ListOfNodes])).
-
- 
+    ListOfNodes = lists:map(GetNode, 
+			     lists:filter(Filter, ListOfTasks)),
+    chronicler:info("~w:Stopped job.~n"
+		    "JobId:~p~n"
+		    "Affected nodes:~p~n",
+		    [?MODULE, JobId, ListOfNodes]),
+    ListOfNodes.
+    
 %%--------------------------------------------------------------------
 %% @doc
 %%
@@ -326,10 +312,10 @@ stop_job(JobId) ->
 %% @end
 %%--------------------------------------------------------------------
 resume_job(JobId) ->
-    set_job_state(JobId, free).
-%    chronicler:info("~w:Resumed job.~n"
-%                     "JobId:~p~n",
-%                         [?MODULE, JobId])).
+    set_job_state(JobId, free),
+    chronicler:info("~w:Resumed job.~n"
+		    "JobId:~p~n",
+		    [?MODULE, JobId]).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -354,9 +340,9 @@ free_tasks(NodeId) ->
 			 TaskType = Task#task.type,
 			 {JobId, TaskType}
 		 end,
-%    chronicler:debug("~w:Freed tasks from node:~p~n"
-%                     "Tasks:~p~n",
-%                         [?MODULE, NodeId, ListOfTasks])).
+    chronicler:debug("~w:Freed tasks from node:~p~n"
+                     "Tasks:~p~n",
+		     [?MODULE, NodeId, ListOfTasks]),
     _ReturnList = lists:map(MakeReturn, ListOfTasks).
 
 %%--------------------------------------------------------------------
@@ -511,6 +497,15 @@ handle_call({create_tables, StorageType}, _From, State) ->
 handle_call({add_job, Job}, _From, State) ->
     JobId = generate_id(),
     add(job, Job#job{job_id=JobId}),
+    chronicler:debug("~w:Added job.~n"
+                     "JobId:~p~n"
+                     "Program name:~p~n"
+                     "Problem type:~p~n"
+                     "Owner:~p~n"
+                     "Priority:~p~n",
+		     [?MODULE, JobId, Job#job.program_name, 
+		      Job#job.problem_type, Job#job.owner, 
+		      Job#job.priority]),
     {reply, JobId, State};
 
 %%--------------------------------------------------------------------
@@ -534,6 +529,9 @@ handle_call({remove_job, JobId}, _From, State) ->
 		     remove(task_relations, H)
 	   end,
     lists:foreach(Remove, ListOfTasks),
+    chronicler:debug("~w:Removed job and associated tasks.~n"
+                     "JobId:~p~n",
+		     [?MODULE, JobId]),
     {reply, ok, State};
 
 %%--------------------------------------------------------------------
@@ -597,9 +595,9 @@ handle_call({fetch_task, NodeId}, _From, State) ->
 		Task
 	end,
     {atomic, Result} = mnesia:transaction(F),
-    %chronicler:debug("~w:Retrieved task."
-    %                 "Task:~p~n",    
-    %                 [?MODULE, Result]),
+    chronicler:debug("~w:Retrieved task."
+                     "Task:~p~n",    
+                     [?MODULE, Result]),
     {reply, Result, State};
 
 %%--------------------------------------------------------------------
@@ -621,11 +619,11 @@ handle_call({add_task, TableName, Task}, _From, State) ->
 				   table_name = TableName},
     add(task_relations, TaskRelation),
     set_job_state_internal(Task#task.job_id, free),
-    %chronicler:debug("~w:Added task."
-    %                 "TaskId:~p~n"
-    %                 "JobId:~p~n"
-    %                 "Type:~p~n",    
-    %                 [?MODULE, TaskId, JobId, Task#task.type]),
+    chronicler:debug("~w:Added task."
+                     "TaskId:~p~n"
+                     "JobId:~p~n"
+                     "Type:~p~n",    
+                     [?MODULE, TaskId, Task#task.job_id, Task#task.type]),
     {reply, TaskId, State};
 
 %%--------------------------------------------------------------------
@@ -803,10 +801,10 @@ handle_cast(stop, State) ->
 %% @spec handle_cast(Msg, State) ->  {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast(_Msg, State) ->
-%    chronicler:warning("~w:Received unexpected handle_cast call.~n"
-%                         "Message: ~p~n",
-%                         [?MODULE, Msg])),
+handle_cast(Msg, State) ->
+    chronicler:warning("~w:Received unexpected handle_cast call.~n"
+		       "Message: ~p~n",
+		       [?MODULE, Msg]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -817,10 +815,10 @@ handle_cast(_Msg, State) ->
 %% @spec handle_info(Info, State) -> {noreply, State} 
 %% @end
 %%--------------------------------------------------------------------
-handle_info(_Info, State) -> 
-%    chronicler:warning("~w:Received unexpected handle_info call.~n"
-%                         "Info: ~p~n",
-%                         [?MODULE, Info])),
+handle_info(Info, State) -> 
+    chronicler:warning("~w:Received unexpected handle_info call.~n"
+		       "Info: ~p~n",
+		       [?MODULE, Info]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -834,10 +832,10 @@ handle_info(_Info, State) ->
 %% 
 %% @end
 %%--------------------------------------------------------------------
-terminate(_Reason, _State) ->
-%    chronicler:debug("~w:Received terminate call.~n"
-%                         "Reason: ~p~n",
-%                         [?MODULE, Reason])),
+terminate(Reason, _State) ->
+    chronicler:debug("~w:Received terminate call.~n"
+		     "Reason: ~p~n",
+		     [?MODULE, Reason]),
     application:stop(mnesia).
 %%--------------------------------------------------------------------
 %% @private
@@ -848,11 +846,11 @@ terminate(_Reason, _State) ->
 %% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% @end
 %%--------------------------------------------------------------------
-code_change(_OldVsn, State, _Extra) -> 
-%    chronicler:warning("~w:Received unexpected code_change call.~n"
-%                         "Old version: ~p~n"
-%                         "Extra: ~p~n",
-%                         [?MODULE, OldVsn, Extra])),
+code_change(OldVsn, State, Extra) -> 
+    chronicler:warning("~w:Received unexpected code_change call.~n"
+		       "Old version: ~p~n"
+		       "Extra: ~p~n",
+		       [?MODULE, OldVsn, Extra]),
     {ok, State}.
 
 %%%===================================================================

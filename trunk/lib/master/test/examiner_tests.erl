@@ -12,8 +12,13 @@
 -include_lib("eunit/include/eunit.hrl").
 -export([]).
 
+init_test() ->
+    case whereis(db_server) of
+        undefined -> db:start_link(test);
+        _ -> ok
+    end.
+
 report_test() ->
-    db:start_link(test),
     JobId = db:add_job({raytracer, mapreduce, chabbrik, 0}),
     examiner:start_link(),
     examiner:insert(JobId),

@@ -144,7 +144,15 @@ remove_job(JobId) ->
 %%--------------------------------------------------------------------
 fetch_task(NodeId) ->
     gen_server:call(?SERVER, {fetch_task, NodeId}).
-    
+
+%% @private helper for add_task/1
+call_add(TableName, JobId, ProgramName, Type, Path) ->
+    gen_server:call(?SERVER, {add_task, TableName,
+                              #task{job_id = JobId,
+                                    program_name = ProgramName,
+                                    type = Type,
+                                    path = Path}}).
+
 %%--------------------------------------------------------------------
 %% @doc
 %%
@@ -158,39 +166,24 @@ fetch_task(NodeId) ->
 %%           Type = split | map | reduce | finalize
 %% @end
 %%--------------------------------------------------------------------
-add_task({JobId, ProgramName, Type, Path}) ->
-    case Type of
- 	split ->
-	    TableName = split_free,
-	    AddFlag = false;
- 	map ->
-	    TableName = map_free,
-	    AddFlag = false;
- 	reduce ->
- 	    TableName = reduce_free,
-	    AddFlag = gen_server:call(?SERVER, 
-				      {exists_path, TableName, JobId, Path});
-	 finalize ->
- 	    TableName = finalize_free,
-	    AddFlag = gen_server:call(?SERVER, 
-				      {exists_path, TableName, JobId, Path});
- 	_NotAType ->
- 	    TableName = '$not_a_table',
-	    AddFlag = true,
- 	    chronicler:error("~w:add_task failed:" 
-			     "Incorrect input type: ~p~n", [?MODULE, Type])
-     end,
-    case AddFlag of
-	false ->
-	    gen_server:call(?SERVER, {add_task, 
-				      TableName, 
-				      #task{job_id       = JobId, 
-					    program_name = ProgramName, 
-					    type         = Type, 
-					    path         = Path}});
-	_ ->
-	    task_not_added
-    end.
+add_task({JobId, ProgramName, Type, Path})
+  when Type == reduce;
+       Type == finalize ->
+    TableName = list_to_atom(lists:concat([Type, '_free'])),
+    case gen_server:call(?SERVER, {exists_path, TableName, JobId, Path}) of
+        false ->
+            call_add(TableName, JobId, ProgramName, Type, Path);
+        _ ->
+            task_not_added
+    end;
+add_task({JobId, ProgramName, Type, Path})
+  when Type == split;
+       Type == map ->
+    TableName = list_to_atom(lists:concat([Type, '_free'])),
+    call_add(TableName, JobId, ProgramName, Type, Path);
+add_task({_JobId, _ProgramName, Type, _Path}) ->
+    chronicler:error("~w:add_task failed:" 
+                     "Incorrect input type: ~p~n", [?MODULE, Type]).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -281,7 +274,7 @@ pause_job(JobId) ->
 stop_job(JobId) ->
     set_job_state(JobId, stopped),
     ListOfTasks = list_job_tasks(JobId),
-    Filter = fun(H) ->
+    AssignedFilter = fun(H) ->
 		     Task = get_task(H),
 		     TaskState = Task#task.state,
 		     case TaskState of
@@ -294,8 +287,8 @@ stop_job(JobId) ->
     GetNode = fun(H) ->
 		      gen_server:call(?SERVER, {get_node, H})
 	      end,
-    ListOfNodes = lists:map(GetNode, 
-			     lists:filter(Filter, ListOfTasks)),
+    ListOfNodes =
+        lists:map(GetNode, lists:filter(AssignedFilter, ListOfTasks)),
     chronicler:info("~w:Stopped job.~n"
 		    "JobId:~p~n"
 		    "Affected nodes:~p~n",

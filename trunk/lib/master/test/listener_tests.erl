@@ -11,59 +11,44 @@
 -include("../include/db.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
-%% The way to run this test only, merge 3 lines below and run in console
-%% erl -sname test 
-%% -pa ../../common/ebin -pa ../../ecg/ebin -pa ../../logger/ebin -pa ../ebin 
-%% -run listener_tests test
-%% erl -sname server -pa common/ebin -pa ecg/ebin -pa logger/ebin -pa master/ebin
- 
- job_name_test_() ->
-     {setup,
-        fun () -> 
-            application:start(chronicler),
-            chronicler:set_logging_level(all),
-            application:start(ecg),
-            application:start(common),
-            listener:start_link(),
-            dispatcher:start_link()
-        end,
-        fun (JobId) ->
-            db:remove_job(JobId)
-        end,
-        fun () ->
-            {ok, Root} = configparser:read_config("/etc/clusterbusters.conf", root),
-            listener:add_job(raytracer, split, apanjansson, 0, Root)
-        end
-     }.
+init_test() ->
+    application:start(chronicler),
+    % chronicler:set_logging_level(all),
+    application:start(ecg),
+    application:start(common),
+    db:start_link(test),
+    listener:start_link(),
+    dispatcher:start_link().
 
 end_per_test_case(JobId) ->
     db:remove_job(JobId).
 
-%% job_name_test_() ->
-%%     {setup,
-%%      fun () -> {ok, Root} = configparser:read_config("/etc/clusterbusters.conf",
-%%                                             cluster_root),
-%%                [Root,
-%%                 listener:add_job
-%%                     (raytracer, mapreduce, owner, 0, Root ++ "ray256", ray256),
-%%                 listener:add_job
-%%                     (raytracer, mapreduce, owner, 0, Root ++ "ray256")
-%%                ]
-%%      end,
-%%      fun (_) -> end_per_test_case() end,
-%%      fun ([Root, {ok, Named}, {ok, Anonymous}]) ->
-%%              {inorder,
-%%               [?_assertEqual(anonymous, listener:get_job_name(Anonymous)),
-%%                ?_assertEqual({name, ray256}, listener:get_job_name(Named)),
-%%                ?_assertMatch({error, _},
-%%                     listener:new_job
-%%                    (raytracer, mapreduce, owner, 0, Root ++ "ray256", ray256)),
-%%                ?_assertEqual(ok, listener:remove_job_name(Named)),
-%%                ?_assertEqual(anonymous, listener:get_job_name(Named))                             
-%%               ]
-%%              }
-%%      end
-%%     }.
+remove_jobs(Jobs) ->
+    [db:remove_job(JobId) || {ok, JobId} <- tl(Jobs)].
+
+job_name_test_() ->
+    {setup,
+     fun () -> {ok, Root} =
+                   configparser:read_config("/etc/clusterbusters.conf", cluster_root),
+               [Root,
+                listener:add_job(raytracer, mapreduce, owner, 0, Root ++ "ray256", ray256),
+                listener:add_job(raytracer, mapreduce, owner, 0, Root ++ "ray256")
+               ]
+     end,
+     fun (Jobs) -> remove_jobs(Jobs) end,
+     fun ([Root, {ok, Named}, {ok, Anonymous}]) ->
+             {inorder,
+              [?_assertEqual(anonymous, listener:get_job_name(Anonymous)),
+               ?_assertEqual({name, ray256}, listener:get_job_name(Named)),
+               ?_assertMatch({error, _},
+                             listener:add_job(raytracer, mapreduce, owner,
+                                              0, Root ++ "ray256", ray256)),
+               ?_assertEqual(ok, listener:remove_job_name(Named)),
+               ?_assertEqual(anonymous, listener:get_job_name(Named))                             
+              ]
+             }
+     end
+    }.
 
 job_creation_test() ->
     chronicler:debug("Local processes: ~p", [erlang:registered()]),
@@ -97,4 +82,7 @@ job_creation_test() ->
     end_per_test_case(JobId).
 
 stop_test()->
+    application:stop(chronicler),
+    application:stop(ecg),
+    application:stop(common),
     db:stop().

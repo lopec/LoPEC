@@ -271,17 +271,20 @@ find_task(RequesterPID, NodeId) ->
             chronicler:debug("~p: Found no tasks.~n",[?MODULE]),
             ok;
         Task ->
-            chronicler:debug("~p: Found task ~p.~n",[?MODULE, Task#task.task_id]),
+            chronicler:debug("~p: Found task ~p.~n",
+                             [?MODULE, Task#task.task_id]),
             RequesterPID ! {task_response, Task},
             ecg_server:accept_message({new_node, NodeId}),
-            chronicler:debug("Assign Examiner: ~p", [examiner:get_progress(Task#task.job_id)]),
+            chronicler:debug("Assign Examiner: ~p",
+                             [examiner:get_progress(Task#task.job_id)]),
             examiner:report_assigned(Task#task.job_id, Task#task.type)
     end.
 
 mark_done(TaskId) ->
     db:mark_done(TaskId),
     Task = db:get_task(TaskId),
-    chronicler:debug("Done Examiner: ~p", [examiner:get_progress(Task#task.job_id)]),
+    chronicler:debug("Done Examiner: ~p",
+                     [examiner:get_progress(Task#task.job_id)]),
     examiner:report_done(Task#task.job_id, Task#task.type).
 
 create_task(TaskSpec) ->

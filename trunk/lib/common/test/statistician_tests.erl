@@ -15,7 +15,7 @@ statistician_slave_test_() ->
     {setup,
      fun start_slave/0,
      fun stop_slave/1,
-     fun ({Pid, Now}) ->
+     fun ({Pid, Now, Node1, Node2}) ->
              {inorder,
               [
                ?_assertNot(undefined == ets:info(stats)), 
@@ -24,17 +24,17 @@ statistician_slave_test_() ->
                %Normally we'd wait for the flush, but in tests we're better
                %off doing it manually (and instantly)
                ?_assertEqual(flush, Pid ! flush), %flush when empty...
-               ?_assertEqual(ok,
-                             statistician:update({{1, Now, map},1,1,1,1,1,1})),
+               ?_assertEqual(ok, statistician:update({{Node1, Now, map},
+                                                      1, 1, 1, 1, 1, 1})),
                ?_assertNot({error, no_such_job_in_stats} ==
                              statistician:get_job_stats(Now)),
                ?_assertEqual(flush, Pid ! flush), %flush with 1 element...
                ?_assertEqual({error, no_such_job_in_stats},
                              statistician:get_job_stats(Now)),
-               ?_assertEqual(ok,
-                             statistician:update({{2,Now,reduce},2,2,2,2,2,2})),
-               ?_assertEqual(ok,
-                             statistician:update({{1, Now, map},1,1,1,1,1,1})),
+               ?_assertEqual(ok, statistician:update({{Node2 ,Now, reduce},
+                                                      2, 2, 2, 2, 2, 2})),
+               ?_assertEqual(ok, statistician:update({{Node1, Now, map},
+                                                      1, 1, 1, 1, 1, 1})),
                ?_assertEqual(flush, Pid ! flush), %flush with multiple elements
                ?_assertEqual({error, no_such_job_in_stats},
                              statistician:get_job_stats(Now))
@@ -46,35 +46,35 @@ statistician_master_test_() ->
     {setup,
      fun start_master/0,
      fun stop_master/1,
-     fun ({Pid, Now1, Now2, Now3}) ->
+     fun ({Pid, {Now1, Now2, Now3}, {Node1, Node2, Node3, Node4}}) ->
              {inorder,
               [
                ?_assertEqual({error, no_such_job_in_stats},
                              statistician:get_job_stats(Now1)),
                ?_assertEqual({error, no_such_node_in_stats},
-                             statistician:get_node_stats(1)),
-               ?_assertEqual(ok,
-                             statistician:update({{1, Now1, 3},0,0,0,0,0,0})),
+                             statistician:get_node_stats(Node1)),
+               ?_assertEqual(ok, statistician:update({{Node1, Now1, 3},
+                                                      0, 0, 0, 0, 0, 0})),
                ?_assertNot({error, no_such_job_in_stats} ==
                            statistician:get_job_stats(Now1)),
                ?_assertNot({error, no_such_node_in_stats} ==
-                           statistician:get_node_stats(1)),
+                           statistician:get_node_stats(Node1)),
                %job_finished (API function) requires waiting for ~3 seconds,
                %which we don't really want to do in tests. Thus, a direct call:
                ?_assertEqual({job_finished, Now1}, Pid ! {job_finished, Now1}),
                ?_assertEqual({error, no_such_job_in_stats},
                              statistician:get_job_stats(Now1)),
-               ?_assertEqual(ok, statistician:update({{1, Now3, split},
-                                                      1,1,1,1,1,1})),
-               ?_assertEqual(ok, statistician:update({{20, Now2, map},
-                                                      2,2,2,2,2,2})),
-               ?_assertEqual(ok, statistician:update({{3, Now1, reduce},
-                                                      3,3,3,3,3,3})),
-               ?_assertEqual(ok, statistician:update({{4,Now1,finalize},
-                                                      2,2,2,2,2,2})),
+               ?_assertEqual(ok, statistician:update({{Node1, Now3, split},
+                                                      1, 1, 1, 1, 1, 1})),
+               ?_assertEqual(ok, statistician:update({{Node2, Now2, map},
+                                                      2, 2, 2, 2, 2, 2})),
+               ?_assertEqual(ok, statistician:update({{Node3, Now1, reduce},
+                                                      3, 3, 3, 3, 3, 3})),
+               ?_assertEqual(ok, statistician:update({{Node4, Now1, finalize},
+                                                      2, 2, 2, 2, 2, 2})),
                %Should add up to {{_,Now1,finalize},4,4,4,4,4}
-               ?_assertEqual(ok, statistician:update({{4,Now1,finalize},
-                                                      2,2,2,2,2,2})),
+               ?_assertEqual(ok, statistician:update({{Node4, Now1, finalize},
+                                                      2, 2, 2, 2, 2, 2})),
                %Unfortunately we cannot test that the numbers are correct, as
                %it would require checking against a 30-line string, and one of
                %the values in it (Time passed) cannot be known until runtime.
@@ -95,11 +95,11 @@ statistician_master_test_() ->
                              statistician:get_job_stats(Now1)),
                %Jobs are finished and removed, but node should remain...
                ?_assertNot({error, no_such_node_in_stats} ==
-                           statistician:get_node_stats(1)),
+                           statistician:get_node_stats(Node1)),
                %...Until now!
-               ?_assertEqual(ok, statistician:remove_node(1)),
+               ?_assertEqual(ok, statistician:remove_node(Node1)),
                ?_assertEqual({error, no_such_node_in_stats},
-                           statistician:get_node_stats(1)),
+                           statistician:get_node_stats(Node1)),
                %GARBAGE TESTS FOR 100% COVERAGE FOLLOW, MAY BE REMOVED FREELY
                ?_assertEqual(please_wait_a_few_seconds,
                              statistician:job_finished(Now3)),
@@ -124,14 +124,18 @@ statistician_master_test_() ->
 start_master() ->
     application:start(chronicler),
     application:start(common),
+    Node1 = node(),
+    Node2 = 'fakenode@10.10.10.10',
+    Node3 = 'notrealnode@20.20.20.20',
+    Node4 = 'mongo@10.20.30.40',
     {ok, Pid} = statistician:start_link(master),
     {Mega, Sec, Micro} = now(),
     Now1 = list_to_integer(lists:concat([Mega, Sec, Micro])),
     Now2 = Now1 + 23124,
     Now3 = Now1 - 14155,
-    {Pid, Now1, Now2, Now3}.
+    {Pid, {Now1, Now2, Now3}, {Node1, Node2, Node3, Node4}}.
 
-stop_master({_Pid, _Now1, _Now2, _Now3}) ->
+stop_master({_Pid, {_Now1, _Now2, _Now3}, {_Node1, _Node2, _Node3, _Node4}}) ->
     application:stop(chronicler),
     application:stop(common),
     statistician:stop().
@@ -140,11 +144,13 @@ start_slave() ->
     application:start(chronicler),
     application:start(common),
     {ok, Pid} = statistician:start_link(slave),
+    Node1 = node(),
+    Node2 = 'lolnode@10.20.30.40',
     {Mega, Sec, Micro} = now(),
     Now = list_to_integer(lists:concat([Mega, Sec, Micro])),
-    {Pid, Now}.
+    {Pid, Now, Node1, Node2}.
 
-stop_slave({_Pid, _Now}) ->
+stop_slave({_Pid, _Now, _Node1, _Node2}) ->
     application:stop(chronicler),
     application:stop(common),
     statistician:stop().

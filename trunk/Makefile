@@ -57,4 +57,4 @@ test.spec: test.spec.in
 
 common_test: test.spec build
 	mkdir -p log
-	run_test -pa $(PWD)/lib/*/ebin -spec test.spec -cover coverspec
+	run_test +W w -pa $(PWD)/lib/*/ebin -spec test.spec -cover coverspec

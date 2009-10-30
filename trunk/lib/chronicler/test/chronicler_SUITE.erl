@@ -29,21 +29,26 @@ init_per_suite(Config) ->
 
 % required, but can just return Config. this is a suite level tear down function.
 end_per_suite(Config) ->
-    % do custom per suite cleanup here
-    Config.
+    ok.
 
 % optional, can do function level setup for all functions,
 % or for individual functions by matching on TestCase.
+init_per_testcase(unittest, Config) ->
+    Config;
 init_per_testcase(TestCase, Config) ->
+    application:start(common),
     application:start(chronicler),
     {ok, File} = file:open(error_logger:logfile(filename), read),
     [{filePointer, File}].
 
 % optional, can do function level tear down for all functions,
 % or for individual functions by matching on TestCase.
-end_per_testcase(TestCase, [{filePointer, File}]) ->
+end_per_testcase(unittest, Config) ->
+    Config;
+end_per_testcase(TestCase, [{filePointer, File}]) -> % do custom per suite cleanup here
     application:stop(chronicler),
-    file:close(File);
+    file:close(File),
+    ok;
 end_per_testcase(TestCase, Config) ->
     ok.
 
@@ -65,16 +70,26 @@ testing_log(File, LoggingLevel, LevelString, Msg, Arg) ->
     lists:prefix(lists:flatten(io_lib:format(Msg, Arg)), io:get_line(File, "")).
 
 info_log_test([{filePointer, File}]) ->
-    testing_log(File, info, "=INFO REPORT=", "This is a info ~p", [test]).
+    testing_log(File, info, "=INFO REPORT=", "This is a info ~p", [test]);
+info_log_test(Config) ->
+    ok.
 
 error_log_test([{filePointer, File}]) ->
-    testing_log(File, error, "=ERROR REPORT=", "This is a error ~p", [test]).
+    testing_log(File, error, "=ERROR REPORT=", "This is a error ~p", [test]);
+error_log_test(Config) ->
+    ok.
 
 debug_log_test([{filePointer, File}]) ->
-    testing_log(File, debug, "=INFO REPORT=", "This is a debug ~p", [test]).
+    testing_log(File, debug, "=INFO REPORT=", "This is a debug ~p", [test]);
+debug_log_test(Config) ->
+    ok.
 
 warning_log_test([{filePointer, File}]) ->
-    testing_log(File, warning, "=WARNING REPORT=", "This is a warning ~p", [test]).
+    testing_log(File, warning, "=WARNING REPORT=", "This is a warning ~p", [test]);
+warning_log_test(Config) ->
+    ok.
 
 user_info_log_test([{filePointer, File}]) ->
-    testing_log(File, user_info, "=INFO REPORT=", "This is a user_info ~p", [test]).
+    testing_log(File, user_info, "=INFO REPORT=", "This is a user_info ~p", [test]);
+user_info_log_test(Config) ->
+    ok.

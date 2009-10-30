@@ -10,6 +10,7 @@ testing_log(LoggingLevel, LevelString, Msg, Arg) ->
         fun (File) ->
                 {inorder,
                     [
+                        ?_assertEqual(ok, chronicler:set_logging_level([LoggingLevel])),
                         ?_assertEqual(ok, chronicler:LoggingLevel(Msg, Arg)),
                         ?_assertMatch("\n", io:get_line(File, "")),
                         ?_assertMatch("=INFO REPORT=" ++ _, io:get_line(File, "")),
@@ -37,8 +38,9 @@ user_info_log_test_() ->
     testing_log(user_info, "=INFO REPORT=", "This is a user_info ~p", [test]).
 
 start_logger() ->
+    application:start(common),
     application:start(chronicler),
-    {ok, File} = file:open(nonode@nohost, read),
+    {ok, File} = file:open(chronicler:fetch_logfile(), read),
     File.
 
 stop_logger(File) ->

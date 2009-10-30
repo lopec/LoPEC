@@ -36,7 +36,6 @@
         end
      }.
 
-
 end_per_test_case(JobId) ->
     db:remove_job(JobId).
 
@@ -99,4 +98,3 @@ job_creation_test() ->
 
 stop_test()->
     db:stop().
-

@@ -8,6 +8,6 @@
         externalLogger
             ]},
     {registered, [externalLoggerPID]},
-    {applications, [kernel, stdlib]},
+    {applications, [kernel, stdlib, common]},
     {mod, {chronicler_app,[]}}
     ]}.

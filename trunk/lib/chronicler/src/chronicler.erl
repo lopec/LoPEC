@@ -31,7 +31,8 @@
         warning/2,
         debug/2,
         user_info/2,
-        set_logging_level/1
+        set_logging_level/1,
+        fetch_logfile/0
     ]).
 
 %% gen_server callbacks
@@ -143,6 +144,15 @@ user_info(Format, Args) ->
 set_logging_level(NewLevel) ->
     gen_server:cast(?MODULE, {new_level, NewLevel}).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns the logging file currently in use.
+%%
+%% @spec fetch_logfile() -> string()
+%% @end
+%%--------------------------------------------------------------------
+fetch_logfile() ->
+    gen_server:call(?MODULE, {fetch_logfile}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -160,10 +170,18 @@ set_logging_level(NewLevel) ->
 %% @end
 %%--------------------------------------------------------------------
 init(no_args) ->
-    error_logger:logfile({open, node()}),
+    case error_logger:logfile(filename) of
+        {error, no_log_file} ->
+            {ok, LogDir} = configparser:read_config("/etc/clusterbusters.conf", log_dir),
+            LogFile = LogDir ++ atom_to_list(node()),
+            ok = error_logger:logfile({open, LogFile});
+        LogFile ->
+            LogFile
+    end,
 
     %TODO add module information logging level
-    State = #state{loggingLevel = [error, user_info, info, warning]},
+    State = #state{loggingLevel = [error, user_info, info, warning],
+                   logFile = LogFile},
 
     %register the externalLogger if we are not the logger process
     case "logger" == lists:takewhile(fun(X)->X /= $@ end, atom_to_list(node())) of
@@ -184,6 +202,8 @@ init(no_args) ->
 %% @spec handle_call(Msg, From, State) ->  {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
+handle_call({fetch_logfile}, _From, State) ->
+    {reply, State#state.logFile, state};
 handle_call(Msg, From, State) ->
     chronicler:warning("~w:Received unexpected handle_call call.~n"
         "Message: ~p~n"

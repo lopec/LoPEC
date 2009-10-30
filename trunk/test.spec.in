@@ -7,7 +7,7 @@
 {alias, common, "@PATH@/lib/common"}.
 
 {suites, chronicler, [chronicler_SUITE]}.
-{suites, master, [master_SUITE]}.
-{suites, ecg, [ecg_SUITE]}.
-{suites, common, [common_SUITE]}.
-{suites, slave, [slave_SUITE]}.
+%{suites, master, [master_SUITE]}.
+%{suites, ecg, [ecg_SUITE]}.
+%{suites, common, [common_SUITE]}.
+%{suites, slave, [slave_SUITE]}.

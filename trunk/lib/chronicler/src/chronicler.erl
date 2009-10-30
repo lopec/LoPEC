@@ -36,8 +36,12 @@
     ]).
 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-        terminate/2, code_change/3]).
+-export([init/1,
+        handle_call/3,
+        handle_cast/2,
+        handle_info/2,
+        terminate/2,
+        code_change/3]).
 
 
 %%%===================================================================
@@ -180,7 +184,7 @@ init(no_args) ->
     end,
 
     %TODO add module information logging level
-    State = #state{loggingLevel = [error, user_info, info, warning],
+    State = #state{loggingLevel = [],
                    logFile = LogFile},
 
     %register the externalLogger if we are not the logger process
@@ -203,7 +207,7 @@ init(no_args) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({fetch_logfile}, _From, State) ->
-    {reply, State#state.logFile, state};
+    {reply, State#state.logFile, State};
 handle_call(Msg, From, State) ->
     chronicler:warning("~w:Received unexpected handle_call call.~n"
         "Message: ~p~n"
@@ -222,11 +226,16 @@ handle_call(Msg, From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({new_level, all}, State) ->
-    {noreply, State#state{loggingLevel =
-            [info, debug, user_info, warning, error]}};
+handle_cast({new_level, [all]}, State) ->
+    NewState = State#state{loggingLevel = [info,
+                                           debug,
+                                           user_info,
+                                           warning,
+                                           error]},
+    {noreply, NewState};
 handle_cast({new_level, NewLevel}, State) ->
-    {noreply, State#state{loggingLevel = NewLevel}};
+    NewState = State#state{loggingLevel = NewLevel},
+    {noreply, NewState};
 handle_cast({Level, Msg}, State) ->
     case is_level_logging_on(Level, State) of
         true ->

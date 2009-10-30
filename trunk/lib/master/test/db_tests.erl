@@ -46,6 +46,7 @@ db_test() ->
     Task1 = {JobAId, raytracer, split, 'ystads-nisse/pron'},
     Task1Id = db:add_task(Task1),
     Task1Fetch = db:fetch_task(bongobongo),
+    ?assertMatch(#task{}, Task1Fetch),
     ?assertEqual(Task1Id, Task1Fetch#task.task_id),
     
     % Try to fetch another task, should receive no_task

@@ -16,7 +16,10 @@ init_test() ->
     % chronicler:set_logging_level(all),
     application:start(ecg),
     application:start(common),
-    db:start_link(test),
+    case whereis(db_server) of
+        undefined -> db:start_link(test);
+        _ -> ok
+    end,
     listener:start_link(),
     dispatcher:start_link().
 

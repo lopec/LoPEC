@@ -52,18 +52,27 @@ report_test() ->
     ?assertEqual({3,0,0}, (examiner:get_progress(JobId))#job_stats.reduce),
     ?assertEqual({ok, JobId}, examiner:get_promising_job()),
     examiner:report_assigned(JobId, reduce),
+    ?assertEqual({2,1,0}, (examiner:get_progress(JobId))#job_stats.reduce),
     examiner:report_assigned(JobId, reduce),
+    ?assertEqual({1,2,0}, (examiner:get_progress(JobId))#job_stats.reduce),
     examiner:report_assigned(JobId, reduce),
+    ?assertEqual({0,3,0}, (examiner:get_progress(JobId))#job_stats.reduce),
     examiner:report_assigned(JobId, map),
+    ?assertEqual({0,1,1}, (examiner:get_progress(JobId))#job_stats.map),
     examiner:report_done(JobId, map),
+    ?assertEqual({0,0,2}, (examiner:get_progress(JobId))#job_stats.map),
     examiner:report_done(JobId, reduce),
+    ?assertEqual({0,2,1}, (examiner:get_progress(JobId))#job_stats.reduce),
     examiner:report_done(JobId, reduce),
+    ?assertEqual({0,1,2}, (examiner:get_progress(JobId))#job_stats.reduce),
     examiner:report_done(JobId, reduce),
+    ?assertEqual({0,0,3}, (examiner:get_progress(JobId))#job_stats.reduce),
     examiner:report_created(JobId, finalize),
+    ?assertEqual({1,0,0}, (examiner:get_progress(JobId))#job_stats.finalize),
     examiner:report_assigned(JobId, finalize),
-    examiner:report_done(JobId, finalize),
-    examiner:remove(JobId),
-    db:stop().
+    ?assertEqual({0,1,0}, (examiner:get_progress(JobId))#job_stats.finalize),
+    examiner:report_done(JobId, finalize).
+    %examiner:remove(JobId).
 
 out_of_bounds_test() ->
     examiner:start_link(),

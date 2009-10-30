@@ -51,7 +51,7 @@ get_progress(JobId) ->
 %% @spec remove(JobId) -> ok
 %% @end
 remove(JobId) ->
-	gen_server:call({global, ?MODULE}, {remove_entry, JobId}).
+    gen_server:cast({global, ?MODULE}, {remove_entry, JobId}).
 
 %% @doc
 %% Report that a task of type TaskType in the job with the id JobId was
@@ -60,7 +60,7 @@ remove(JobId) ->
 %% @spec report_created(JobId, TaskType) -> ok
 %% @end
 report_created(JobId, TaskType) ->
-    gen_server:call({global, ?MODULE},
+    gen_server:cast({global, ?MODULE},
                     {update_entry, JobId, TaskType, created}).
 
 %% @doc
@@ -70,7 +70,7 @@ report_created(JobId, TaskType) ->
 %% @spec report_assigned(JobId, TaskType) -> ok
 %% @end
 report_assigned(JobId, TaskType) ->
-    gen_server:call({global, ?MODULE},
+    gen_server:cast({global, ?MODULE},
                     {update_entry, JobId, TaskType, assigned}).
 
 %% @doc
@@ -80,17 +80,17 @@ report_assigned(JobId, TaskType) ->
 %% @spec report_done(JobId, TaskType) -> ok
 %% @end
 report_done(JobId, TaskType) ->
-    gen_server:call({global, ?MODULE},
+    gen_server:cast({global, ?MODULE},
                     {update_entry, JobId, TaskType, done}).
 
 %% @doc
 %% Report that all tasks ({JobId, TaskType}) in Jobs were freed.
 %%
-%% @spec report_free(Jobs) -> ok
+%% @spec report_free(Tasks) -> ok
 %% @end
-report_free(Jobs) ->
-    gen_server:call({global, ?MODULE},
-                    {free_entries, Jobs}).
+report_free(Tasks) ->
+    gen_server:cast({global, ?MODULE},
+                    {free_entries, Tasks}).
 
 %% @doc
 %% Insert a new job to be tracked by examiner.
@@ -99,7 +99,7 @@ report_free(Jobs) ->
 %% @spec insert(JobId) -> ok
 %% @end
 insert(JobId) ->
-    gen_server:call({global, ?MODULE}, {insert_entry, JobId}).
+    gen_server:cast({global, ?MODULE}, {insert_entry, JobId}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -148,12 +148,18 @@ handle_call({get_progress, JobId}, _From, State) ->
     [Item] = ets:lookup(job_status, JobId),
     {reply, Item, State};
 
-handle_call({remove_entry, JobId}, _From, State) ->
-    ets:delete(job_status, JobId),
-    {reply, ok, State};
+handle_call(Msg, From, State) ->
+    chronicler:warning("~w:Received unexpected handle_call from ~p.~n"
+                       "Msg: ~p~n",
+                       [?MODULE, From, Msg]),
+    {noreply, State}.
 
-handle_call({update_entry, JobId, TaskType, NewTaskState},
-             _From, State) ->
+%% @private
+handle_cast({remove_entry, JobId}, State) ->
+    ets:delete(job_status, JobId),
+    {noreply, State};
+
+handle_cast({update_entry, JobId, TaskType, NewTaskState}, State) ->
     [Item] = ets:lookup(job_status, JobId),
     case update_job(Item, TaskType, NewTaskState) of
         #job_stats{split = {0,0,_},
@@ -164,9 +170,9 @@ handle_call({update_entry, JobId, TaskType, NewTaskState},
         UpdatedJob ->
             ets:insert(job_status, UpdatedJob)
     end,
-    {reply, ok, State};
+    {noreply, State};
 
-handle_call({free_entries, Tasks}, _From, State) ->
+handle_cast({free_entries, Tasks}, State) ->
     UpdateTask =
         fun ({JobId, TaskType}) ->
                 [Job] = ets:lookup(job_status, JobId),
@@ -174,14 +180,13 @@ handle_call({free_entries, Tasks}, _From, State) ->
                 ets:insert(job_status, UpdatedJob)
         end,
     lists:foreach(fun (TaskEntry) -> UpdateTask(TaskEntry) end, Tasks),
-    {reply, ok, State};
+    {noreply, State};
 
-handle_call({insert_entry, JobId}, _From, State) ->
+handle_cast({insert_entry, JobId}, State) ->
     NewRecord = #job_stats{job_id = JobId},
     ets:insert(job_status, NewRecord),
-    {reply, ok, State}.
+    {noreply, State};
 
-%% @private
 handle_cast(Msg, State) ->
     chronicler:warning("~w:Received unexpected handle_cast call.~n"
                        "Info: ~p~n",

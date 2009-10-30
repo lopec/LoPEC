@@ -304,15 +304,35 @@ update_job(JobStats, TaskType, NewTaskState) ->
         first_assigned ->
             chronicler:user_info("The first ~p task in ~p was started.",
                                  [TaskType, JobId]);
-        all_done when TaskType == finalize ->
-            chronicler:user_info("The job ~p is done.",
-                                 [JobId]),
-            statistician:job_finished(JobId),
-            db:remove_job(JobId);
         all_done ->
-            chronicler:user_info("All ~p tasks in ~p are done.",
-                                 [TaskType, JobId]);
+            case {all_previous_done(JobStats, TaskType), TaskType} of
+                {false, _} -> nothing_to_see_here_move_along;
+                {true, finalize} ->
+                    chronicler:user_info("Job ~p is done.",
+                                         [JobId]),
+                    statistician:job_finished(JobId),
+                    db:remove_job(JobId);
+                {true, _} ->
+                    chronicler:user_info("All ~p tasks in ~p are done.",
+                                         [TaskType, JobId])
+            end;
         nothing -> ok
     end,
     _UpdatedJob = set_task(JobStats, TaskType, UpdatedTask).
 
+%% @doc
+%% true iff all tasks in the previous step of map reduce are done
+%%
+%% @spec all_previous_done(JobStats, TaskType) -> true | false
+%% @end
+all_previous_done(#job_stats{split = {0,0,_}},
+                  map) ->
+    true;
+all_previous_done(#job_stats{split = {0,0,_}, map = {0,0,_}},
+                  reduce) ->
+    true;
+all_previous_done(#job_stats{split = {0,0,_}, map = {0,0,_}, reduce = {0,0,_}},
+                  finalize) ->
+    true;
+all_previous_done(_, _) ->
+    false.

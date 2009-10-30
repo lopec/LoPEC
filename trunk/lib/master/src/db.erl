@@ -735,7 +735,6 @@ handle_call({list_node_tasks, NodeId}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(stop, State) ->
-    application:stop(mnesia),
     {stop, normal, State};
 
 %%--------------------------------------------------------------------

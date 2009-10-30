@@ -38,6 +38,7 @@ get_net_stats() ->
             Up = list_to_integer(hd(string:tokens(lists:nth(2, A), " "))),
             Down = list_to_integer(hd(string:tokens(lists:nth(3, A), " ")));
         _ ->
+	    chronicler:debug("~w : get_net_stats() called on unsupported OS~n"),
 	    {Up, Down} = {olol, din_dummis}
     end,
     {Up, Down}.

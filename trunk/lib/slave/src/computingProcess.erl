@@ -39,7 +39,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link(Path, Op, JobId, InputPath, TaskId) ->
-    chronicler:info("~w : application started~n", [?MODULE]),
+    chronicler:info("~w : application starting~n", [?MODULE]),
     StringId = integer_to_list(JobId),
     {ok, Root} = configparser:read_config(?CONFIGFILE, cluster_root),
     Prog = Root ++ "programs/" ++ atom_to_list(Path) ++ "/script.sh",
@@ -64,7 +64,7 @@ start_link(Path, Op, JobId, InputPath, TaskId) ->
 %%--------------------------------------------------------------------
 
 stop() ->
-    chronicler:info("~w : module stopped~n", [?MODULE]),
+    chronicler:info("~w : module stopping~n", [?MODULE]),
     gen_server:cast(?SERVER, stop).
 
 %%%===================================================================

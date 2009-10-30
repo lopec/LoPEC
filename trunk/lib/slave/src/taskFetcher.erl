@@ -138,7 +138,7 @@ handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType, _Progname}},
     dispatcher:report_task_done(TaskId),
 
     %% Reinstate poll timer and request task
-    {ok, Timer} = timer:send_interval(1000, poll),
+    {ok, Timer} = timer:send_interval(?TASK_FETCH_INTERVAL, poll),
     request_task(),
     {noreply, {#state{work_state = no_task, timer = Timer}, {NewUp, NewDown}}};
 

@@ -919,8 +919,10 @@ add(TableName, Record) ->
     F = fun() ->
 		mnesia:write(TableName, Record, write)
 	end,
-    mnesia:transaction(F),
-    ok.
+    case mnesia:transaction(F) of
+        {atomic, _} -> ok;
+        {aborted, Reason} -> {error, Reason}
+    end.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -935,8 +937,10 @@ remove(TableName, Key) ->
     F = fun() ->
 		mnesia:delete(TableName, Key, write)
 	end,
-    mnesia:transaction(F),
-    ok.
+    case mnesia:transaction(F) of
+        {atomic, _} -> ok;
+        {aborted, Reason} -> {error, Reason}
+    end.
 
 %%--------------------------------------------------------------------
 %% @private

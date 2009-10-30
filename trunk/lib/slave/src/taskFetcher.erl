@@ -24,6 +24,7 @@
 
 -define(DYNSUP, dynamicSupervisor).
 -define(WORKER, computingProcess).
+-define(TASK_FETCH_INTERVAL, 1000).
 
 -record(state, {work_state = no_task, timer}).
 
@@ -69,7 +70,7 @@ new_task(Data, Type, Path) ->
 %% @end
 %%--------------------------------------------------------------------
 init(no_args) ->
-    {ok, TimerRef} = timer:send_interval(1000, poll),
+    {ok, TimerRef} = timer:send_interval(?TASK_FETCH_INTERVAL, poll),
     {Upload, Download} = netMonitor:get_net_stats(),
     NetStats = {Upload, Download},
     {ok, {#state{timer = TimerRef}, NetStats}}.

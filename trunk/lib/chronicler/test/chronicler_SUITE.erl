@@ -61,10 +61,12 @@ unittest(_Config) ->
     ok.
 
 testing_log(File, LoggingLevel, LevelString, Msg, Arg) ->
+    chronicler:set_logging_level([LoggingLevel]),
     ok = chronicler:LoggingLevel(Msg, Arg),
-    "\n" = io:get_line(File, ""),
-    "=INFO REPORT=" ++ _ = io:get_line(File, ""),
-    "Chronicler application started\n" = io:get_line(File, ""),
+    timer:sleep(500),
+    %"\n" = io:get_line(File, ""),
+    %"=INFO REPORT=" ++ _ = io:get_line(File, ""),
+    %"Chronicler application started\n" = io:get_line(File, ""),
     "\n" = io:get_line(File, ""),
     lists:prefix(LevelString, io:get_line(File, "")),
     lists:prefix(lists:flatten(io_lib:format(Msg, Arg)), io:get_line(File, "")).

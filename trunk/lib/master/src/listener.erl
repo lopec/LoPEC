@@ -328,12 +328,10 @@ add_new_job(ProgramName, ProblemType, Owner, Priority, InputData) ->
             Return = file:copy(InputData, Root ++ JobRoot ++ "/input/data.dat"),
 	    case Return of
 		{ok, BytesCopied} ->
-		    chronicler:info(
-		      io:format("Split data copied, size: ~p~n",[BytesCopied]));
+		    chronicler:info("Split data copied, size: ~p~n",[BytesCopied]);
 		{error, Reason} ->
-		    chronicler:error(
-		      io:format("Could not copy split data, reason: ~p~n",
-				[Reason]))
+		    chronicler:error("Could not copy split data, reason: ~p~n",
+                                     [Reason])
 	    end,
             dispatcher:add_task({JobId, ProgramName, split, JobRoot ++ "/input/data.dat"}),
             JobId;

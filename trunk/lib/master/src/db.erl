@@ -397,58 +397,20 @@ init(_Args) ->
 handle_call({create_tables, StorageType}, _From, State) ->
     % Set the options for the tables, such as how to store them.
     Opts = [{type, set}, {StorageType, [node()]}],
-    % Create all the tables
+    % Create the job table
     {atomic, ok} = mnesia:create_table(
 		     job, 
 		     [{attributes, record_info(fields, job)}|Opts]),
-    {atomic, ok} = mnesia:create_table(
-		     split_free, 
-		     [{record_name, task}, 
-		      {attributes, record_info(fields, task)}|Opts]),
-    {atomic, ok} = mnesia:create_table(
-		     split_assigned,
-		     [{record_name, task},  
-		      {attributes, record_info(fields, task)}|Opts]),
-    {atomic, ok} = mnesia:create_table(
-		     split_done,
-		     [{record_name, task},  
-		      {attributes, record_info(fields, task)}|Opts]),    
-    {atomic, ok} = mnesia:create_table(
-		     map_free,
-		     [{record_name, task}, 
-		      {attributes, record_info(fields, task)}|Opts]),
-    {atomic, ok} = mnesia:create_table(
-		     map_assigned,
-		     [{record_name, task},  
-		      {attributes, record_info(fields, task)}|Opts]),
-    {atomic, ok} = mnesia:create_table(
-		     map_done,
-		     [{record_name, task},  
-		      {attributes, record_info(fields, task)}|Opts]),
-    {atomic, ok} = mnesia:create_table(
-		     reduce_free,
-		     [{record_name, task},  
-		      {attributes, record_info(fields, task)}|Opts]),
-    {atomic, ok} = mnesia:create_table(
-		     reduce_assigned,
-		     [{record_name, task},  
-		      {attributes, record_info(fields, task)}|Opts]),
-    {atomic, ok} = mnesia:create_table(
-		     reduce_done,
-		     [{record_name, task},  
-		      {attributes, record_info(fields, task)}|Opts]),
-    {atomic, ok} = mnesia:create_table(
-		     finalize_free,
-		     [{record_name, task},  
-		      {attributes, record_info(fields, task)}|Opts]),
-    {atomic, ok} = mnesia:create_table(
-		     finalize_assigned,
-		     [{record_name, task},  
-		      {attributes, record_info(fields, task)}|Opts]),
-    {atomic, ok} = mnesia:create_table(
-		     finalize_done,
-		     [{record_name, task},  
-		      {attributes, record_info(fields, task)}|Opts]),
+    TaskTableNames =
+        [list_to_atom(lists:concat([TaskType, '_', TaskState]))
+         || TaskType <- [split, map, reduce, finalize],
+            TaskState <- [free, assigned, done]],
+    % Create all the task tables
+    [{atomic, ok} = mnesia:create_table(
+                      TableName,
+                      [{record_name, task}, 
+                       {attributes, record_info(fields, task)}|Opts])
+     || TableName <- TaskTableNames],
     {atomic, ok} = mnesia:create_table(
 		     assigned_tasks,
 		     [{record_name, assigned_tasks},  
@@ -461,18 +423,8 @@ handle_call({create_tables, StorageType}, _From, State) ->
     % Add secondary keys to some of the tables
     mnesia:add_table_index(assigned_task, job_id),
     mnesia:add_table_index(assigned_task, node_id),
-    mnesia:add_table_index(split_free, job_id),
-    mnesia:add_table_index(split_assigned, job_id),
-    mnesia:add_table_index(split_done, job_id),
-    mnesia:add_table_index(map_free, job_id),
-    mnesia:add_table_index(map_assigned, job_id),
-    mnesia:add_table_index(map_done, job_id),
-    mnesia:add_table_index(reduce_free, job_id),
-    mnesia:add_table_index(reduce_assigned, job_id),
-    mnesia:add_table_index(reduce_done, job_id),
-    mnesia:add_table_index(finalize_free, job_id),
-    mnesia:add_table_index(finalize_assigned, job_id),
-    mnesia:add_table_index(finalize_done, job_id),
+    [mnesia:add_table_index(TableName, job_id)
+     || TableName <- TaskTableNames],
     {reply, tables_created, State};
 
 %%--------------------------------------------------------------------

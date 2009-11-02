@@ -28,28 +28,28 @@ init_per_suite(Config) ->
     Config.
 
 % required, but can just return Config. this is a suite level tear down function.
-end_per_suite(Config) ->
+end_per_suite(_Config) ->
     ok.
 
 % optional, can do function level setup for all functions,
 % or for individual functions by matching on TestCase.
 init_per_testcase(unittest, Config) ->
     Config;
-init_per_testcase(TestCase, Config) ->
+init_per_testcase(_TestCase, Config) ->
     application:start(common),
     application:start(chronicler),
     {ok, File} = file:open(error_logger:logfile(filename), read),
-    [{filePointer, File}].
+    [{filePointer, File} | Config].
 
 % optional, can do function level tear down for all functions,
 % or for individual functions by matching on TestCase.
 end_per_testcase(unittest, Config) ->
     Config;
-end_per_testcase(TestCase, [{filePointer, File}]) -> % do custom per suite cleanup here
+end_per_testcase(_TestCase, [{filePointer, File}]) -> % do custom per suite cleanup here
     application:stop(chronicler),
     file:close(File),
     ok;
-end_per_testcase(TestCase, Config) ->
+end_per_testcase(_TestCase, _Config) ->
     ok.
 
 %%%%%%%%%%%%%%%%
@@ -73,25 +73,25 @@ testing_log(File, LoggingLevel, LevelString, Msg, Arg) ->
 
 info_log_test([{filePointer, File}]) ->
     testing_log(File, info, "=INFO REPORT=", "This is a info ~p", [test]);
-info_log_test(Config) ->
+info_log_test(_Config) ->
     ok.
 
 error_log_test([{filePointer, File}]) ->
     testing_log(File, error, "=ERROR REPORT=", "This is a error ~p", [test]);
-error_log_test(Config) ->
+error_log_test(_Config) ->
     ok.
 
 debug_log_test([{filePointer, File}]) ->
     testing_log(File, debug, "=INFO REPORT=", "This is a debug ~p", [test]);
-debug_log_test(Config) ->
+debug_log_test(_Config) ->
     ok.
 
 warning_log_test([{filePointer, File}]) ->
     testing_log(File, warning, "=WARNING REPORT=", "This is a warning ~p", [test]);
-warning_log_test(Config) ->
+warning_log_test(_Config) ->
     ok.
 
 user_info_log_test([{filePointer, File}]) ->
     testing_log(File, user_info, "=INFO REPORT=", "This is a user_info ~p", [test]);
-user_info_log_test(Config) ->
+user_info_log_test(_Config) ->
     ok.

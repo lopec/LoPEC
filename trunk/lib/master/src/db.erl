@@ -979,8 +979,10 @@ read(TableName, Key) ->
     F = fun() ->
 		mnesia:read(TableName, Key)
 	end,
-    {atomic, [Result]} = mnesia:transaction(F),
-    Result.
+    case mnesia:transaction(F) of
+        {atomic, [Result]} -> Result;
+        {aborted, Reason} -> {error, Reason}
+    end.
 
 %%--------------------------------------------------------------------
 %% @private

@@ -42,33 +42,60 @@ start_link() ->
 %% Name is the atom the user wants to associate with the job id,
 %% or no_name if no association is wanted.
 %%
-%% @spec add_job(ProgramName, ProblemType, Owner, Priority, InputData, Name) 
+%% @spec add_job(ProgramType, ProblemType, Owner, Priority, InputData, Name) 
 %%                  -> JobID
 %% @end
 %%------------------------------------------------------------------------------
-add_job(ProgramName, ProblemType, Owner, Priority, InputData, Name) ->
+add_job(ProgramType, ProblemType, Owner, Priority, InputData, Name) ->
     chronicler:info("~w : called new_job with a name=~w~n", [?MODULE, Name]),
     gen_server:call(?MODULE, 
-       {new_job, ProgramName, ProblemType, Owner, Priority, InputData, Name}).
+       {new_job, ProgramType, ProblemType, Owner, Priority, InputData, Name}).
 
-%% %@spec add_job(ProgramName, ProblemType, Owner, Priority, InputData)
-%% %@equiv add_job(JobType, InputData, no_name)
-%TODO: Burbas must fix the above two, only he knows how they should look
-add_job(ProgramName, ProblemType, Owner, Priority, InputData) ->
+%%------------------------------------------------------------------------------
+%% @doc
+%% This is the same as add_job/6 but without the 'Name'-variable. 
+%% @spec add_job(ProgramType, ProblemType, Owner, Priority, InputData) 
+%%                  -> JobID
+%% @end
+%%------------------------------------------------------------------------------
+add_job(ProgramType, ProblemType, Owner, Priority, InputData) ->
     chronicler:info("~w called new_job~n", [?MODULE]),
-    add_job(ProgramName, ProblemType, Owner, Priority, InputData, no_name).
+    add_job(ProgramType, ProblemType, Owner, Priority, InputData, no_name).
 
 
+%%------------------------------------------------------------------------------
+%% @doc
+%% Pauses a job.  
+%%
+%% @spec pause_job(JobId) -> ok
+%% @end
+%%------------------------------------------------------------------------------
 pause_job(JobId) ->
     chronicler:user_info("~w : Paused job with Id=~p~n", [?MODULE, JobId]),
     gen_server:call(?MODULE, {pause_job, JobId}).
 
+%%------------------------------------------------------------------------------
+%% @doc
+%% Resumes a paused or stopped job.
+%%
+%% @spec resume_job(JobId) -> ok
+%% @end
+%%------------------------------------------------------------------------------
 resume_job(JobId) ->
     chronicler:user_info("~w : Resumed job with Id=~p~n", [?MODULE, JobId]),
     gen_server:call(?MODULE, {resume_job, JobId}).
 
+%%------------------------------------------------------------------------------
+%% @doc
+%% Stops a job
+%% This method is not yet implemented, so don't use this for now.
+%%
+%% @spec stop_job(JobId) -> ok
+%% @end
+%%------------------------------------------------------------------------------
 stop_job(JobId) ->
-    chronicler:user_info("~w : Stopped job with Id=~p~n", [?MODULE, JobId]).
+    chronicler:user_info("~w : Stopped job with Id=~p~n", [?MODULE, JobId]),
+    ok.
 
 %%------------------------------------------------------------------------------
 %% @doc
@@ -117,13 +144,13 @@ init(_Args) ->
 %%           {reply, JobId, State} | {noreply, State}
 %% @end
 %%------------------------------------------------------------------------------
-handle_call({new_job, ProgramName, ProblemType, Owner, Priority, InputData, Name}, 
+handle_call({new_job, ProgramType, ProblemType, Owner, Priority, InputData, Name}, 
             _From, State) ->
     JobsWithThisName = dict:filter(fun (_Id, JobName) -> JobName == Name end,
                                    State#state.active_jobs),
     case dict:size(JobsWithThisName) of
         0 ->
-            JobId = add_new_job(ProgramName, ProblemType, 
+            {ok, JobId} = add_new_job(ProgramType, ProblemType, 
                                 Owner, Priority, InputData),
             NewState =
                 case Name of
@@ -177,12 +204,12 @@ handle_call({remove_job_name, JobId}, _From, State) ->
 %% Pauses a job
 %%
 %% @spec handle_call({pause_job, JobId}, From, State) ->
-%%           {reply, ok, State}
+%%           {reply, Result, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_call({pause_job, JobId}, _From, State) ->
-    db:pause_job(JobId),
-    {reply, ok, State};
+    Result = db:pause_job(JobId),
+    {reply, Result, State};
 
 %%--------------------------------------------------------------------
 %% @private
@@ -313,10 +340,23 @@ is_valid_jobtype(JobType) ->
         {error, Reason} -> {error, Reason}
     end.
 
-add_new_job(ProgramName, ProblemType, Owner, Priority, InputData) ->
-    case is_valid_jobtype(ProgramName) of
+
+
+%%------------------------------------------------------------------------------
+%% @private
+%% @doc
+%% Adds a new job to the database. It copys the inputdata to the correct path
+%% and starts the job.
+%%
+%% @spec add_new_job(ProgramType, ProblemType, Owner, Priority, InputData) ->
+%%        {ok, JobId} |
+%%        {error, Reason}
+%% @end
+%%------------------------------------------------------------------------------
+add_new_job(ProgramType, ProblemType, Owner, Priority, InputData) ->
+    case is_valid_jobtype(ProgramType) of
         {ok} ->
-           JobId = dispatcher:add_job({ProgramName, ProblemType, Owner, Priority}),
+           JobId = dispatcher:add_job({ProgramType, ProblemType, Owner, Priority}),
            % Read the structurepath from configfile
             {ok, Root} =
                 configparser:read_config(?CONFIGFILE, cluster_root),
@@ -326,17 +366,16 @@ add_new_job(ProgramName, ProblemType, Owner, Priority, InputData) ->
                 || SubDir <- ["map/", "reduce/", "input/", "results/"]],
             % Move the files to the right thing
             Return = file:copy(InputData, Root ++ JobRoot ++ "/input/data.dat"),
-	    case Return of
-		{ok, BytesCopied} ->
-		    chronicler:info("Split data copied, size: ~p~n",[BytesCopied]);
-		{error, Reason} ->
-		    chronicler:error("Could not copy split data, reason: ~p~n",
-                                     [Reason])
-	    end,
-            dispatcher:add_task({JobId, ProgramName, split, JobRoot ++ "/input/data.dat"}),
-            JobId;
+	        case Return of
+		    {ok, BytesCopied} ->
+		       chronicler:info(
+		        chronicler:info("Split data copied, size: ~p~n",[BytesCopied])),
+                dispatcher:add_task({JobId, ProgramType, split, JobRoot ++ "/input/data.dat"}),
+                {ok, JobId};
+		    {error, Reason} ->
+		        chronicler:error("Could not copy split data, reason: ~p~n", [Reason])
+	        end;
         {error, Reason} ->
             chronicler:user_info("~w : Could not add job. Reason: ~p~n", [?MODULE, Reason]),
             {error, Reason}
     end.
-    

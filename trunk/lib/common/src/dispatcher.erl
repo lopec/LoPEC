@@ -163,7 +163,7 @@ handle_cast({task_request, NodeId, From}, State) ->
 %%--------------------------------------------------------------------
 handle_cast({free_tasks, NodeId}, State) ->
     Jobs = db:free_tasks(NodeId),
-    chronicler:debug("Freed tasks: ~p", [Jobs]),
+    chronicler:debug("Node ~p" "freed the tasks: ~p", [NodeId, Jobs]),
     examiner:report_free(Jobs),
     {noreply, State};
 %%--------------------------------------------------------------------

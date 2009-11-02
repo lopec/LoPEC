@@ -215,7 +215,6 @@ handle_call({task_done, TaskId, TaskSpec}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({add_task, TaskSpec}, _From, State) ->
     NewTaskId = create_task(TaskSpec),
-    chronicler:debug("Created: ~p", [NewTaskId]),
     {reply, NewTaskId, State};
 
 %%--------------------------------------------------------------------
@@ -229,8 +228,6 @@ handle_call({add_task, TaskSpec}, _From, State) ->
 handle_call({add_job, JobSpec}, _From, State) ->
     NewJobId = db:add_job(JobSpec),
     examiner:insert(NewJobId),
-    chronicler:debug("New Job: ~p, " "JobSpec: ~p, " "Job Examiner: ~p",
-		    [NewJobId, JobSpec, examiner:get_progress(NewJobId)]),
     {reply, NewJobId, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -274,7 +271,7 @@ find_task(RequesterPID, NodeId) ->
                              [?MODULE, Task#task.task_id]),
             RequesterPID ! {task_response, Task},
             ecg_server:accept_message({new_node, NodeId}),
-            chronicler:debug("Assign Examiner: ~p",
+            chronicler:debug("Examiner in find_task: ~p",
                              [examiner:get_progress(Task#task.job_id)]),
             examiner:report_assigned(Task#task.job_id, Task#task.type)
     end.
@@ -282,7 +279,7 @@ find_task(RequesterPID, NodeId) ->
 mark_done(TaskId) ->
     db:mark_done(TaskId),
     Task = db:get_task(TaskId),
-    chronicler:debug("Done Examiner: ~p",
+    chronicler:debug("Examiner in mark_done: ~p",
                      [examiner:get_progress(Task#task.job_id)]),
     examiner:report_done(Task#task.job_id, Task#task.type).
 
@@ -294,8 +291,6 @@ create_task(TaskSpec) ->
                 ("Duplicate task was not created", []);
         NewTaskId ->
             Task = db:get_task(NewTaskId),
-            chronicler:debug
-                ("Create: ~p", [examiner:get_progress(Task#task.job_id)]),
             examiner:report_created(Task#task.job_id, Task#task.type),
             NewTaskId
     end.

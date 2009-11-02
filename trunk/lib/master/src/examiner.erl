@@ -116,7 +116,7 @@ start_link() ->
 %% @doc
 %% Stops the server and cleans up.
 %%
-%% @spec start_link() -> ok
+%% @spec stop() -> ok
 %% @end
 %%--------------------------------------------------------------------
 stop() ->

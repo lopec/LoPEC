@@ -8,7 +8,7 @@ main(Args) ->
 
     %Compile and run tests
     cover:compile_directory("src"),
-    eunit:test("test",[verbose]),
+    eunit:test("test",[]),
 
     %Find the modules to analyse
     Files = [lists:last(string:tokens(X, "/")) || X <- Args],

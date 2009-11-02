@@ -29,6 +29,9 @@ db_test() ->
     JobAId = db:add_job(JobA),
     JobBId = db:add_job(JobB),
     
+    ListOfUserJobs = db:get_user_jobs(grillbritt),
+    ?assertEqual([JobBId], ListOfUserJobs),
+    
     % Add one task, then fetch it
     Task1 = {JobAId, raytracer, split, 'ystads-nisse/pron'},
     Task1Id = db:add_task(Task1),
@@ -84,6 +87,9 @@ db_test() ->
     db:pause_job(JobAId),
     ?assertEqual(paused, (db:get_job(JobAId))#job.state),
 
+    PausedFetchTask = db:fetch_task(mongomongo),
+    ?assertEqual(no_task, PausedFetchTask),
+
     db:resume_job(JobAId),
     ?assertEqual(free, (db:get_job(JobAId))#job.state),
 
@@ -125,6 +131,7 @@ db_test() ->
     ?assertEqual(1, length(db:list(finalize_assigned))),
 
     db:mark_done(Fetch4Id),
+
     db:remove_job(JobAId),
     db:remove_job(JobBId),
 

@@ -23,7 +23,7 @@
 
 %% APIs for handling jobs
 -export([add_job/1, remove_job/1, set_job_path/2, set_job_state/2,
-	pause_job/1, stop_job/1, resume_job/1]).
+	pause_job/1, stop_job/1, resume_job/1, get_user_jobs/1]).
 
 %% APIs for handling tasks
 -export([add_task/1, fetch_task/1, mark_done/1, free_tasks/1, list/1]).
@@ -206,6 +206,30 @@ get_task(TaskId) ->
 %%--------------------------------------------------------------------
 get_job(JobId) ->
     gen_server:call(?SERVER, {get_job, JobId}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Returns a list of JobIds belonging to the specified user.
+%%
+%% @spec get_job(User::atom()) -> List | {error, Error}
+%%                       List = [JobId::integer()]
+%% @end
+%%--------------------------------------------------------------------
+get_user_jobs(User) ->
+    ListOfJobs = list(job),
+    UserJobs = fun(H) ->
+		       Job = get_job(H),
+		       JobUser = Job#job.owner,
+		       case JobUser of
+			   User ->
+			       true;
+			   _ ->
+			       false
+		       end
+	       end,
+
+    _Return = lists:filter(UserJobs, ListOfJobs).
 
 %%--------------------------------------------------------------------
 %% @doc

@@ -1,5 +1,6 @@
 all: build
 	$(MAKE) -C lib all
+	$(MAKE) dialyze
 
 build:
 	$(MAKE) -C lib build
@@ -58,3 +59,7 @@ test.spec: test.spec.in
 common_test: test.spec build
 	mkdir -p log
 	run_test +W w -pa $(PWD)/lib/*/ebin -spec test.spec -cover coverspec
+
+dialyze: build
+	@echo "\n -- Running dialyzer --\n"
+	dialyzer --verbose -c lib/*/ebin | sed 's/^\(\w*\.erl\)/\n\1/'

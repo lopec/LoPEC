@@ -79,4 +79,5 @@ out_of_bounds_test() ->
     ?assertEqual({error, "There are no jobs."}, examiner:get_promising_job()).
 
 stop_test() ->
+    examiner:stop(),
     db:stop().

@@ -12,7 +12,8 @@
 %% External exports
 %% --------------------------------------------------------------------
 -export([get_promising_job/0, get_progress/1, insert/1, remove/1, start_link/0,
-         report_created/2, report_assigned/2, report_done/2, report_free/1]).
+         report_created/2, report_assigned/2, report_done/2, report_free/1,
+         stop/0]).
 
 %% --------------------------------------------------------------------
 %% gen_server callbacks
@@ -84,7 +85,7 @@ report_done(JobId, TaskType) ->
                     {update_entry, JobId, TaskType, done}).
 
 %% @doc
-%% Report that all tasks ({JobId, TaskType}) in Jobs were freed.
+%% Report that all tasks ({JobId, TaskType}) in Tasks were freed.
 %%
 %% @spec report_free(Tasks) -> ok
 %% @end
@@ -110,6 +111,16 @@ insert(JobId) ->
 %%--------------------------------------------------------------------
 start_link() ->
     gen_server:start_link({global, ?MODULE}, ?MODULE, [], []).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Stops the server and cleans up.
+%%
+%% @spec start_link() -> ok
+%% @end
+%%--------------------------------------------------------------------
+stop() ->
+    gen_server:cast({global, ?MODULE}, stop).
 
 %% ====================================================================
 %% Server functions
@@ -187,6 +198,9 @@ handle_cast({insert_entry, JobId}, State) ->
     ets:insert(job_status, NewRecord),
     {noreply, State};
 
+handle_cast(stop, State) ->
+    {stop, normal, State};
+
 handle_cast(Msg, State) ->
     chronicler:warning("~w:Received unexpected handle_cast call.~n"
                        "Info: ~p~n",
@@ -205,6 +219,7 @@ terminate(Reason, _State) ->
     chronicler:debug("~w:Received terminate call.~n"
                      "Reason: ~p~n",
                      [?MODULE, Reason]),
+    ets:delete(job_status),
     ok.
 
 %% @private

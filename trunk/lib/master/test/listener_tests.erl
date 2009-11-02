@@ -86,4 +86,5 @@ stop_test()->
     application:stop(chronicler),
     application:stop(ecg),
     application:stop(common),
+    examiner:stop(),
     db:stop().

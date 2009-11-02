@@ -1,8 +1,12 @@
-{incl_dirs, [
-                "lib/chronicler/ebin",
-                "lib/ecg/ebin",
-                "lib/slave/ebin",
-                "lib/master/ebin",
-                "lib/common/ebin"
-            ]}.
 {level, details}.
+
+{incl_dirs_r, ["lib/"]}.
+{excl_dirs, ["lib/common/test",
+               "lib/chronicler/test",
+               "lib/master/test",
+               "lib/slave/test",
+               "lib/ecg/test"
+                ]}.
+
+%{export, "log/coverage"}.
+%{import, "log/coverage"}.

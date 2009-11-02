@@ -228,7 +228,6 @@ get_user_jobs(User) ->
 			       false
 		       end
 	       end,
-
     _Return = lists:filter(UserJobs, ListOfJobs).
 
 %%--------------------------------------------------------------------
@@ -309,7 +308,7 @@ stop_job(JobId) ->
 		     end
 	     end,
     GetNode = fun(H) ->
-		      gen_server:call(?SERVER, {get_node, H})
+		      _NodeId = gen_server:call(?SERVER, {get_node, H})
 	      end,
     ListOfNodes =
         lists:map(GetNode, lists:filter(AssignedFilter, ListOfTasks)),
@@ -759,6 +758,7 @@ handle_call({list_node_tasks, NodeId}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(stop, State) ->
+    application:stop(mnesia),
     {stop, normal, State};
 
 %%--------------------------------------------------------------------

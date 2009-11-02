@@ -3,31 +3,18 @@
 -include("../include/db.hrl").
 
 init_per_test_case() ->
-    error_logger:tty(true),
+    %error_logger:tty(true),
     db:start_link(test).
 
 end_per_test_case() ->
     db:stop().
 
 init_test() ->
+    application:start(chronicler),
     ok.
 
-job_test() ->
-    init_test(),
-    init_per_test_case(),
-    JobTuple = {Program = raytracer, ProblemType = mapreduce, 
-		Owner = owner, Priority = 15},
-    JobId = db:add_job(JobTuple),
-    Job = db:get_job(JobId),
-    ?assertEqual(JobId, Job#job.job_id),
-    ?assertEqual(Program, Job#job.program_name),
-    ?assertEqual(ProblemType, Job#job.problem_type),
-    ?assertEqual(Owner, Job#job.owner),
-    ?assertEqual(Priority, Job#job.priority),
-    ?assertMatch([_A], db:list(job)),
-    end_per_test_case().    
-
 db_test() ->
+    init_test(),
     init_per_test_case(),
     % chronicler:set_logging_level(all),    
     % Check to see that the database doesn't blow up

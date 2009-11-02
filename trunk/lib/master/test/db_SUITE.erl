@@ -35,6 +35,7 @@ db_test() ->
     % Add one task, then fetch it
     Task1 = {JobAId, raytracer, split, 'ystads-nisse/pron'},
     Task1Id = db:add_task(Task1),
+    ?assert(is_integer(Task1Id)),
     Task1Fetch = db:fetch_task(bongobongo),
     ?assertMatch(#task{}, Task1Fetch),
     ?assertEqual(Task1Id, Task1Fetch#task.task_id),

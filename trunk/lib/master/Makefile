@@ -22,12 +22,9 @@ clean:
 	-rm -f ebin/*.beam test/*.beam test/*.html
 
 .PHONY: test
-test: $(TESTOBJECTS) chronicler
+test: $(TESTOBJECTS)
 	../../testscript.escript $(SOURCES)
 
-chronicler:
-	erlc $(ERLC_FLAGS) ../chronicler/src/*.erl -o $(PWD)/ebin/
-	-mv *.beam ebin/    
-
 docs: 
-	erl -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS)])" -s init stop
+	erl -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS)])" \
+	    -s init stop

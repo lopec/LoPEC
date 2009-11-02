@@ -212,7 +212,7 @@ get_job(JobId) ->
 %%
 %% Returns a list of JobIds belonging to the specified user.
 %%
-%% @spec get_job(User::atom()) -> List | {error, Error}
+%% @spec get_user_jobs(User::atom()) -> List | {error, Error}
 %%                       List = [JobId::integer()]
 %% @end
 %%--------------------------------------------------------------------

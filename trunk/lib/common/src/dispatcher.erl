@@ -227,11 +227,10 @@ handle_call({add_task, TaskSpec}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({add_job, JobSpec}, _From, State) ->
-    chronicler:debug("JobSpec: ~p", [JobSpec]),
     NewJobId = db:add_job(JobSpec),
-    chronicler:debug("JobId: ~p", [NewJobId]),
     examiner:insert(NewJobId),
-    chronicler:debug("Job Examiner: ~p", [examiner:get_progress(NewJobId)]),
+    chronicler:debug("New Job: ~p, " "JobSpec: ~p, " "Job Examiner: ~p",
+		    [NewJobId, JobSpec, examiner:get_progress(NewJobId)]),
     {reply, NewJobId, State};
 %%--------------------------------------------------------------------
 %% @private

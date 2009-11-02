@@ -22,9 +22,9 @@ listener_test_() ->
                ?_assertEqual({name, "ApanJansson"},
                               listener:get_job_name(JobId2)),
                ?_assertEqual(ok, listener:pause_job(JobId)),
+
                % This is a non-existing job
                ?_assertEqual(anonymous, listener:get_job_name(123)),
-               
                ?_assertEqual(ok, listener:resume_job(JobId))
               ]
              }
@@ -53,5 +53,6 @@ tests_stop(_) ->
     application:stop(common),
     application:stop(chronicler),
     examiner:stop(),
-    db:stop(). 
+    db:stop(),
+    timer:sleep(10). %fuck you erlang we shouldnt have to wait for db to stop 
     

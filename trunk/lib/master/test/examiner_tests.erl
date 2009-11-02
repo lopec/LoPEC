@@ -13,14 +13,13 @@
 -export([]).
 
 init_test() ->
-    case whereis(db_server) of
-        undefined -> db:start_link(test);
-        _ -> ok
-    end.
+    ?assertEqual(undefined, whereis(examiner)),
+    ?assertEqual(undefined, ets:info(job_status)),
+    examiner:start_link(),
+    db:start_link(test).
 
 report_test() ->
     JobId = db:add_job({raytracer, mapreduce, chabbrik, 0}),
-    examiner:start_link(),
     examiner:insert(JobId),
     ?assertEqual({0,0,0}, (examiner:get_progress(JobId))#job_stats.split),
     examiner:report_created(JobId, split),
@@ -75,7 +74,6 @@ report_test() ->
     %examiner:remove(JobId).
 
 out_of_bounds_test() ->
-    examiner:start_link(),
     ?assertEqual({error, "There are no jobs."}, examiner:get_promising_job()).
 
 stop_test() ->

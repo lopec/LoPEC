@@ -14,7 +14,7 @@
 netmonitor_test_() ->
     {inorder,
      [
-      ?assert(compare_returns())
+      ?_assert(compare_returns())
      ]}.
 
 compare_returns() ->

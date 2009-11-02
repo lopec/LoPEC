@@ -336,7 +336,7 @@ add_new_job(ProgramName, ProblemType, Owner, Priority, InputData) ->
             dispatcher:add_task({JobId, ProgramName, split, JobRoot ++ "/input/data.dat"}),
             JobId;
         {error, Reason} ->
-            chronicler:info_user("~w : Could not add job. Reason: ~p~n", [?MODULE, Reason]),
+            chronicler:user_info("~w : Could not add job. Reason: ~p~n", [?MODULE, Reason]),
             {error, Reason}
     end.
     

@@ -1,25 +1,38 @@
--module(db_tests).
--include_lib("eunit/include/eunit.hrl").
+-module(db_SUITE).
+
 -include("../include/db.hrl").
 
-init_per_test_case() ->
-    %error_logger:tty(true),
-    db:start_link(test).
+-suite_defaults([{timetrap, {minutes, 10}}]).
 
-end_per_test_case() ->
-    db:stop().
+-compile(export_all).
 
-init_test() ->
+-includelib("common_test/include/ct.hrl").
+
+init_per_suite(Config) ->
     application:start(chronicler),
+    Config.
+
+end_per_suite(_Config) ->
     ok.
 
+init_per_testcase(_TestCase, Config) ->
+    db:start_link(test),
+    Config.
+
+end_per_testcase(_TestCase, _Config) ->
+    db:stop().
+
+all() ->
+    [db_test].
+
 db_test() ->
-    init_test(),
-    init_per_test_case(),
+    [{doc, "Test the WHOOOLE database."}].
+
+db_test(_Config) ->
     % chronicler:set_logging_level(all),    
     % Check to see that the database doesn't blow up
     % just because there are no jobs and stuff
-    ?assertEqual(no_task, db:fetch_task(node())),
+    no_task = db:fetch_task(node()),
 
     % Two jobs.
     JobA = {raytracer, mapreduce, ystadsnisse, 15},
@@ -30,29 +43,29 @@ db_test() ->
     JobBId = db:add_job(JobB),
     
     ListOfUserJobs = db:get_user_jobs(grillbritt),
-    ?assertEqual([JobBId], ListOfUserJobs),
+    [JobBId] = ListOfUserJobs,
     
     % Add one task, then fetch it
     Task1 = {JobAId, raytracer, split, 'ystads-nisse/pron'},
     Task1Id = db:add_task(Task1),
-    ?assert(is_integer(Task1Id)),
+    true = is_integer(Task1Id),
     Task1Fetch = db:fetch_task(bongobongo),
-    ?assertMatch(#task{}, Task1Fetch),
-    ?assertEqual(Task1Id, Task1Fetch#task.task_id),
+    #task{} = Task1Fetch,
+    Task1Id = Task1Fetch#task.task_id,
     
     % Try to fetch another task, should receive no_task
     Task2Fetch = db:fetch_task(mongomongo),
-    ?assertEqual(no_task, Task2Fetch),
+    no_task = Task2Fetch,
     
     % Make sure that JobA has its state set to 
     % no_tasks, since bongobongo has been assigned
     % the only task.
-    ?assertEqual(no_tasks, (db:get_job(JobAId))#job.state),
+    no_tasks = (db:get_job(JobAId))#job.state,
     
     % Free all tasks associated to JobA and check that
     % its free
     db:free_tasks(bongobongo),
-    ?assertEqual(free, (db:get_job(JobAId))#job.state),
+    free = (db:get_job(JobAId))#job.state,
 
     % Add one more task and try to fetch it
     Task2 = {JobAId, raytracer, map, 'ystads-nisse/pron'},
@@ -62,10 +75,10 @@ db_test() ->
     db:fetch_task(bongobongo),
     db:fetch_task(bongobongo),
     db:fetch_task(bongobongo),
-    ?assertEqual([], db:list(split_free)),
-    ?assertEqual([], db:list(map_free)),
-    ?assertEqual(1, length(db:list(split_assigned))),
-    ?assertEqual(1, length(db:list(map_assigned))),
+    [] = db:list(split_free),
+    [] = db:list(map_free),
+    [_OneSplitAss] = db:list(split_assigned),
+    [_OneMapAss] = db:list(map_assigned),
 
     Task3 = {JobAId, raytracer, reduce, 'ystads-nisse/pron'},
     Task4 = {JobAId, raytracer, reduce, 'ystads-nisse/pron'},
@@ -79,57 +92,57 @@ db_test() ->
     db:add_task(Task6),
     db:add_task(Task7),
     
-    ?assertEqual(1, length(db:list(reduce_free))),
+    [_OneReduceFree] = db:list(reduce_free),
     %?assertEqual(1, length(db:list(finalize_free))),
 
-    ?assertEqual(free, (db:get_task(Task3Id))#task.state),
-    ?assertEqual(no_tasks, (db:get_job(JobBId))#job.state),
+    free = (db:get_task(Task3Id))#task.state,
+    no_tasks = (db:get_job(JobBId))#job.state,
 
     db:pause_job(JobAId),
-    ?assertEqual(paused, (db:get_job(JobAId))#job.state),
+    paused = (db:get_job(JobAId))#job.state,
 
     PausedFetchTask = db:fetch_task(mongomongo),
-    ?assertEqual(no_task, PausedFetchTask),
+    no_task = PausedFetchTask,
 
     db:resume_job(JobAId),
-    ?assertEqual(free, (db:get_job(JobAId))#job.state),
+    free = (db:get_job(JobAId))#job.state,
 
     db:stop_job(JobAId),
-    ?assertEqual(stopped, (db:get_job(JobAId))#job.state),
+    stopped = (db:get_job(JobAId))#job.state,
 
     db:resume_job(JobAId),
 
     NoTask1 = db:fetch_task(bongobongo),
     NoTask2 = db:fetch_task(bongobongo),
-    ?assertEqual(no_task, NoTask1),
-    ?assertEqual(no_task, NoTask2),
+    no_task = NoTask1,
+    no_task = NoTask2,
 
     db:set_job_path(JobBId, Path = 'fudz/pr0n/lulz'),
-    ?assertEqual(Path, (db:get_job(JobBId))#job.path),
+    Path = (db:get_job(JobBId))#job.path,
 
     db:mark_done(Task1Id),
     Fetch1 = db:fetch_task(mongobongo),
     db:mark_done(Task2Id),
 
-    ?assertEqual(no_task, Fetch1),
-    ?assertEqual(done, (db:get_task(Task1Id))#task.state),
-    ?assertEqual(1, length(db:list(map_done))),
-    
+    no_task = Fetch1,
+    done = (db:get_task(Task1Id))#task.state,
+    [_OneMapDone] = db:list(map_done),
+
     Fetch2 = db:fetch_task(mongobongo),
     Fetch3 = db:fetch_task(mongobongo),
 
     Fetch2Id = Fetch2#task.task_id,
 
-    ?assert(lists:member(Fetch2Id, db:list(assigned_tasks))),
-    ?assert(lists:member(Fetch2Id, db:list(reduce_assigned))),
-    ?assertEqual(no_task, Fetch3),
+    true = lists:member(Fetch2Id, db:list(assigned_tasks)),
+    true = lists:member(Fetch2Id, db:list(reduce_assigned)),
+    no_task = Fetch3,
 
     db:mark_done(Fetch2Id),
 
     Fetch4 = db:fetch_task(mongobongo),
     Fetch4Id = Fetch4#task.task_id,
-    ?assert(lists:member(Fetch4Id, db:list(assigned_tasks))),
-    ?assertEqual(1, length(db:list(finalize_assigned))),
+    true = lists:member(Fetch4Id, db:list(assigned_tasks)),
+    [_OneFinalizeAss] = db:list(finalize_assigned),
 
     db:mark_done(Fetch4Id),
 
@@ -151,7 +164,5 @@ db_test() ->
 				     db:list(assigned_tasks), 
 				     db:list(task_relations),
 				     db:list(job)]),
-    ?assertEqual([], MotherOfAllLists),
-
-    end_per_test_case().
+    [] = MotherOfAllLists.
 

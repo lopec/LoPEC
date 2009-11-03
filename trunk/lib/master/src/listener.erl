@@ -12,7 +12,7 @@
 -behaviour(gen_server).
 
 -export([add_job/5, add_job/6, pause_job/1, resume_job/1, stop_job/1,
-         get_job_name/1, remove_job_name/1, is_valid_jobtype/1]).
+         get_job_name/1, get_job_id/1, remove_job_name/1, is_valid_jobtype/1]).
 
 -export([start_link/0, init/1, handle_call/3, handle_cast/2, handle_info/2, 
         terminate/2, code_change/3]).
@@ -106,8 +106,22 @@ stop_job(JobId) ->
 %% @end
 %%------------------------------------------------------------------------------
 get_job_name(JobId) ->
-    chronicler:info("~w : called get_job_name with JobId=~B~n", [?MODULE, JobId]),
+    chronicler:debug("~w : called get_job_name with JobId=~B~n",
+                     [?MODULE, JobId]),
     gen_server:call(?MODULE, {get_job_name, JobId}).
+
+%%------------------------------------------------------------------------------
+%% @doc
+%% Returns the JobId of the job with name JobName,
+%% or {error, Reason} if there was no job with JobName.
+%%
+%% @spec get_job_id(JobName) -> {ok, JobId} | {error, Reason}
+%% @end
+%%------------------------------------------------------------------------------
+get_job_id(JobName) ->
+    chronicler:debug("~w : called get_job_id with JobName=~p~n",
+                     [?MODULE, JobName]),
+    gen_server:call(?MODULE, {get_job_id, JobName}).
 
 %%------------------------------------------------------------------------------
 %% @doc
@@ -183,6 +197,28 @@ handle_call({get_job_name, JobId}, _From, State) ->
                 {ok, Name} -> {name, Name}
             end,
     {reply, Reply, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Returns the job id of the job with name JobName,
+%% or {error, Reason} if no job has the name.
+%%
+%% @spec handle_call(GetJobId, From, State) ->
+%%           {reply, {ok, JobId}, State} | {reply, {error, Reason}, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({get_job_id, JobName}, _From, State) ->
+    JobsWithThisName = dict:filter(fun (_Id, Name) -> Name == JobName end,
+                                   State#state.active_jobs),
+    Reply = case dict:to_list(JobsWithThisName) of
+                [{JobId, JobName}] -> {ok, JobId};
+                _ -> {error,
+                      lists:flatten(io_lib:format("There's no job called '~p'",
+                                                  [JobName]))}
+            end,
+    {reply, Reply, State};
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc

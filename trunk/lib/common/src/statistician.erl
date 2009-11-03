@@ -18,7 +18,8 @@
 
 %% API
 -export([start_link/1, update/1, job_finished/1, remove_node/1, stop/0,
-         get_job_stats/1, get_node_stats/1, get_node_job_stats/2]).
+         get_cluster_stats/0, get_job_stats/1,
+         get_node_stats/1, get_node_job_stats/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -63,6 +64,17 @@ start_link(Type) ->
 stop() ->
     gen_server:cast(?SERVER, stop).
 
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns a formatted string of stats for entire cluster.
+%%
+%% @spec get_cluster_stats() -> String
+%% @end
+%%--------------------------------------------------------------------
+get_cluster_stats() ->
+    gen_server:call(?SERVER,{get_cluster_stats}).
+
 %%--------------------------------------------------------------------
 %% @doc
 %% Returns a formatted string of all the stats related to JobId
@@ -72,7 +84,6 @@ stop() ->
 %%--------------------------------------------------------------------
 get_job_stats(JobId) ->
     gen_server:call(?SERVER,{get_job_stats, JobId}).
-
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -94,6 +105,7 @@ get_node_stats(NodeId) ->
 %%--------------------------------------------------------------------
 get_node_job_stats(NodeId, JobId) ->
     gen_server:call(?SERVER,{get_node_job_stats, NodeId, JobId}).
+
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -166,6 +178,18 @@ init([slave]) ->
              {write_concurrency, false}]),
     {ok, []}.
 
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% @see node_stats/1
+%%
+%% @spec handle_call({get_cluster_stats}, From, State) ->
+%%                          {reply, Reply, State} 
+%% @end
+%%--------------------------------------------------------------------
+handle_call({get_cluster_stats}, _From, State) ->
+    Reply = cluster_stats(),
+    {reply, Reply, State};
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -540,6 +564,65 @@ node_stats(NodeId) ->
             Reply
     end.
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Extracts stats about the entire cluster, and returns a formatted
+%% string showing these.
+%%
+%% @spec cluster_stats() -> String
+%% 
+%% @end
+%%--------------------------------------------------------------------
+cluster_stats() ->
+    T = global_stats_master,
+    case ets:match(T, {{'_', '_', '_'}, '$1', '_', '_', '_', '_', '_'}) of
+        [] ->
+            {error, no_stats_in_cluster};
+        _Other ->
+            Nodes = ets:match(T, {{'$1', '_','_'},'_','_','_','_','_','_'}),
+            Jobs  = ets:match(T, {{'_', '$1','_'},'_','_','_','_','_','_'}),
+            UniqueNodes = lists:umerge(Nodes),
+            UniqueJobs  = lists:umerge(Jobs),
+            
+
+            Stats = ets:match(T, {{'_','_','_'},
+                                 '$1','$2','$3','$4','$5','$6'}),
+            [Power, Time, Upload, Download, Numtasks, Restarts] =
+                sum_stats(Stats, [0,0,0,0,0,0]),
+
+            
+            Reply = clusterstats_string_formatter({UniqueNodes, UniqueJobs,
+                                                   Power, Time,
+                                                   Upload, Download,
+                                                   Numtasks, Restarts}),
+            Reply
+    end.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns a neatly formatted string for stats of the entire cluster.
+%% Except that of nodes that have been removed from the cluster in any
+%% manner.
+%%
+%% @spec clusterstats_string_formatter(Data) -> String
+%% 
+%% @end
+%%--------------------------------------------------------------------
+clusterstats_string_formatter(
+  {Nodes, Jobs, Power, Time, Upload, Download, Numtasks, Restarts}) ->
+    lists:flatten(
+      io_lib:format(
+        "The cluster currently has these stats stored:~n"
+        "------------------------------------------------------------~n"
+        "Nodes used: ~p~n"
+        "Jobs worked on: ~p~n"
+        "Time executing: ~p seconds~n"
+        "Power used: ~p watts~n"
+        "Upload: ~p bytes~n"
+	"Download: ~p bytes~n"
+        "Number of tasks total: ~p~n"
+        "Number of task restarts:~p~n",
+        [Nodes, Jobs, Power, Time, Upload, Download, Numtasks, Restarts])).
 
 %%--------------------------------------------------------------------
 %% @doc

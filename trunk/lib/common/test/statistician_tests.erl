@@ -49,6 +49,8 @@ statistician_master_test_() ->
      fun ({Pid, {Now1, Now2, Now3}, {Node1, Node2, Node3, Node4}}) ->
              {inorder,
               [
+               ?_assertEqual({error, no_stats_in_cluster},
+                             statistician:get_cluster_stats()),
                ?_assertEqual({error, no_such_stats_found},
                              statistician:get_job_stats(Now1)),
                ?_assertEqual({error, no_such_node_in_stats},
@@ -57,6 +59,8 @@ statistician_master_test_() ->
                              statistician:get_node_job_stats(Node1, Now1)),
                ?_assertEqual(ok, statistician:update({{Node1, Now1, 3},
                                                       0, 0, 0, 0, 0, 0})),
+               ?_assertNot({error, no_stats_in_cluster} ==
+                             statistician:get_cluster_stats()),
                ?_assertNot({error, no_such_stats_found} ==
                            statistician:get_job_stats(Now1)),
                ?_assertNot({error, no_such_node_in_stats} ==

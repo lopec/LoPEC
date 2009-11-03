@@ -128,7 +128,7 @@ handle_info({nodeup, Node}, _) ->
     {noreply, []};
 handle_info({nodedown, Node}, _) ->
     dispatcher:free_tasks(Node),
-    statistican:remove_node(Node),
+    statistician:remove_node(Node),
     chronicler:info("~w : Node ~p just died. :(~n", [?MODULE, Node]),
     {noreply, []};
 %%--------------------------------------------------------------------

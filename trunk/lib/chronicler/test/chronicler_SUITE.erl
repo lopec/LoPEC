@@ -13,12 +13,12 @@
 % Specify a list of all unit test functions
 all() ->
     [
-        unittest,
         info_log_test,
         error_log_test,
         debug_log_test,
         warning_log_test,
-        user_info_log_test
+        user_info_log_test,
+        child_specs_test
     ].
 
 % required, but can just return Config. this is a suite level setup function.
@@ -56,10 +56,6 @@ end_per_testcase(_TestCase, _Config) ->
 %% test cases %%
 %%%%%%%%%%%%%%%%
 
-unittest(_Config) ->
-    ok = eunit:test("../../lib/chronicler/test", []),
-    ok.
-
 testing_log(File, LoggingLevel, LevelString, Msg, Arg) ->
     chronicler:set_logging_level([LoggingLevel]),
     ok = chronicler:LoggingLevel(Msg, Arg),
@@ -95,3 +91,7 @@ user_info_log_test([{filePointer, File}]) ->
     testing_log(File, user_info, "=INFO REPORT=", "This is a user_info ~p", [test]);
 user_info_log_test(_Config) ->
     ok.
+
+child_specs_test(_Config) ->
+    {ok, {_, ChildSpecs}} = chronicler_sup:init(no_args),
+    ok = supervisor:check_childspecs(ChildSpecs).

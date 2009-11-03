@@ -128,7 +128,7 @@ handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType, _Progname}},
     {NewUpload, NewDownload} = netMonitor:get_net_stats(),
     {NewUp, NewDown} = {NewUpload, NewDownload},
     statistician:update({{node(), JobId, list_to_atom(TaskType)},
-		        Power, Diff, NewUp - OldUp, NewDown - OldDown, 1, 0}),
+                         Power, Diff, NewUp - OldUp, NewDown - OldDown, 1, 0}),
     
     %% Kill and remove computingProcess spec from dynamic supervisor
     supervisor:terminate_child(?DYNSUP, ?WORKER),

@@ -320,21 +320,25 @@ update_job(JobStats, TaskType, NewTaskState) ->
     Task = get_task(TaskType, JobStats),
     chronicler:debug("Tuple: ~p", [Task]),
     {Event, UpdatedTask} = update_task(Task, NewTaskState),
+    JobName = case listener:get_job_name(JobId) of
+                  anonymous -> JobId;
+                  Name -> Name
+              end,
     case Event of
         first_assigned ->
-            chronicler:user_info("The first ~p task in ~p was started.",
-                                 [TaskType, JobId]);
+            chronicler:user_info("The first ~p task in job ~p was started.",
+                                 [TaskType, JobName]);
         all_done ->
             case {all_previous_done(JobStats, TaskType), TaskType} of
                 {false, _} -> nothing_to_see_here_move_along;
                 {true, finalize} ->
                     chronicler:user_info("Job ~p is done.",
-                                         [JobId]),
+                                         [JobName]),
                     statistician:job_finished(JobId),
                     db:remove_job(JobId);
                 {true, _} ->
-                    chronicler:user_info("All ~p tasks in ~p are done.",
-                                         [TaskType, JobId])
+                    chronicler:user_info("All ~p tasks in job ~p are done.",
+                                         [TaskType, JobName])
             end;
         nothing -> ok
     end,

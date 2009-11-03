@@ -53,17 +53,27 @@ statistician_master_test_() ->
                              statistician:get_job_stats(Now1)),
                ?_assertEqual({error, no_such_node_in_stats},
                              statistician:get_node_stats(Node1)),
+               ?_assertEqual({error, no_such_stats_found},
+                             statistician:get_node_job_stats(Node1, Now1)),
                ?_assertEqual(ok, statistician:update({{Node1, Now1, 3},
                                                       0, 0, 0, 0, 0, 0})),
                ?_assertNot({error, no_such_stats_found} ==
                            statistician:get_job_stats(Now1)),
                ?_assertNot({error, no_such_node_in_stats} ==
                            statistician:get_node_stats(Node1)),
+               ?_assertNot({error, no_such_stats_found} ==
+                             statistician:get_node_job_stats(Node1, Now1)),
                %job_finished (API function) requires waiting for ~3 seconds,
                %which we don't really want to do in tests. Thus, a direct call:
                ?_assertEqual({job_finished, Now1}, Pid ! {job_finished, Now1}),
                ?_assertEqual({error, no_such_stats_found},
                              statistician:get_job_stats(Now1)),
+               %the stats table is cleared of the job, but the global stats
+               %should remain unchanged
+               ?_assertNot({error, no_such_node_in_stats} ==
+                           statistician:get_node_stats(Node1)),
+               ?_assertNot({error, no_such_stats_found} ==
+                             statistician:get_node_job_stats(Node1, Now1)),
                ?_assertEqual(ok, statistician:update({{Node1, Now3, split},
                                                       1, 1, 1, 1, 1, 1})),
                ?_assertEqual(ok, statistician:update({{Node2, Now2, map},
@@ -78,12 +88,22 @@ statistician_master_test_() ->
                %Unfortunately we cannot test that the numbers are correct, as
                %it would require checking against a 30-line string, and one of
                %the values in it (Time passed) cannot be known until runtime.
+               %So we just make sure there is an entry.
                ?_assertNot({error, no_such_stats_found} ==
                            statistician:get_job_stats(Now3)),
                ?_assertNot({error, no_such_stats_found} ==
                            statistician:get_job_stats(Now2)),
                ?_assertNot({error, no_such_stats_found} ==
                            statistician:get_job_stats(Now1)),
+               ?_assertNot({error, no_such_stats_found} ==
+                             statistician:get_node_job_stats(Node1, Now3)),
+               ?_assertNot({error, no_such_stats_found} ==
+                             statistician:get_node_job_stats(Node2, Now2)),
+               ?_assertNot({error, no_such_stats_found} ==
+                             statistician:get_node_job_stats(Node3, Now1)),
+               ?_assertNot({error, no_such_stats_found} ==
+                             statistician:get_node_job_stats(Node4, Now1)),
+               %More removing of jobs from stats table
                ?_assertEqual({job_finished, Now3}, Pid ! {job_finished, Now3}),
                ?_assertEqual({job_finished, Now2}, Pid ! {job_finished, Now2}),
                ?_assertEqual({job_finished, Now1}, Pid ! {job_finished, Now1}),
@@ -96,11 +116,16 @@ statistician_master_test_() ->
                %Jobs are finished and removed, but node should remain...
                ?_assertNot({error, no_such_node_in_stats} ==
                            statistician:get_node_stats(Node1)),
+               ?_assertNot({error, no_such_stats_found} ==
+                             statistician:get_node_job_stats(Node1, Now3)),
                %...Until now!
                ?_assertEqual(ok, statistician:remove_node(Node1)),
                ?_assertEqual({error, no_such_node_in_stats},
                            statistician:get_node_stats(Node1)),
-               %GARBAGE TESTS FOR 100% COVERAGE FOLLOW, MAY BE REMOVED FREELY
+               ?_assertEqual({error, no_such_stats_found},
+                             statistician:get_node_job_stats(Node1, Now3)),
+               %GARBAGE TESTS
+               %for 100% coverage, feel free to remove
                ?_assertEqual(please_wait_a_few_seconds,
                              statistician:job_finished(Now3)),
                ?_assertEqual({noreply, []},
@@ -113,9 +138,9 @@ statistician_master_test_() ->
                              statistician:terminate(foo, [])),
                ?_assertEqual({ok, []},
                              statistician:code_change(bar, [], baz)),
-               ?_assertEqual(flush, Pid ! flush) %because global statistician
-               %does not exist when testing flush in slave, so don't get to
-               %that part of the code without this
+               ?_assertEqual(flush, Pid ! flush)
+               %because global statistician does not exist when testing flush in
+               %slave, so we don't get to that part of the code without this
               ]}
      end
      }.

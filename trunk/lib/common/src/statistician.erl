@@ -18,7 +18,7 @@
 
 %% API
 -export([start_link/1, update/1, job_finished/1, remove_node/1, stop/0,
-         get_job_stats/1, get_node_stats/1]).
+         get_job_stats/1, get_node_stats/1, get_node_job_stats/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -83,6 +83,17 @@ get_job_stats(JobId) ->
 %%--------------------------------------------------------------------
 get_node_stats(NodeId) ->
     gen_server:call(?SERVER,{get_node_stats, NodeId}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns a formatted string of stats the node NodeId has on the job
+%% JobId, like how many JobId tasks NodeId has worked on, or how long.
+%%
+%% @spec get_node_job_stats(NodeId, JobId) -> String
+%% @end
+%%--------------------------------------------------------------------
+get_node_job_stats(NodeId, JobId) ->
+    gen_server:call(?SERVER,{get_node_job_stats, NodeId, JobId}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -158,14 +169,14 @@ init([slave]) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% @see job_stats/1
+%% @see node_job_stats/1
 %%
 %% @spec handle_call({get_job_stats, JobId}, From, State) ->
 %%                                   {reply, Reply, State} 
 %% @end
 %%--------------------------------------------------------------------
 handle_call({get_job_stats, JobId}, _From, State) ->
-    Reply = job_stats(JobId),
+    Reply = node_job_stats('_', JobId),
     {reply, Reply, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -178,6 +189,18 @@ handle_call({get_job_stats, JobId}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({get_node_stats, NodeId}, _From, State) ->
     Reply = node_stats(NodeId),
+    {reply, Reply, State};
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% @see node_job_stats/1
+%%
+%% @spec handle_call({get_node_job_stats, NodeId, JobId}, From, State)
+%%                                -> {reply, Reply, State} 
+%% @end
+%%--------------------------------------------------------------------
+handle_call({get_node_job_stats, NodeId, JobId}, _From, State) ->
+    Reply = node_job_stats(NodeId, JobId),
     {reply, Reply, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -218,12 +241,12 @@ handle_cast({update,
           OldPower,OldTime, OldUpload,OldDownload, OldNumtasks,OldRestarts}] ->
             
             ets:insert(T, {{NodeId, JobId, TaskType},
-                        Power    + OldPower,
-                        Time     + OldTime,
-                        Upload   + OldUpload,
-                        Download + OldDownload,
-                        Numtasks + OldNumtasks,
-                        Restarts + OldRestarts})
+                           Power    + OldPower,
+                           Time     + OldTime,
+                           Upload   + OldUpload,
+                           Download + OldDownload,
+                           Numtasks + OldNumtasks,
+                           Restarts + OldRestarts})
     end,
     T2 = global_stats_master,
     case ets:info(T2) of
@@ -242,12 +265,12 @@ handle_cast({update,
                   OldNodeNumtasks, OldNodeRestarts}] ->
                     
                     ets:insert(T2, {{NodeId, JobId, TaskType},
-                                Power+OldNodePower,
-                                Time+OldNodeTime,
-                                Upload+OldNodeUpload,
-                                Download+OldNodeDownload,
-                                Numtasks+OldNodeNumtasks,
-                                Restarts+OldNodeRestarts})
+                                    Power    + OldNodePower,
+                                    Time     + OldNodeTime,
+                                    Upload   + OldNodeUpload,
+                                    Download + OldNodeDownload,
+                                    Numtasks + OldNodeNumtasks,
+                                    Restarts + OldNodeRestarts})
             end
     end,
     {noreply, State};
@@ -283,7 +306,7 @@ handle_cast({update_with_list, List}, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({job_finished, JobId}, State) ->
-    JobStats = job_stats(JobId),
+    JobStats = node_job_stats('_', JobId),
     case ?DELETE_TABLE() of
 	delete ->
 	    ets:match_delete(stats, {{'_', JobId, '_'},'_','_','_','_','_','_'});
@@ -342,8 +365,8 @@ handle_cast(Msg, State) ->
 %%--------------------------------------------------------------------
 handle_info(flush, State) ->
     chronicler:debug("Node ~p flushing stats.~n", [node()]),
-    Stats = ets:tab2list(stats),
-    gen_server:cast({global, ?SERVER}, {update_with_list, Stats}),
+    StatsList = ets:tab2list(stats),
+    gen_server:cast({global, ?SERVER}, {update_with_list, StatsList}),
     ets:delete_all_objects(stats),
     {noreply, State};
 %%--------------------------------------------------------------------
@@ -422,30 +445,40 @@ code_change(OldVsn, State, Extra) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Extracts info about the given job and returns a formatted string
-%% with its stats.
+%% Extracts stats that NodeId has on JobId and returns a formatted
+%% string showing these. get_job_stats/1 does not want stats on a
+%% specific node, and so passes the atom '_' as NodeId, resulting
+%% in a list of nodes that have worked on the job being matched out.
 %%
-%% @spec job_stats(JobId) -> String
+%% @spec node_job_stats(NodeId, JobId) -> String
 %% 
 %% @end
 %%--------------------------------------------------------------------
-job_stats(JobId) ->
-    T = stats,
-    case ets:match(T, {{'_', JobId, '_'}, '$1', '_', '_', '_', '_', '_'}) of
+node_job_stats(NodeId, JobId) ->
+    T = case NodeId of
+            '_' -> stats;
+            _Id -> global_stats_master
+        end,
+    %could go with the regular stats table, only then we'd be limited
+    %to only being able to check the node_job stats while the job is
+    %still in the system.
+    case ets:match(T, {{NodeId, JobId, '_'}, '$1', '_', '_', '_', '_', '_'}) of
         [] ->
-            {error, no_such_job_in_stats};
+            {error, no_such_stats_found};
         _Other ->
-            Split    = ets:match(T, {{'_', JobId, split},
+            Split    = ets:match(T, {{NodeId, JobId, split},
                                      '$1', '$2', '$3', '$4', '$5', '$6'}),
-            Map      = ets:match(T, {{'_', JobId, map},
+            Map      = ets:match(T, {{NodeId, JobId, map},
                                      '$1', '$2', '$3', '$4', '$5', '$6'}),
-            Reduce   = ets:match(T, {{'_', JobId, reduce},
+            Reduce   = ets:match(T, {{NodeId, JobId, reduce},
                                      '$1', '$2', '$3', '$4', '$5', '$6'}),
-            Finalize = ets:match(T, {{'_', JobId, finalize},
+            Finalize = ets:match(T, {{NodeId, JobId, finalize},
                                      '$1', '$2', '$3', '$4', '$5', '$6'}),
-            Nodes    = ets:match(T, {{'$1', JobId, '_'},
+            Nodes     = ets:match(T, {{NodeId, JobId, '_'}, 
                                      '_','_','_','_','_','_'}),
             UniqueNodes = lists:umerge(Nodes),
+            %In the case of NodeId being defined, the above line should
+            %do basically nothing to the single-element-list.
             
             Zeroes = [0,0,0,0,0,0],
             
@@ -479,9 +512,7 @@ job_stats(JobId) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Extracts info about the given node and returns a formatted string
-%% with its stats. Similar in effect to job_stats, but surprisingly
-%% different in execution.
+%% Extracts stats about NodeId and returns a formatted string showing these.
 %%
 %% @spec node_stats(NodeId) -> String
 %% 
@@ -508,6 +539,7 @@ node_stats(NodeId) ->
                                                 Numtasks, Restarts}),
             Reply
     end.
+
 
 %%--------------------------------------------------------------------
 %% @doc

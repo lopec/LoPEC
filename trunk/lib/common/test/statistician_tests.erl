@@ -19,24 +19,24 @@ statistician_slave_test_() ->
              {inorder,
               [
                ?_assertNot(undefined == ets:info(stats)), 
-               ?_assertEqual({error, no_such_job_in_stats},
+               ?_assertEqual({error, no_such_stats_found},
                              statistician:get_job_stats(Now)),
                %Normally we'd wait for the flush, but in tests we're better
                %off doing it manually (and instantly)
                ?_assertEqual(flush, Pid ! flush), %flush when empty...
                ?_assertEqual(ok, statistician:update({{Node1, Now, map},
                                                       1, 1, 1, 1, 1, 1})),
-               ?_assertNot({error, no_such_job_in_stats} ==
+               ?_assertNot({error, no_such_stats_found} ==
                              statistician:get_job_stats(Now)),
                ?_assertEqual(flush, Pid ! flush), %flush with 1 element...
-               ?_assertEqual({error, no_such_job_in_stats},
+               ?_assertEqual({error, no_such_stats_found},
                              statistician:get_job_stats(Now)),
                ?_assertEqual(ok, statistician:update({{Node2 ,Now, reduce},
                                                       2, 2, 2, 2, 2, 2})),
                ?_assertEqual(ok, statistician:update({{Node1, Now, map},
                                                       1, 1, 1, 1, 1, 1})),
                ?_assertEqual(flush, Pid ! flush), %flush with multiple elements
-               ?_assertEqual({error, no_such_job_in_stats},
+               ?_assertEqual({error, no_such_stats_found},
                              statistician:get_job_stats(Now))
                ]}
      end
@@ -49,20 +49,20 @@ statistician_master_test_() ->
      fun ({Pid, {Now1, Now2, Now3}, {Node1, Node2, Node3, Node4}}) ->
              {inorder,
               [
-               ?_assertEqual({error, no_such_job_in_stats},
+               ?_assertEqual({error, no_such_stats_found},
                              statistician:get_job_stats(Now1)),
                ?_assertEqual({error, no_such_node_in_stats},
                              statistician:get_node_stats(Node1)),
                ?_assertEqual(ok, statistician:update({{Node1, Now1, 3},
                                                       0, 0, 0, 0, 0, 0})),
-               ?_assertNot({error, no_such_job_in_stats} ==
+               ?_assertNot({error, no_such_stats_found} ==
                            statistician:get_job_stats(Now1)),
                ?_assertNot({error, no_such_node_in_stats} ==
                            statistician:get_node_stats(Node1)),
                %job_finished (API function) requires waiting for ~3 seconds,
                %which we don't really want to do in tests. Thus, a direct call:
                ?_assertEqual({job_finished, Now1}, Pid ! {job_finished, Now1}),
-               ?_assertEqual({error, no_such_job_in_stats},
+               ?_assertEqual({error, no_such_stats_found},
                              statistician:get_job_stats(Now1)),
                ?_assertEqual(ok, statistician:update({{Node1, Now3, split},
                                                       1, 1, 1, 1, 1, 1})),
@@ -78,20 +78,20 @@ statistician_master_test_() ->
                %Unfortunately we cannot test that the numbers are correct, as
                %it would require checking against a 30-line string, and one of
                %the values in it (Time passed) cannot be known until runtime.
-               ?_assertNot({error, no_such_job_in_stats} ==
+               ?_assertNot({error, no_such_stats_found} ==
                            statistician:get_job_stats(Now3)),
-               ?_assertNot({error, no_such_job_in_stats} ==
+               ?_assertNot({error, no_such_stats_found} ==
                            statistician:get_job_stats(Now2)),
-               ?_assertNot({error, no_such_job_in_stats} ==
+               ?_assertNot({error, no_such_stats_found} ==
                            statistician:get_job_stats(Now1)),
                ?_assertEqual({job_finished, Now3}, Pid ! {job_finished, Now3}),
                ?_assertEqual({job_finished, Now2}, Pid ! {job_finished, Now2}),
                ?_assertEqual({job_finished, Now1}, Pid ! {job_finished, Now1}),
-               ?_assertEqual({error, no_such_job_in_stats},
+               ?_assertEqual({error, no_such_stats_found},
                              statistician:get_job_stats(Now3)),
-               ?_assertEqual({error, no_such_job_in_stats},
+               ?_assertEqual({error, no_such_stats_found},
                              statistician:get_job_stats(Now2)),
-               ?_assertEqual({error, no_such_job_in_stats},
+               ?_assertEqual({error, no_such_stats_found},
                              statistician:get_job_stats(Now1)),
                %Jobs are finished and removed, but node should remain...
                ?_assertNot({error, no_such_node_in_stats} ==

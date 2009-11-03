@@ -1,6 +1,6 @@
-all: build
-	$(MAKE) -C lib all
-	$(MAKE) dialyze
+all: build common_test dialyze docs
+#	$(MAKE) -C lib all
+#	$(MAKE) dialyze
 
 build:
 	$(MAKE) -C lib build

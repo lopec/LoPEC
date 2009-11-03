@@ -61,6 +61,7 @@ start_link(test) ->
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
+    mnesia:create_schema([node()]),
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
 
 %%--------------------------------------------------------------------
@@ -758,7 +759,6 @@ handle_call({list_node_tasks, NodeId}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(stop, State) ->
-    application:stop(mnesia),
     {stop, normal, State};
 
 %%--------------------------------------------------------------------

@@ -321,8 +321,8 @@ update_job(JobStats, TaskType, NewTaskState) ->
     chronicler:debug("Tuple: ~p", [Task]),
     {Event, UpdatedTask} = update_task(Task, NewTaskState),
     JobName = case listener:get_job_name(JobId) of
-                  anonymous -> JobId;
-                  Name -> Name
+                  {name, Name} -> Name;
+                  _ -> JobId
               end,
     case Event of
         first_assigned ->

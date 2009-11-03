@@ -45,7 +45,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link(test) ->
-    {ok, Pid} = start_link(),
+    {ok, Pid} = gen_server:start_link({local, ?SERVER}, ?MODULE, [], []),
     create_tables(ram_copies),
     chronicler:info("~w:Database started in test environment.~n",
 		    [?MODULE]),

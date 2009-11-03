@@ -9,10 +9,13 @@
 -includelib("common_test/include/ct.hrl").
 
 init_per_suite(Config) ->
-    application:start(chronicler),
+    ok = application:start(common),
+    ok = application:start(chronicler),
     Config.
 
 end_per_suite(_Config) ->
+    application:stop(chronicler),
+    application:stop(common),
     ok.
 
 init_per_testcase(_TestCase, Config) ->
@@ -49,7 +52,13 @@ db_test(_Config) ->
     Task1 = {JobAId, raytracer, split, 'ystads-nisse/pron'},
     Task1Id = db:add_task(Task1),
     true = is_integer(Task1Id),
-    Task1Fetch = db:fetch_task(bongobongo),
+    FetchLoop = fun (F, 0) -> olol = no_task_found_in_fetch_loop;
+                    (F, N) -> case db:fetch_task(bongobongo) of
+                                  no_task -> F(F, N - 1);
+                                  Task = #task{} -> Task
+                              end
+                end,
+    Task1Fetch = FetchLoop(FetchLoop, 1000),
     #task{} = Task1Fetch,
     Task1Id = Task1Fetch#task.task_id,
     

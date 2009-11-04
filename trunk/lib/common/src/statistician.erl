@@ -162,18 +162,22 @@ remove_node(NodeId) ->
 %%--------------------------------------------------------------------
 init([master]) ->
     global:register_name(?MODULE, self()),
-    ets:new(stats,
+    ets:new(job_stats_table,
             [set, private, named_table,
              {keypos, 1}, {heir, none},
              {write_concurrency, false}]),
-    ets:new(global_stats_master,
+    ets:new(node_stats_table,
+            [set, private, named_table,
+             {keypos, 1}, {heir, none},
+             {write_concurrency, false}]),
+    ets:new(cluster_stats_table,
             [set, private, named_table,
              {keypos, 1}, {heir, none},
              {write_concurrency, false}]),
     {ok, []};
 init([slave]) ->
     {ok, _TimerRef} = timer:send_interval(?UPDATE_INTERVAL, flush),
-    ets:new(stats,
+    ets:new(job_stats_table,
             [set, private, named_table,
              {keypos, 1}, {heir, none},
              {write_concurrency, false}]),
@@ -255,7 +259,7 @@ handle_cast({update,
              {{NodeId, JobId, TaskType},
               Power, Time, Upload, Download, Numtasks, Restarts}},
             State) ->
-    T = stats,
+    T = job_stats_table,
     Job = ets:lookup(T, {NodeId, JobId, TaskType}),
     case Job of
         [] ->
@@ -273,10 +277,11 @@ handle_cast({update,
                            Numtasks + OldNumtasks,
                            Restarts + OldRestarts})
     end,
-    T2 = global_stats_master,
+    T2 = node_stats_table,
+    T3 = cluster_stats_table,
     case ets:info(T2) of
         undefined ->
-            foo; %slaves do not have global_stats_master defined
+            foo; %only master has node_stats_table defined
         _Other ->
             Node = ets:lookup(T2, {NodeId, JobId, TaskType}),
             case Node of
@@ -296,6 +301,25 @@ handle_cast({update,
                                     Download + OldNodeDownload,
                                     Numtasks + OldNodeNumtasks,
                                     Restarts + OldNodeRestarts})
+            end,
+            Node = ets:lookup(T3, {NodeId, JobId, TaskType}),
+            case Node of
+                [] ->
+                    ets:insert(T3, {{NodeId, JobId, TaskType},
+                                    Power, Time, Upload,
+                                    Download, Numtasks, Restarts});
+                
+                [{{NodeId, JobId, TaskType},
+                  OldClusterPower, OldClusterTime,
+                  OldClusterUpload, OldClusterDownload,
+                  OldClusterNumtasks, OldClusterRestarts}] ->  
+                    ets:insert(T2, {{NodeId, JobId, TaskType},
+                                    Power    + OldClusterPower,
+                                    Time     + OldClusterTime,
+                                    Upload   + OldClusterUpload,
+                                    Download + OldClusterDownload,
+                                    Numtasks + OldClusterNumtasks,
+                                    Restarts + OldClusterRestarts})
             end
     end,
     {noreply, State};
@@ -334,7 +358,7 @@ handle_cast({job_finished, JobId}, State) ->
     JobStats = node_job_stats('_', JobId),
     case ?DELETE_TABLE() of
 	delete ->
-	    ets:match_delete(stats, {{'_', JobId, '_'},'_','_','_','_','_','_'});
+	    ets:match_delete(job_stats_table, {{'_', JobId, '_'},'_','_','_','_','_','_'});
 	_Dont ->
 	    ok
     end,
@@ -357,7 +381,7 @@ handle_cast({job_finished, JobId}, State) ->
 %%--------------------------------------------------------------------
 handle_cast({remove_node, NodeId}, State) ->
     NodeStats = node_stats(NodeId),
-    ets:match_delete(global_stats_master, 
+    ets:match_delete(node_stats_table, 
                      {{NodeId, '_', '_'},'_','_','_','_','_','_'}),
     {ok, Root} =
         configparser:read_config(?CONFIGFILE, cluster_root),
@@ -390,9 +414,9 @@ handle_cast(Msg, State) ->
 %%--------------------------------------------------------------------
 handle_info(flush, State) ->
     chronicler:debug("Node ~p flushing stats.~n", [node()]),
-    StatsList = ets:tab2list(stats),
+    StatsList = ets:tab2list(job_stats_table),
     gen_server:cast({global, ?MODULE}, {update_with_list, StatsList}),
-    ets:delete_all_objects(stats),
+    ets:delete_all_objects(job_stats_table),
     {noreply, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -481,8 +505,8 @@ code_change(OldVsn, State, Extra) ->
 %%--------------------------------------------------------------------
 node_job_stats(NodeId, JobId) ->
     T = case NodeId of
-            '_' -> stats;
-            _Id -> global_stats_master
+            '_' -> job_stats_table;
+            _Id -> node_stats_table
         end,
     %could go with the regular stats table, only then we'd be limited
     %to only being able to check the node_job stats while the job is
@@ -499,7 +523,7 @@ node_job_stats(NodeId, JobId) ->
                                      '$1', '$2', '$3', '$4', '$5', '$6'}),
             Finalize = ets:match(T, {{NodeId, JobId, finalize},
                                      '$1', '$2', '$3', '$4', '$5', '$6'}),
-            Nodes     = ets:match(T, {{NodeId, JobId, '_'}, 
+            Nodes    = ets:match(T, {{NodeId, JobId, '_'}, 
                                      '_','_','_','_','_','_'}),
             UniqueNodes = lists:umerge(Nodes),
             %In the case of NodeId being defined, the above line should
@@ -544,7 +568,7 @@ node_job_stats(NodeId, JobId) ->
 %% @end
 %%--------------------------------------------------------------------
 node_stats(NodeId) ->
-    T = global_stats_master,
+    T = node_stats_table,
     case ets:match(T, {{NodeId, '_', '_'}, '$1', '_', '_', '_', '_', '_'}) of
         [] ->
             {error, no_such_node_in_stats};
@@ -575,7 +599,7 @@ node_stats(NodeId) ->
 %% @end
 %%--------------------------------------------------------------------
 cluster_stats() ->
-    T = global_stats_master,
+    T = cluster_stats_table,
     case ets:match(T, {{'_', '_', '_'}, '$1', '_', '_', '_', '_', '_'}) of
         [] ->
             {error, no_stats_in_cluster};

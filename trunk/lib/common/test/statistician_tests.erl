@@ -18,7 +18,7 @@ statistician_slave_test_() ->
      fun ({Pid, Now, Node1, Node2}) ->
              {inorder,
               [
-               ?_assertNot(undefined == ets:info(stats)), 
+               ?_assertNot(undefined == ets:info(job_stats_table)), 
                ?_assertEqual({error, no_such_stats_found},
                              statistician:get_job_stats(Now)),
                %Normally we'd wait for the flush, but in tests we're better

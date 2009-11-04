@@ -2,11 +2,13 @@
 %%% @author Axel "Align" Andren <axelandren@gmail.com>
 %%% @author Bjorn "norno" Dahlman <bjorn.dahlman@gmail.com>
 %%% @author Gustav "azariah" Simonsson <gusi7871@student.uu.se>
+%%% @author Vasilij "Chabbrik" Savin <vasilij.savin@gmail.com>
 %%% @copyright (C) 2009, Axel
 %%% @doc
 %%%
 %%% Collects various statistics about the cluster and its nodes, like
-%%% power consumption and time taken for jobs to complete.
+%%% power consumption and time taken for jobs to complete, and lets
+%%% users access these through the API.
 %%%
 %%% @end
 %%% Created : 21 Oct 2009 by Axel Andren <axelandren@gmail.com>
@@ -41,10 +43,9 @@
 %%--------------------------------------------------------------------
 %% @doc
 %% Starts the server.
-%% If Type is the atom master, we create a global stats table as well
-%% as the local.
-%% If it's the atom slave, we only have the local table, but start
-%% an interval timer to send it to master regularly.
+%% If Type is an atom: slave, we only have the local table, but start
+%% an interval timer to flush gathered stats to master regularly.
+%% 
 %% 
 %% Type = master | slave
 %% @spec start_link(Type) -> {ok, Pid} | ignore | {error, Error}
@@ -107,7 +108,7 @@ get_job_stats(JobId, string) ->
 %% Options:
 %%      raw - gives internal representation (Tuples, lists, whatnot)
 %%      string - gives nicely formatted string
-%% @spec get_node_stats(NodeId) -> String
+%% @spec get_node_stats(NodeId, Options) -> String
 %% @end
 %%--------------------------------------------------------------------
 get_node_stats(NodeId, string) ->
@@ -124,7 +125,7 @@ get_node_stats(NodeId, raw) ->
 %%      raw - gives internal representation (Tuples, lists, whatnot)
 %%      string - gives nicely formatted string
 %%
-%% @spec get_node_job_stats(NodeId, JobId) -> String
+%% @spec get_node_job_stats(NodeId, JobId, Options) -> String
 %% @end
 %%--------------------------------------------------------------------
 get_node_job_stats(NodeId, JobId, raw) ->
@@ -490,7 +491,7 @@ code_change(OldVsn, State, Extra) ->
 %% @doc
 %% Updates designated table with new tuple data
 %%
-%% @spec sum_stats(TabName, Stats, Entry) -> true
+%% @spec update_table(TabName, Stats, Entry) -> true
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -537,7 +538,7 @@ sum_stats([H|T], Data) ->
 %% specific node, and so passes the atom '_' as NodeId, resulting
 %% in a list of nodes that have worked on the job being matched out.
 %%
-%% @spec node_job_stats(NodeId, JobId) -> String
+%% @spec gather_node_job_stats(NodeId, JobId) -> String
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -599,7 +600,7 @@ gather_node_job_stats(NodeId, JobId) ->
 %% @doc
 %% Extracts statistics about Node and returns it as a formatted string.
 %%
-%% @spec node_stats(NodeId) -> String
+%% @spec gather_node_stats(NodeId) -> String
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -624,7 +625,7 @@ gather_node_stats(NodeId) ->
 %% Extracts statistics about the entire cluster
 %% and returns it as a formatted string.
 %%
-%% @spec cluster_stats() -> String
+%% @spec gather_cluster_stats() -> String
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -653,7 +654,7 @@ gather_cluster_stats() ->
 %% Except that of nodes that have been removed from the cluster in any
 %% manner.
 %%
-%% @spec clusterstats_string_formatter(Data) -> String
+%% @spec format_cluster_stats(Data) -> String
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -677,7 +678,7 @@ format_cluster_stats(
 %% @doc
 %% Returns a neatly formatted string for the given job and its stats
 %%
-%% @spec nodestats_string_formatter(Data) -> String
+%% @spec format_node_stats(Data) -> String
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -700,7 +701,7 @@ format_node_stats(
 %% @doc
 %% Returns a neatly formatted string for the given job and its stats
 %%
-%% @spec jobstats_string_formatter(Data) -> String
+%% @spec format_job_stats(Data) -> String
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -728,7 +729,7 @@ format_job_stats(
 %% @doc
 %% Returns a neatly formatted string for the given task and its stats
 %%
-%% @spec taskstats_string_formatter(TaskType, TaskStats) -> String
+%% @spec format_task_stats(TaskType, TaskStats) -> String
 %% 
 %% @end
 %%--------------------------------------------------------------------

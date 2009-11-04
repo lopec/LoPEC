@@ -642,12 +642,12 @@ clusterstats_string_formatter(
         "Nodes used: ~p~n"
         "Jobs worked on: ~p~n"
         "Time executing: ~.2f seconds~n"
-        "Power used: ~.2f watt seconds~n"
+        "Power used: ~.2f watt hours~n"
         "Upload: ~p bytes~n"
 	    "Download: ~p bytes~n"
         "Number of tasks total: ~p~n"
         "Number of task restarts:~p~n",
-        [Nodes, Jobs, Power, Time, Upload, Download, Numtasks, Restarts])).
+        [Nodes, Jobs, Power / 3600, Time, Upload, Download, Numtasks, Restarts])).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -665,12 +665,12 @@ nodestats_string_formatter(
         "------------------------------------------------------------~n"
         "Jobs worked on by node: ~p~n"
         "Time executing: ~.2f seconds~n"
-        "Power used: ~.2f watt seconds~n"
+        "Power used: ~.2f watt hours~n"
         "Upload: ~p bytes~n"
 	"Download: ~p bytes~n"
         "Number of tasks: ~p~n"
         "Number of task restarts:~p~n",
-        [NodeId, Jobs, Power, Time, Upload, Download, Numtasks, Restarts])).
+        [NodeId, Jobs, Power / 3600, Time, Upload, Download, Numtasks, Restarts])).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -692,13 +692,13 @@ jobstats_string_formatter(
         "Nodes that worked on job: ~p~n"
         "Time passed: ~.2f seconds~n"
         "Execution time: ~.2f seconds~n"
-        "Power used: ~.2f watt seconds~n"
+        "Power used: ~.2f watt hours~n"
         "Upload: ~p bytes~n"
 	"Download: ~p bytes~n"
         "Number of tasks: ~p~n"
         "Number of restarts: ~p~n",
         [JobId, SplitString, MapString, ReduceString, FinalizeString, Nodes,
-	 TimePassed,TimeExecuted, Power, Upload,Download, Numtasks, Restarts])).
+	 TimePassed,TimeExecuted, Power / 3600, Upload,Download, Numtasks, Restarts])).
 
 %%--------------------------------------------------------------------
 %% @doc

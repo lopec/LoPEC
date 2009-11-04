@@ -21,24 +21,24 @@ statistician_slave_test_() ->
               [
                ?_assertNot(undefined == ets:info(job_stats_table)), 
                ?_assertEqual({error, no_such_stats_found},
-                             statistician:get_job_stats(JobId)),
+                             statistician:get_job_stats(JobId, raw)),
                %Normally we'd wait for the flush, but in tests we're better
                %off doing it manually (and instantly)
                ?_assertEqual(flush, Pid ! flush), %flush when empty...
                ?_assertEqual(ok, statistician:update({{Node1, JobId, map},
                                                       1, 1, 1, 1, 1, 1})),
                ?_assertNot({error, no_such_stats_found} ==
-                             statistician:get_job_stats(JobId)),
+                             statistician:get_job_stats(JobId, raw)),
                ?_assertEqual(flush, Pid ! flush), %flush with 1 element...
                ?_assertEqual({error, no_such_stats_found},
-                             statistician:get_job_stats(JobId)),
+                             statistician:get_job_stats(JobId, raw)),
                ?_assertEqual(ok, statistician:update({{Node2 ,JobId, reduce},
                                                       2, 2, 2, 2, 2, 2})),
                ?_assertEqual(ok, statistician:update({{Node1, JobId, map},
                                                       1, 1, 1, 1, 1, 1})),
                ?_assertEqual(flush, Pid ! flush), %flush with multiple elements
                ?_assertEqual({error, no_such_stats_found},
-                             statistician:get_job_stats(JobId))
+                             statistician:get_job_stats(JobId, raw))
                ]}
      end
      }.
@@ -50,35 +50,35 @@ statistician_master_test_() ->
      fun ({Pid, {JobId1, JobId2, JobId3}, {Node1, Node2, Node3, Node4}}) ->
              {inorder,
               [
-               ?_assertEqual({error, no_stats_in_cluster},
-                             statistician:get_cluster_stats()),
+               ?_assertEqual({[], [],0.0,0.0,0,0,0,0},
+                             statistician:get_cluster_stats( raw)),
                ?_assertEqual({error, no_such_stats_found},
-                             statistician:get_job_stats(JobId1)),
+                             statistician:get_job_stats(JobId1, raw)),
                ?_assertEqual({error, no_such_node_in_stats},
-                             statistician:get_node_stats(Node1)),
+                             statistician:get_node_stats(Node1, raw)),
                ?_assertEqual({error, no_such_stats_found},
-                             statistician:get_node_job_stats(Node1, JobId1)),
+                             statistician:get_node_job_stats(Node1,JobId1,raw)),
                ?_assertEqual(ok, statistician:update({{Node1, JobId1, 3},
                                                       0, 0, 0, 0, 0, 0})),
                ?_assertNot({error, no_stats_in_cluster} ==
-                             statistician:get_cluster_stats()),
+                             statistician:get_cluster_stats( raw)),
                ?_assertNot({error, no_such_stats_found} ==
-                           statistician:get_job_stats(JobId1)),
+                           statistician:get_job_stats(JobId1, raw)),
                ?_assertNot({error, no_such_node_in_stats} ==
-                           statistician:get_node_stats(Node1)),
+                           statistician:get_node_stats(Node1, raw)),
                ?_assertNot({error, no_such_stats_found} ==
-                             statistician:get_node_job_stats(Node1, JobId1)),
+                             statistician:get_node_job_stats(Node1,JobId1,raw)),
                %job_finished (API function) requires waiting for ~3 seconds,
                %which we don't really want to do in tests. Thus, a direct call:
                ?_assertEqual({job_finished, JobId1}, Pid ! {job_finished, JobId1}),
                ?_assertEqual({error, no_such_stats_found},
-                             statistician:get_job_stats(JobId1)),
+                             statistician:get_job_stats(JobId1, raw)),
                %the stats table is cleared of the job, but the global stats
                %should remain unchanged
                ?_assertNot({error, no_such_node_in_stats} ==
-                           statistician:get_node_stats(Node1)),
+                           statistician:get_node_stats(Node1, raw)),
                ?_assertNot({error, no_such_stats_found} ==
-                             statistician:get_node_job_stats(Node1, JobId1)),
+                             statistician:get_node_job_stats(Node1,JobId1,raw)),
                ?_assertEqual(ok, statistician:update({{Node1, JobId3, split},
                                                       1, 1, 1, 1, 1, 1})),
                ?_assertEqual(ok, statistician:update({{Node2, JobId2, map},
@@ -95,40 +95,43 @@ statistician_master_test_() ->
                %the values in it (Time passed) cannot be kJobIdn until runtime.
                %So we just make sure there is an entry.
                ?_assertNot({error, no_such_stats_found} ==
-                           statistician:get_job_stats(JobId3)),
+                           statistician:get_job_stats(JobId3, raw)),
                ?_assertNot({error, no_such_stats_found} ==
-                           statistician:get_job_stats(JobId2)),
+                           statistician:get_job_stats(JobId2, raw)),
                ?_assertNot({error, no_such_stats_found} ==
-                           statistician:get_job_stats(JobId1)),
+                           statistician:get_job_stats(JobId1, raw)),
                ?_assertNot({error, no_such_stats_found} ==
-                             statistician:get_node_job_stats(Node1, JobId3)),
+                             statistician:get_node_job_stats(Node1,JobId3,raw)),
                ?_assertNot({error, no_such_stats_found} ==
-                             statistician:get_node_job_stats(Node2, JobId2)),
+                             statistician:get_node_job_stats(Node2,JobId2,raw)),
                ?_assertNot({error, no_such_stats_found} ==
-                             statistician:get_node_job_stats(Node3, JobId1)),
+                             statistician:get_node_job_stats(Node3,JobId1,raw)),
                ?_assertNot({error, no_such_stats_found} ==
-                             statistician:get_node_job_stats(Node4, JobId1)),
+                             statistician:get_node_job_stats(Node4,JobId1,raw)),
                %More removing of jobs from stats table
-               ?_assertEqual({job_finished, JobId3}, Pid ! {job_finished, JobId3}),
-               ?_assertEqual({job_finished, JobId2}, Pid ! {job_finished, JobId2}),
-               ?_assertEqual({job_finished, JobId1}, Pid ! {job_finished, JobId1}),
+               ?_assertEqual({job_finished, JobId3},
+                             Pid ! {job_finished, JobId3}),
+               ?_assertEqual({job_finished, JobId2},
+                             Pid ! {job_finished, JobId2}),
+               ?_assertEqual({job_finished, JobId1},
+                             Pid ! {job_finished, JobId1}),
                ?_assertEqual({error, no_such_stats_found},
-                             statistician:get_job_stats(JobId3)),
+                             statistician:get_job_stats(JobId3, raw)),
                ?_assertEqual({error, no_such_stats_found},
-                             statistician:get_job_stats(JobId2)),
+                             statistician:get_job_stats(JobId2, raw)),
                ?_assertEqual({error, no_such_stats_found},
-                             statistician:get_job_stats(JobId1)),
+                             statistician:get_job_stats(JobId1, raw)),
                %Jobs are finished and removed, but node should remain...
                ?_assertNot({error, no_such_node_in_stats} ==
-                           statistician:get_node_stats(Node1)),
+                           statistician:get_node_stats(Node1, raw)),
                ?_assertNot({error, no_such_stats_found} ==
-                             statistician:get_node_job_stats(Node1, JobId3)),
+                             statistician:get_node_job_stats(Node1,JobId3,raw)),
                %...Until JobId!
                ?_assertEqual(ok, statistician:remove_node(Node1)),
                ?_assertEqual({error, no_such_node_in_stats},
-                           statistician:get_node_stats(Node1)),
+                           statistician:get_node_stats(Node1, raw)),
                ?_assertEqual({error, no_such_stats_found},
-                             statistician:get_node_job_stats(Node1, JobId3)),
+                             statistician:get_node_job_stats(Node1,JobId3,raw)),
                %GARBAGE TESTS
                %for 100% coverage, feel free to remove
                ?_assertEqual(please_wait_a_few_seconds,

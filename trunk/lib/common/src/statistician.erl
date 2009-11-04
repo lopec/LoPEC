@@ -78,7 +78,13 @@ stop() ->
 get_cluster_stats(raw) ->
     gen_server:call(?MODULE,{get_cluster_stats, raw});
 get_cluster_stats(string) ->
-    gen_server:call(?MODULE,{get_cluster_stats, string}).
+    Return = gen_server:call(?MODULE,{get_cluster_stats, string}),
+    case Return of
+	no_such_stats_found ->
+	    no_such_stats_found;
+	_Result ->
+	    io:format(Return)
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -92,7 +98,13 @@ get_cluster_stats(string) ->
 get_job_stats(JobId, raw) ->
     gen_server:call(?MODULE, {get_job_stats, JobId, raw});
 get_job_stats(JobId, string) ->
-    gen_server:call(?MODULE, {get_job_stats, JobId, string}).
+    Return = gen_server:call(?MODULE,{get_job_stats, JobId, string}),
+    case Return of
+	no_such_stats_found ->
+	    no_such_stats_found;
+	_Result ->
+	    io:format(Return)
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -112,7 +124,13 @@ get_job_stats(JobId, string) ->
 %% @end
 %%--------------------------------------------------------------------
 get_node_stats(NodeId, string) ->
-    gen_server:call(?MODULE,{get_node_stats, NodeId, string});
+    Return = gen_server:call(?MODULE,{get_node_stats, NodeId, string}),
+    case Return of
+	no_such_stats_found ->
+	    no_such_stats_found;
+	_Result ->
+	    io:format(Return)
+    end;
 get_node_stats(NodeId, raw) ->
     gen_server:call(?MODULE,{get_node_stats, NodeId, raw}).
 
@@ -131,7 +149,13 @@ get_node_stats(NodeId, raw) ->
 get_node_job_stats(NodeId, JobId, raw) ->
     gen_server:call(?MODULE,{get_node_job_stats, NodeId, JobId, raw});
 get_node_job_stats(NodeId, JobId, string) ->
-    gen_server:call(?MODULE,{get_node_job_stats, NodeId, JobId, string}).
+    Return = gen_server:call(?MODULE,{get_node_job_stats, NodeId, JobId, string}),
+    case return of
+	no_such_node_in_stats ->
+	    no_such_node_in_stats;
+	_Result ->
+	    io:format(Return)
+    end.
 
 
 %%--------------------------------------------------------------------
@@ -349,7 +373,7 @@ handle_cast({update_with_list, List}, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({job_finished, JobId}, State) ->
-    JobStats = gather_node_job_stats('_', JobId),
+    JobStats = format_job_stats(gather_node_job_stats('_', JobId)),
     case ?DELETE_TABLE() of
 	delete ->
 	    ets:match_delete(job_stats_table, {{'_', JobId, '_'},'_','_','_','_','_','_'});
@@ -374,7 +398,7 @@ handle_cast({job_finished, JobId}, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({remove_node, NodeId}, State) ->
-    NodeStats = gather_node_stats(NodeId),
+    NodeStats = format_node_stats(gather_node_stats(NodeId)),
     ets:match_delete(node_stats_table, 
                      {{NodeId, '_', '_'},'_','_','_','_','_','_'}),
     {ok, Root} =
@@ -571,7 +595,7 @@ gather_node_job_stats(NodeId, JobId) ->
                         _NodeId -> NodeId
                     end,
             
-            Zeroes = [0,0,0,0,0,0],
+            Zeroes = [0.0,0.0,0,0,0,0],
             
             SumSplit  = sum_stats(Split, Zeroes),
             SumMap    = sum_stats(Map, Zeroes),
@@ -614,7 +638,7 @@ gather_node_stats(NodeId) ->
             Stats = ets:match(T, {{NodeId,'_','_'},
                                  '$1','$2','$3','$4','$5','$6'}),
             [Power, Time, Upload, Download, Numtasks, Restarts] =
-                sum_stats(Stats, [0, 0, 0, 0, 0, 0]),
+                sum_stats(Stats, [0.0, 0.0, 0, 0, 0, 0]),
             %% Returns formatted string to user
             {NodeId, lists:umerge(Jobs),
              Power, Time, Upload, Download, Numtasks, Restarts}
@@ -643,7 +667,7 @@ gather_cluster_stats() ->
         end,
     
     {Nodes, Jobs, Power, Time, Upload, Download, NumTasks, Restarts} =
-        ets:foldl(CollectStuff, {[], [], 0, 0, 0, 0, 0, 0}, cluster_stats_table),
+        ets:foldl(CollectStuff, {[], [], 0.0, 0.0, 0, 0, 0, 0}, cluster_stats_table),
 
     {lists:usort(Nodes), lists:usort(Jobs), 
         Power, Time, Upload, Download, NumTasks, Restarts}.
@@ -660,7 +684,6 @@ gather_cluster_stats() ->
 %%--------------------------------------------------------------------
 format_cluster_stats(
   {Nodes, Jobs, Power, Time, Upload, Download, Numtasks, Restarts}) ->
-    lists:flatten(
       io_lib:format(
         "The cluster currently has these stats stored:~n"
         "------------------------------------------------------------~n"
@@ -672,7 +695,7 @@ format_cluster_stats(
 	    "Download: ~p bytes~n"
         "Number of tasks total: ~p~n"
         "Number of task restarts:~p~n",
-        [Nodes, Jobs, Power / 3600, Time, Upload, Download, Numtasks, Restarts])).
+        [Nodes, Jobs, Power / 3600, Time, Upload, Download, Numtasks, Restarts]).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -684,7 +707,6 @@ format_cluster_stats(
 %%--------------------------------------------------------------------
 format_node_stats(
   {NodeId, Jobs, Power, Time, Upload, Download, Numtasks, Restarts}) ->
-    lists:flatten(
       io_lib:format(
         "Stats for node: ~p~n"
         "------------------------------------------------------------~n"
@@ -695,7 +717,7 @@ format_node_stats(
 	    "Download: ~p bytes~n"
         "Number of tasks: ~p~n"
         "Number of task restarts:~p~n",
-        [NodeId, Jobs, Power / 3600, Time, Upload, Download, Numtasks, Restarts])).
+        [NodeId, Jobs, Power / 3600, Time, Upload, Download, Numtasks, Restarts]).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -708,7 +730,6 @@ format_node_stats(
 format_job_stats(
   {JobId, SplitString, MapString, ReduceString, FinalizeString, TimePassed,
    Nodes, [Power, TimeExecuted, Upload, Download, Numtasks, Restarts]}) ->
-    lists:flatten(
       io_lib:format(
         "Stats for job: ~p~n~ts~ts~ts~ts~n"
         "------------------------------------------------------------~n"
@@ -719,11 +740,11 @@ format_job_stats(
         "Execution time: ~.2f seconds~n"
         "Power used: ~.2f watt hours~n"
         "Upload: ~p bytes~n"
-	    "Download: ~p bytes~n"
+	"Download: ~p bytes~n"
         "Number of tasks: ~p~n"
         "Number of restarts: ~p~n",
         [JobId, SplitString, MapString, ReduceString, FinalizeString, Nodes,
-	 TimePassed,TimeExecuted, Power / 3600, Upload,Download, Numtasks, Restarts])).
+	 TimePassed,TimeExecuted, Power / 3600, Upload,Download, Numtasks, Restarts]).
 
 %%--------------------------------------------------------------------
 %% @doc

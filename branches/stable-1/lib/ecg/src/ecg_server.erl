@@ -68,7 +68,7 @@ start_link() ->
 %%--------------------------------------------------------------------
 init(_) ->
     net_kernel:monitor_nodes(true),
-    chronicler:info("~w is up and running!", [?MODULE]),
+    chronicler:info("~w : is up and running!", [?MODULE]),
     {ok, #state{}}.
 
 %% --------------------------------------------------------------------
@@ -95,9 +95,9 @@ handle_call(_Request, _From, _State) ->
 %% We need to establish connection to new node, if not yet connected
 %% This might be obsolete later, depending on comm protocol
 handle_cast({new_node, Node}, _) ->
-    chronicler:info("Welcome new node: ~w~n", [Node]),
     case lists:member(Node, nodes()) of
         false ->
+            chronicler:info("~w : Welcome new node: ~w~n", [?MODULE, Node]),
             net_adm:ping(Node);
         true ->
             ok
@@ -128,6 +128,7 @@ handle_info({nodeup, Node}, _) ->
     {noreply, []};
 handle_info({nodedown, Node}, _) ->
     dispatcher:free_tasks(Node),
+    statistician:remove_node(Node),
     chronicler:info("~w : Node ~p just died. :(~n", [?MODULE, Node]),
     {noreply, []};
 %%--------------------------------------------------------------------

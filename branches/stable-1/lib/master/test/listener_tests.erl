@@ -11,83 +11,48 @@
 -include("../include/db.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
-%% The way to run this test only, merge 3 lines below and run in console
-%% erl -sname test 
-%% -pa ../../common/ebin -pa ../../ecg/ebin -pa ../../logger/ebin -pa ../ebin 
-%% -run listener_tests test
-%% erl -sname server -pa common/ebin -pa ecg/ebin -pa logger/ebin -pa master/ebin
- 
-init_test() ->
-    application:start(chronicler),
-    application:start(ecg),
-    application:start(common),
-    application:start(master).
-
-init_per_test_case() ->
-    db:delete_tables(),  
-    db:create_tables().
-
-end_per_test_case() ->
-    db:delete_tables().
-
-job_name_test_() ->
+listener_test_() ->
     {setup,
-     fun () -> init_per_test_case(),
-               {ok, Root} = 
-                   configparser:read_config("/etc/clusterbusters.conf",
-                                            cluster_root),
-               [Root,
-                listener:new_job(raytracer, Root ++ "ray256", ray256),
-                listener:new_job(raytracer, Root ++ "ray256", no_name)
-               ]
-     end,
-     fun (_) -> end_per_test_case() end,
-     fun ([Root, {ok, Named}, {ok, Anonymous}]) ->
+     fun tests_init/0,
+     fun tests_stop/1, 
+     fun ({JobId, JobId2}) ->
              {inorder,
-              [?_assertEqual(anonymous,
-                             listener:get_job_name(Anonymous)),
-               ?_assertEqual({name, ray256},
-                             listener:get_job_name(Named)),
-               ?_assertMatch({error, _},
-                             listener:new_job(raytracer, Root ++ "ray256", ray256)),
-               ?_assertEqual(ok,
-                             listener:remove_job_name(Named)),
-               ?_assertEqual(anonymous,
-                             listener:get_job_name(Named))                             
+              [
+               ?_assertEqual(anonymous, listener:get_job_name(JobId)),
+               ?_assertEqual({name, "ApanJansson"},
+                              listener:get_job_name(JobId2)),
+               ?_assertEqual(ok, listener:pause_job(JobId)),
+
+               % This is a non-existing job
+               ?_assertEqual(anonymous, listener:get_job_name(123)),
+               ?_assertEqual(ok, listener:resume_job(JobId))
               ]
              }
      end
     }.
 
-job_creation_test() ->
-    init_per_test_case(),
-    %testing if job is created properly
-    {ok, Root} = 
-        configparser:read_config("/etc/clusterbusters.conf", cluster_root),
-    
-    InputFile = Root ++ "ray256",
-    {ok, JobId} = listener:new_job(raytracer, InputFile),
-    Job = db:get_job_info(JobId),
-    chronicler:info(Job),
-    ?assertEqual(JobId, Job#job.job_id),
-    ?assertEqual(raytracer, Job#job.job_type),
-    
-    %Testing if task was properly created
-    %JobIdString = lists:flatten(io_lib:format("~p", [JobId])),
-    JobIdString = integer_to_list(JobId),
-    TaskList = db:list_tasks(JobId),
-    ?assertMatch([_A], TaskList),
-    Task = db:get_task_info(hd(TaskList)),
-    ?assertEqual(split, Task#task.task_type),
-    ?assertEqual(JobId, Task#task.job_id),
-    % Testing if input file was created
-    % If assertion fails, check the path.
-    % input.file should exist in storage before test
-    ProgramFile = Root ++ "tmp/" ++ JobIdString ++ "/input/data.dat",
-    chronicler:info(ProgramFile),
-    ?assertEqual(ok, file:rename(ProgramFile, ProgramFile)),
-    end_per_test_case().
+tests_init() ->
+    application:start(ecg),
+    application:start(common),
+    application:start(chronicler),
+    chronicler:set_logging_level(all),
+    db:start_link(test),
+    examiner:start_link(),
+    listener:start_link(),
+    dispatcher:start_link(),
+    {ok, Root} = configparser:read_config("/etc/clusterbusters.conf",
+                                          cluster_root),
+    {ok, JobId} = listener:add_job(raytracer, mapreduce, owner, 0,
+                                            Root++"ray256"),
+    {ok, JobId2} = listener:add_job(raytracer, mapreduce, owner2, 1,
+                                    Root++"ray256", "ApanJansson"),
+    {JobId, JobId2}.
 
-end_test() ->
+tests_stop(_) ->
+    application:stop(ecg),
+    application:stop(common),
+    application:stop(chronicler),
+    examiner:stop(),
     db:stop(),
-    dispatcher:terminate(finished, []).
+    timer:sleep(10). %fuck you erlang we shouldnt have to wait for db to stop 
+    

@@ -50,8 +50,9 @@ start_link() ->
 %%--------------------------------------------------------------------
 init(no_args) ->
     {ok,{{one_for_one, 1, 60},
-	 [child(taskSupervisor, supervisor, no_args),
-	  child(dynamicSupervisor, supervisor, no_args)
+	 [child(dynamicSupervisor, supervisor, no_args),
+          child(statistician, worker, [slave]),
+	  child(taskFetcher, worker, [])
 	 ]
 	}
     }.
@@ -75,5 +76,5 @@ child(Module,Role, no_args) ->
     {Module, {Module, start_link, []},
         permanent, brutal_kill, Role, [Module]};
 child(Module, Role, Args) ->
-    {Module, {Module, start_link, [Args]},
+    {Module, {Module, start_link, Args},
         permanent, brutal_kill, Role, [Module]}.

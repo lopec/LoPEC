@@ -22,7 +22,7 @@
 %%           Error
 %% --------------------------------------------------------------------
 start(_Type, _StartArgs) ->
-    chronicler:info("~w : Started ECG Application~n", [?MODULE]),
+    chronicler:info("~w : Starting ECG Application~n", [?MODULE]),
     Result = ecg_sup:start_link(),
     case Result of
 	{ok, Pid} ->

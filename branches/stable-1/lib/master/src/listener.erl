@@ -7,10 +7,12 @@
 %%% Created : 12 Okt 2009 by Burbas
 %%%-----------------------------------------------------------------------------
 -module(listener).
+-include("../include/env.hrl").
+
 -behaviour(gen_server).
 
--export([new_job/2, new_job/3, get_job_name/1, remove_job_name/1,
-         is_valid_jobtype/1]).
+-export([add_job/5, add_job/6, pause_job/1, resume_job/1, stop_job/1,
+         get_job_name/1, get_job_id/1, remove_job_name/1, is_valid_jobtype/1]).
 
 -export([start_link/0, init/1, handle_call/3, handle_cast/2, handle_info/2, 
         terminate/2, code_change/3]).
@@ -40,17 +42,60 @@ start_link() ->
 %% Name is the atom the user wants to associate with the job id,
 %% or no_name if no association is wanted.
 %%
-%% @spec new_job(JobType, InputData, Name) -> JobID
+%% @spec add_job(ProgramType, ProblemType, Owner, Priority, InputData, Name) 
+%%                  -> JobID
 %% @end
 %%------------------------------------------------------------------------------
-new_job(JobType, InputData, Name) ->
+add_job(ProgramType, ProblemType, Owner, Priority, InputData, Name) ->
     chronicler:info("~w : called new_job with a name=~w~n", [?MODULE, Name]),
-    gen_server:call(?MODULE, {new_job, JobType, InputData, Name}).
-%% @spec new_job(JobType, InputData) -> JobID
-%% @equiv new_job(JobType, InputData, no_name)
-new_job(JobType, InputData) ->
+    gen_server:call(?MODULE, 
+       {new_job, ProgramType, ProblemType, Owner, Priority, InputData, Name}).
+
+%%------------------------------------------------------------------------------
+%% @doc
+%% This is the same as add_job/6 but without the 'Name'-variable. 
+%% @spec add_job(ProgramType, ProblemType, Owner, Priority, InputData) 
+%%                  -> JobID
+%% @end
+%%------------------------------------------------------------------------------
+add_job(ProgramType, ProblemType, Owner, Priority, InputData) ->
     chronicler:info("~w called new_job~n", [?MODULE]),
-    new_job(JobType, InputData, no_name).
+    add_job(ProgramType, ProblemType, Owner, Priority, InputData, no_name).
+
+
+%%------------------------------------------------------------------------------
+%% @doc
+%% Pauses a job.  
+%%
+%% @spec pause_job(JobId) -> ok
+%% @end
+%%------------------------------------------------------------------------------
+pause_job(JobId) ->
+    chronicler:user_info("~w : Paused job with Id=~p~n", [?MODULE, JobId]),
+    gen_server:call(?MODULE, {pause_job, JobId}).
+
+%%------------------------------------------------------------------------------
+%% @doc
+%% Resumes a paused or stopped job.
+%%
+%% @spec resume_job(JobId) -> ok
+%% @end
+%%------------------------------------------------------------------------------
+resume_job(JobId) ->
+    chronicler:user_info("~w : Resumed job with Id=~p~n", [?MODULE, JobId]),
+    gen_server:call(?MODULE, {resume_job, JobId}).
+
+%%------------------------------------------------------------------------------
+%% @doc
+%% Stops a job
+%% This method is not yet implemented, so don't use this for now.
+%%
+%% @spec stop_job(JobId) -> ok
+%% @end
+%%------------------------------------------------------------------------------
+stop_job(JobId) ->
+    chronicler:user_info("~w : Stopped job with Id=~p~n", [?MODULE, JobId]),
+    ok.
 
 %%------------------------------------------------------------------------------
 %% @doc
@@ -61,8 +106,22 @@ new_job(JobType, InputData) ->
 %% @end
 %%------------------------------------------------------------------------------
 get_job_name(JobId) ->
-    chronicler:info("~w : called get_job_name with JobId=~B~n", [?MODULE, JobId]),
+    chronicler:debug("~w : called get_job_name with JobId=~B~n",
+                     [?MODULE, JobId]),
     gen_server:call(?MODULE, {get_job_name, JobId}).
+
+%%------------------------------------------------------------------------------
+%% @doc
+%% Returns the JobId of the job with name JobName,
+%% or {error, Reason} if there was no job with JobName.
+%%
+%% @spec get_job_id(JobName) -> {ok, JobId} | {error, Reason}
+%% @end
+%%------------------------------------------------------------------------------
+get_job_id(JobName) ->
+    chronicler:debug("~w : called get_job_id with JobName=~p~n",
+                     [?MODULE, JobName]),
+    gen_server:call(?MODULE, {get_job_id, JobName}).
 
 %%------------------------------------------------------------------------------
 %% @doc
@@ -99,12 +158,14 @@ init(_Args) ->
 %%           {reply, JobId, State} | {noreply, State}
 %% @end
 %%------------------------------------------------------------------------------
-handle_call({new_job, JobType, InputData, Name}, _From, State) ->
+handle_call({new_job, ProgramType, ProblemType, Owner, Priority, InputData, Name}, 
+            _From, State) ->
     JobsWithThisName = dict:filter(fun (_Id, JobName) -> JobName == Name end,
                                    State#state.active_jobs),
     case dict:size(JobsWithThisName) of
         0 ->
-            JobId = add_new_job(JobType, InputData),
+            {ok, JobId} = add_new_job(ProgramType, ProblemType, 
+                                Owner, Priority, InputData),
             NewState =
                 case Name of
                     no_name -> State;
@@ -136,6 +197,28 @@ handle_call({get_job_name, JobId}, _From, State) ->
                 {ok, Name} -> {name, Name}
             end,
     {reply, Reply, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Returns the job id of the job with name JobName,
+%% or {error, Reason} if no job has the name.
+%%
+%% @spec handle_call(GetJobId, From, State) ->
+%%           {reply, {ok, JobId}, State} | {reply, {error, Reason}, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({get_job_id, JobName}, _From, State) ->
+    JobsWithThisName = dict:filter(fun (_Id, Name) -> Name == JobName end,
+                                   State#state.active_jobs),
+    Reply = case dict:to_list(JobsWithThisName) of
+                [{JobId, JobName}] -> {ok, JobId};
+                _ -> {error,
+                      lists:flatten(io_lib:format("There's no job called '~p'",
+                                                  [JobName]))}
+            end,
+    {reply, Reply, State};
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -150,6 +233,47 @@ handle_call({remove_job_name, JobId}, _From, State) ->
     NewJobs = dict:erase(JobId, State#state.active_jobs),
     NewState = State#state{active_jobs = NewJobs},
     {reply, Reply, NewState};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Pauses a job
+%%
+%% @spec handle_call({pause_job, JobId}, From, State) ->
+%%           {reply, Result, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({pause_job, JobId}, _From, State) ->
+    Result = db:pause_job(JobId),
+    {reply, Result, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Resumes a job
+%%
+%% @spec handle_call({resume_job, JobId}, From, State) ->
+%%           {reply, ok, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({resume_job, JobId}, _From, State) ->
+    db:resume_job(JobId),
+    {reply, ok, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Stops a job
+%%
+%% @spec handle_call({stop_job, JobId}, From, State) ->
+%%           {reply, ok, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({stop_job, JobId}, _From, State) ->
+    db:stop_job(JobId),
+    {reply, ok, State};
+
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -242,7 +366,7 @@ code_change(OldVsn, State, Extra) ->
 %%------------------------------------------------------------------------------
 is_valid_jobtype(JobType) ->
     {ok, Root} = 
-        configparser:read_config("/etc/clusterbusters.conf", cluster_root),
+        configparser:read_config(?CONFIGFILE, cluster_root),
     JobTypeString = atom_to_list(JobType),
     ProgramFile = Root++"programs/"++JobTypeString++"/script.sh",
     % Because there is no function to check if file exists.
@@ -252,16 +376,42 @@ is_valid_jobtype(JobType) ->
         {error, Reason} -> {error, Reason}
     end.
 
-add_new_job(JobType, InputData) ->
-    JobId = dispatcher:add_job({JobType, 0}),
-    % Read the structurepath from configfile
-    {ok, Root} =
-        configparser:read_config("/etc/clusterbusters.conf", cluster_root),
-    JobRoot = lists:flatten(io_lib:format("/tmp/~p/", [JobId])),
-    % Make the directory-structure
-    [filelib:ensure_dir(Root ++ JobRoot ++ SubDir)
-     || SubDir <- ["map/", "reduce/", "input/", "results/"]],
-    % Move the files to the right thing
-    file:copy(InputData, Root ++ JobRoot ++ "/input/data.dat"),
-    dispatcher:create_task({JobId, split, JobRoot ++ "/input/data.dat", 0}),
-    JobId.
+
+
+%%------------------------------------------------------------------------------
+%% @private
+%% @doc
+%% Adds a new job to the database. It copys the inputdata to the correct path
+%% and starts the job.
+%%
+%% @spec add_new_job(ProgramType, ProblemType, Owner, Priority, InputData) ->
+%%        {ok, JobId} |
+%%        {error, Reason}
+%% @end
+%%------------------------------------------------------------------------------
+add_new_job(ProgramType, ProblemType, Owner, Priority, InputData) ->
+    case is_valid_jobtype(ProgramType) of
+        {ok} ->
+           JobId = dispatcher:add_job({ProgramType, ProblemType, Owner, Priority}),
+           % Read the structurepath from configfile
+            {ok, Root} =
+                configparser:read_config(?CONFIGFILE, cluster_root),
+            JobRoot = lists:flatten(io_lib:format("/tmp/~p/", [JobId])),
+            % Make the directory-structure
+            [filelib:ensure_dir(Root ++ JobRoot ++ SubDir)
+                || SubDir <- ["map/", "reduce/", "input/", "results/"]],
+            % Move the files to the right thing
+            Return = file:copy(InputData, Root ++ JobRoot ++ "/input/data.dat"),
+	        case Return of
+		    {ok, BytesCopied} ->
+		       chronicler:info(
+		        chronicler:info("Split data copied, size: ~p~n",[BytesCopied])),
+                dispatcher:add_task({JobId, ProgramType, split, JobRoot ++ "/input/data.dat"}),
+                {ok, JobId};
+		    {error, Reason} ->
+		        chronicler:error("Could not copy split data, reason: ~p~n", [Reason])
+	        end;
+        {error, Reason} ->
+            chronicler:user_info("~w : Could not add job. Reason: ~p~n", [?MODULE, Reason]),
+            {error, Reason}
+    end.

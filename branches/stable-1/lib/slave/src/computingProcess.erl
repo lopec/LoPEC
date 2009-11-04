@@ -10,6 +10,7 @@
 %%%-------------------------------------------------------------------
 
 -module(computingProcess).
+-include("../include/env.hrl").
 
 -behaviour(gen_server).
 
@@ -38,9 +39,9 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link(Path, Op, JobId, InputPath, TaskId) ->
-    chronicler:info("~w : application started~n", [?MODULE]),
+    chronicler:info("~w : application starting~n", [?MODULE]),
     StringId = integer_to_list(JobId),
-    {ok, Root} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
+    {ok, Root} = configparser:read_config(?CONFIGFILE, cluster_root),
     Prog = Root ++ "programs/" ++ atom_to_list(Path) ++ "/script.sh",
     LoadPath = Root ++ InputPath,
     SavePath = Root ++
@@ -52,7 +53,7 @@ start_link(Path, Op, JobId, InputPath, TaskId) ->
 			"results/" ++ StringId
         end,
     gen_server:start_link({local, ?SERVER},?MODULE,
-			  [Prog, atom_to_list(Op), LoadPath, SavePath, JobId, TaskId], []).
+			  [Path, Prog, atom_to_list(Op), LoadPath, SavePath, JobId, TaskId], []).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -63,7 +64,7 @@ start_link(Path, Op, JobId, InputPath, TaskId) ->
 %%--------------------------------------------------------------------
 
 stop() ->
-    chronicler:info("~w : module stopped~n", [?MODULE]),
+    chronicler:info("~w : module stopping~n", [?MODULE]),
     gen_server:cast(?SERVER, stop).
 
 %%%===================================================================
@@ -81,21 +82,21 @@ stop() ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([Path, "split", LoadPath, SavePath, JobId, TaskId]) ->
-    {ok, Val} = configparser:read_config("/etc/clusterbusters.conf", split_value),
+init([Progname, Path, "split", LoadPath, SavePath, JobId, TaskId]) ->
+    {ok, Val} = configparser:read_config(?CONFIGFILE, split_value),
     chronicler:debug("~w : Path: ~ts~nOperation: ~ts~nLoadpath: ~ts~nSavepath: ~ts~nJobId: ~p~n",
                      [?MODULE, Path, "split", LoadPath, SavePath, JobId]),
     open_port({spawn_executable, Path},
 	      [use_stdio, exit_status, {line, 512},
 	       {args, ["split", LoadPath, SavePath, integer_to_list(Val)]}]),
-    {ok, {JobId, TaskId, now(), "split"}};
-init([Path, Op, LoadPath, SavePath, JobId, TaskId]) ->
+    {ok, {JobId, TaskId, now(), "split", Progname}};
+init([Progname, Path, Op, LoadPath, SavePath, JobId, TaskId]) ->
     chronicler:debug("~w : Path: ~ts~nOperation: ~ts~nLoadpath: ~ts~nSavepath: ~ts~nJobId: ~p~n",
                      [?MODULE, Path, Op, LoadPath, SavePath, JobId]),
     open_port({spawn_executable, Path},
 	      [use_stdio, exit_status, {line, 512},
 	       {args, [Op, LoadPath, SavePath]}]),
-    {ok, {JobId, TaskId, now(), Op}}.
+    {ok, {JobId, TaskId, now(), Op, Progname}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -142,7 +143,9 @@ handle_cast(Msg, State) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Handling all non call/cast messages
+%% Handling all non call/cast messages. Handles message sent from
+%% the program started with open_port in init, logs them and reports
+%% new split/reduce/result tasks to the taskFetcher.
 %%
 %% @spec handle_info(Info, State) -> {noreply, State} |
 %%                                   {noreply, State, Timeout} |

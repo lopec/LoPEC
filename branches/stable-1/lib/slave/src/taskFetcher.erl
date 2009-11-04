@@ -24,6 +24,7 @@
 
 -define(DYNSUP, dynamicSupervisor).
 -define(WORKER, computingProcess).
+-define(TASK_FETCH_INTERVAL, 1000).
 
 -record(state, {work_state = no_task, timer}).
 
@@ -39,7 +40,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
-    chronicler:info("~w : application started~n", [?MODULE]),
+    chronicler:info("~w : module started", [?MODULE]),
     gen_server:start_link({local, ?MODULE}, ?MODULE, no_args, []).
 
 %%--------------------------------------------------------------------
@@ -50,7 +51,7 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 new_task(Data, Type, Path) ->
-    chronicler:info("~w : called new_task of type ~w~n", [?MODULE, Type]),
+    chronicler:info("~w : called new_task of type ~w", [?MODULE, Type]),
     gen_server:call(?MODULE, {request, new_task, Data, Type, Path}).
 
 %%%===================================================================
@@ -69,8 +70,10 @@ new_task(Data, Type, Path) ->
 %% @end
 %%--------------------------------------------------------------------
 init(no_args) ->
-    {ok, TimerRef} = timer:send_interval(1000, poll),
-    {ok, #state{timer = TimerRef}}.
+    {ok, TimerRef} = timer:send_interval(?TASK_FETCH_INTERVAL, poll),
+    {Upload, Download} = netMonitor:get_net_stats(),
+    NetStats = {Upload, Download},
+    {ok, {#state{timer = TimerRef}, NetStats}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -117,12 +120,15 @@ handle_call(Msg, From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType}}, _State) ->
+handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType, _Progname}},
+	    {_LolTimer, {OldUp, OldDown}}) ->
     %% Report to statistician
     Diff = timer:now_diff(now(), Time) / 1000000,
     Power = power_check:get_watt_per_task(Diff),
+    {NewUpload, NewDownload} = netMonitor:get_net_stats(),
+    {NewUp, NewDown} = {NewUpload, NewDownload},
     statistician:update({{node(), JobId, list_to_atom(TaskType)},
-		        Power, Diff, 0, 1, 0}),
+                         Power, Diff, NewUp - OldUp, NewDown - OldDown, 1, 0}),
     
     %% Kill and remove computingProcess spec from dynamic supervisor
     supervisor:terminate_child(?DYNSUP, ?WORKER),
@@ -132,12 +138,21 @@ handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType}}, _State) ->
     dispatcher:report_task_done(TaskId),
 
     %% Reinstate poll timer and request task
-    {ok, Timer} = timer:send_interval(1000, poll),
+    {ok, Timer} = timer:send_interval(?TASK_FETCH_INTERVAL, poll),
     request_task(),
-    {noreply, #state{work_state = no_task, timer = Timer}};
+    {noreply, {#state{work_state = no_task, timer = Timer}, {NewUp, NewDown}}};
 
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Handles errournous exit of user application.
+%% Will tell the user through a user_info message.
+%%
+%% @spec handle_cast({Pid, error, CallState}, State) -> {noreply, State}
+%% @end
+%%--------------------------------------------------------------------
 handle_cast({Pid, error, CallState}, State) ->
-    chronicler:user_info("~w : Process ~p exited unexpected with state ~w.~n", 
+    chronicler:warning("~w : Process ~p exited unexpected with state ~w.", 
         [?MODULE, Pid,CallState]),
     {noreply, State};
 %%--------------------------------------------------------------------
@@ -164,13 +179,13 @@ handle_cast(Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(poll, State = #state{work_state = no_task}) ->
+handle_info(poll, {State = #state{work_state = no_task}, NetLoad}) ->
     request_task(),
-    {noreply, State};
-handle_info({task_response, Task}, State) ->
+    {noreply, {State, NetLoad}};
+handle_info({task_response, Task}, {State, NetLoad}) ->
     start_task(Task),
     timer:cancel(State#state.timer),
-    {noreply, State#state{work_state = task}};
+    {noreply, {State#state{work_state = task}, NetLoad}};
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -232,7 +247,7 @@ code_change(OldVsn, State, Extra) ->
 %% @end
 %%--------------------------------------------------------------------
 request_task() ->
-    dispatcher:get_task(node(), self()).
+    dispatcher:fetch_task(node(), self()).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -242,9 +257,9 @@ request_task() ->
 %% @end
 %%--------------------------------------------------------------------
 
-give_task({JobId, _TaskId, _Time, _OldType}, Type, Path) ->
-    dispatcher:create_task({JobId, Type,
-			    "tmp/" ++ integer_to_list(JobId) ++ Path, 1}).
+give_task({JobId, _TaskId, _Time, _OldType, Progname}, Type, Path) ->
+    dispatcher:add_task({JobId, Progname, Type,
+			    "tmp/" ++ integer_to_list(JobId) ++ Path}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -254,7 +269,7 @@ give_task({JobId, _TaskId, _Time, _OldType}, Type, Path) ->
 %% @end
 %%--------------------------------------------------------------------
 
-start_task({_Lool, TaskId, JobId, Op, Path, Name}) ->
+start_task({_Lool, TaskId, JobId, Name, Op, Path, _OLOLOL}) ->
     ChildSpec = {?WORKER,
 		 {?WORKER,
 		  start_link,

@@ -1,5 +1,5 @@
 #!/usr/bin/env escript
-%%! +W w -pa ../ecg/ebin ../common/ebin ../logger/ebin ../ecg/ebin ../master/ebin ../slave/ebin -pa test
+%%! +W w -pa ../ecg/ebin ../common/ebin ../chronicler/ebin ../ecg/ebin ../master/ebin ../slave/ebin -pa test
 %% A bit ugly above, dunno what we can do about it...
 
 main(Args) ->
@@ -8,7 +8,8 @@ main(Args) ->
 
     %Compile and run tests
     cover:compile_directory("src"),
-    eunit:test("test",[]),
+    %cover:compile_directory("test"),
+    eunit:test("test",[verbose]),
 
     %Find the modules to analyse
     Files = [lists:last(string:tokens(X, "/")) || X <- Args],

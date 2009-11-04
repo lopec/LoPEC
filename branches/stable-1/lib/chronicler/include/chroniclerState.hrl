@@ -1,0 +1,1 @@
+-record(state, {loggingLevel = [], logFile = atom_to_list(node())}). %TODO add modules level logging

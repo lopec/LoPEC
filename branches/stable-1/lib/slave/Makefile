@@ -1,36 +1,31 @@
 # A very basic Makefile (this line is a comment)
 APPNAME = slave
+DEBUG_FLAGS= 
 ERLC_FLAGS= -I include +debug_info
 C_FLAGS= 
 SOURCES= $(wildcard src/*.erl)
-TESTFILES= $(wildcard test/*.erl)
+TESTFILES= $(wildcard test/*_tests.erl)
 HEADERS= $(wildcard include/*.hrl)
 OBJECTS= $(SOURCES:src/%.erl=ebin/%.beam)
 TESTOBJECTS= $(TESTFILES:test/%.erl=test/%.beam)
 DOC_OPTS= 
 
-build: $(OBJECTS) $(TESTOBJECTS)
+all: build test docs
 
-all: $(OBJECTS) $(TESTOBJECTS) port test docs
+build: $(OBJECTS)
 
 ebin/%.beam : src/%.erl $(HEADERS) Makefile
-	erlc $(ERLC_FLAGS) -o ebin/ $<
+	erlc $(ERLC_FLAGS) $(DEBUG_FLAGS) -o ebin/ $<
 
 test/%.beam : test/%.erl $(HEADERS) Makefile
-	erlc $(ERLC_FLAGS) -o test/ $<
+	erlc $(ERLC_FLAGS) $(DEBUG_FLAGS) -o test/ $<
 
 clean:
-	rm -f ebin/*.beam test/*.beam
+	rm -f ebin/*.beam test/*.beam test/*.html
 
 .PHONY: test
 test: $(TESTOBJECTS)
 	../../testscript.escript $(SOURCES)
-#	erl -noshell -pa ebin -pa test -eval 'eunit:test("test",[verbose])' -s init stop
-
-port:
-	mkdir tests
-	gcc -o tests/port_test examples/port_example.c
-	rm -rf tests
 
 docs: 
 	erl -noshell -eval "edoc:application($(APPNAME), \".\", [$(DOC_OPTS)])" -s init stop

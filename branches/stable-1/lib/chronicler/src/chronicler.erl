@@ -21,22 +21,27 @@
 
 %% API
 -export([start_link/0,
-         error/1,
-         info/1,
-         warning/1,
-         debug/1,
-         user_info/1,
-         error/2,
-         info/2,
-         warning/2,
-         debug/2,
-         user_info/2,
-         set_logging_level/1
+        error/1,
+        info/1,
+        warning/1,
+        debug/1,
+        user_info/1,
+        error/2,
+        info/2,
+        warning/2,
+        debug/2,
+        user_info/2,
+        set_logging_level/1,
+        fetch_logfile/0
     ]).
 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-        terminate/2, code_change/3]).
+-export([init/1,
+        handle_call/3,
+        handle_cast/2,
+        handle_info/2,
+        terminate/2,
+        code_change/3]).
 
 
 %%%===================================================================
@@ -143,6 +148,15 @@ user_info(Format, Args) ->
 set_logging_level(NewLevel) ->
     gen_server:cast(?MODULE, {new_level, NewLevel}).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns the logging file currently in use.
+%%
+%% @spec fetch_logfile() -> string()
+%% @end
+%%--------------------------------------------------------------------
+fetch_logfile() ->
+    gen_server:call(?MODULE, {fetch_logfile}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -160,10 +174,18 @@ set_logging_level(NewLevel) ->
 %% @end
 %%--------------------------------------------------------------------
 init(no_args) ->
-    error_logger:logfile({open, node()}),
+    case error_logger:logfile(filename) of
+        {error, no_log_file} ->
+            {ok, LogDir} = configparser:read_config("/etc/clusterbusters.conf", log_dir),
+            LogFile = LogDir ++ atom_to_list(node()),
+            ok = error_logger:logfile({open, LogFile});
+        LogFile ->
+            LogFile
+    end,
 
     %TODO add module information logging level
-    State = #state{loggingLevel = [error, user_info, info, warning, debug]},
+    State = #state{loggingLevel = [],
+                   logFile = LogFile},
 
     %register the externalLogger if we are not the logger process
     case "logger" == lists:takewhile(fun(X)->X /= $@ end, atom_to_list(node())) of
@@ -184,11 +206,13 @@ init(no_args) ->
 %% @spec handle_call(Msg, From, State) ->  {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
+handle_call({fetch_logfile}, _From, State) ->
+    {reply, State#state.logFile, State};
 handle_call(Msg, From, State) ->
     chronicler:warning("~w:Received unexpected handle_call call.~n"
-                       "Message: ~p~n"
-                       "From: ~p~n",
-                       [?MODULE, Msg, From]),
+        "Message: ~p~n"
+        "From: ~p~n",
+        [?MODULE, Msg, From]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -202,11 +226,16 @@ handle_call(Msg, From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({new_level, all}, State) ->
-    {noreply, State#state{loggingLevel =
-                          [info, debug, user_info, warning, error]}};
+handle_cast({new_level, [all]}, State) ->
+    NewState = State#state{loggingLevel = [info,
+                                           debug,
+                                           user_info,
+                                           warning,
+                                           error]},
+    {noreply, NewState};
 handle_cast({new_level, NewLevel}, State) ->
-    {noreply, State#state{loggingLevel = NewLevel}};
+    NewState = State#state{loggingLevel = NewLevel},
+    {noreply, NewState};
 handle_cast({Level, Msg}, State) ->
     case is_level_logging_on(Level, State) of
         true ->
@@ -233,8 +262,8 @@ handle_cast({Level, From, Msg}, State) ->
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
     chronicler:warning("~w:Received unexpected handle_cast call.~n"
-                       "Message: ~p~n",
-                       [?MODULE, Msg]),
+        "Message: ~p~n",
+        [?MODULE, Msg]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -242,13 +271,13 @@ handle_cast(Msg, State) ->
 %% @doc
 %% Logs and discards unexpected messages.
 %%
-%% @spec handle_info(Info, State) -> {noreply, State} 
+%% @spec handle_info(Info, State) -> {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(Info, State) -> 
+handle_info(Info, State) ->
     chronicler:warning("~w:Received unexpected handle_info call.~n"
-                       "Info: ~p~n",
-                       [?MODULE, Info]),
+        "Info: ~p~n",
+        [?MODULE, Info]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -284,11 +313,11 @@ terminate(Reason, State) ->
 %% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% @end
 %%--------------------------------------------------------------------
-code_change(OldVsn, State, Extra) -> 
+code_change(OldVsn, State, Extra) ->
     chronicler:debug("~w:Received code_change call.~n"
-                     "Old version: ~p~n"
-                     "Extra: ~p~n",
-                     [?MODULE, OldVsn, Extra]),
+        "Old version: ~p~n"
+        "Extra: ~p~n",
+        [?MODULE, OldVsn, Extra]),
     {ok, State}.
 
 %%%===================================================================

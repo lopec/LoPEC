@@ -1,3 +1,7 @@
+CALLGRAPH_NAME=call_graph
+CALLGRAPH_DIR=LR             # (left to right)
+CALLGRAPH_TYPE=pdf
+
 all: build common_test dialyze docs
 #	$(MAKE) -C lib all
 #	$(MAKE) dialyze
@@ -62,4 +66,10 @@ common_test: test.spec build
 
 dialyze: build
 	@echo "\n -- Running dialyzer --\n"
-	dialyzer --verbose -c lib/*/ebin | sed 's/^\(\w*\.erl\)/\n\1/'
+	dialyzer --verbose -c lib/*/ebin --dump_callgraph ${CALLGRAPH_NAME}.dot \
+	         | sed 's/^\(\w*\.erl\)/\n\1/'
+
+callgraph: dialyze
+	sed -i "s/^\(digraph CG {\)/\1rankdir=\"${CALLGRAPH_DIR}\";/" ${CALLGRAPH_NAME}.dot
+	dot -T${CALLGRAPH_TYPE} ${CALLGRAPH_NAME}.dot \
+	    -o ${CALLGRAPH_NAME}.${CALLGRAPH_TYPE}

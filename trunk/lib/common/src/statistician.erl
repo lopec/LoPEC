@@ -123,9 +123,11 @@ update(Data) ->
 %% @doc
 %% Jobs that are finished in our cluster should have their stats dumped to 
 %% file and their entry cleared out of the table, but we have to wait
-%% to make sure that all slaves have sent their stats updates. This is
-%% NOT guaranteed, but we hope waiting two update intervals will be
-%% sufficient.
+%% to make sure that all slaves have sent their stats updates.  This is
+%% by no means a sure thing, but we hope that waiting two update intervals
+%% will be sufficient.
+%% Due to sending a message to itself after the waiting time has passed,
+%% we must use handle_info, though it passes the call onto handle_cast.
 %%
 %% @spec job_finished(JobId) -> please_wait_a_few_seconds
 %% @end
@@ -140,7 +142,7 @@ job_finished(JobId) ->
 %% @doc
 %% If a node dies, we should remove it from our (global) stats.
 %% It should be safe to do so immediately, since it has left the cluster.
-%% rewrite the remove from cluster stats thingy - dont remove stats 
+%% 
 %% @spec remove_node(NodeId) -> ok
 %% @end
 %%--------------------------------------------------------------------

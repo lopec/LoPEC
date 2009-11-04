@@ -368,7 +368,7 @@ handle_cast({job_finished, JobId}, State) ->
         configparser:read_config(?CONFIGFILE, cluster_root),
     file:write_file(Root ++ "results/" ++
                   integer_to_list(JobId) ++ "/stats", JobStats),
-    chronicler:info("Job finished! Stats:~n~p~n", [JobStats]),
+    chronicler:info(JobStats),
     {noreply, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -389,7 +389,7 @@ handle_cast({remove_node, NodeId}, State) ->
         configparser:read_config(?CONFIGFILE, cluster_root),
     file:write_file(Root ++ "results/node_" ++
                   atom_to_list(NodeId) ++ "_stats", NodeStats),
-    chronicler:info("Node removed from cluster! Stats:~n~p~n", [NodeStats]),
+    chronicler:info(NodeStats),
     {noreply, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -641,8 +641,8 @@ clusterstats_string_formatter(
         "------------------------------------------------------------~n"
         "Nodes used: ~p~n"
         "Jobs worked on: ~p~n"
-        "Time executing: ~p seconds~n"
-        "Power used: ~p watts~n"
+        "Time executing: ~.2f seconds~n"
+        "Power used: ~.2f watt seconds~n"
         "Upload: ~p bytes~n"
 	    "Download: ~p bytes~n"
         "Number of tasks total: ~p~n"
@@ -664,8 +664,8 @@ nodestats_string_formatter(
         "Stats for node: ~p~n"
         "------------------------------------------------------------~n"
         "Jobs worked on by node: ~p~n"
-        "Time executing: ~p seconds~n"
-        "Power used: ~p watts~n"
+        "Time executing: ~.2f seconds~n"
+        "Power used: ~.2f watt seconds~n"
         "Upload: ~p bytes~n"
 	"Download: ~p bytes~n"
         "Number of tasks: ~p~n"
@@ -690,9 +690,9 @@ jobstats_string_formatter(
         "Total:~n"
         "------------------------------------------------------------~n"
         "Nodes that worked on job: ~p~n"
-        "Time passed: ~p seconds~n"
-        "Execution time: ~p seconds~n"
-        "Power used: ~p watts~n"
+        "Time passed: ~.2f seconds~n"
+        "Execution time: ~.2f seconds~n"
+        "Power used: ~.2f watt seconds~n"
         "Upload: ~p bytes~n"
 	"Download: ~p bytes~n"
         "Number of tasks: ~p~n"
@@ -714,8 +714,8 @@ taskstats_string_formatter(TaskType,
       "------------------------------------------------------------~n"
       "~p~n"
       "------------------------------------------------------------~n"
-      "Power used: ~p watts~n"
-      "Time spent: ~p seconds~n"
+      "Power used: ~.2f watt seconds~n"
+      "Time spent: ~.2f seconds~n"
       "Upload: ~p bytes~n"
       "Download: ~p bytes~n"
       "Number of tasks: ~p~n"

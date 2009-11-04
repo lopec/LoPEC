@@ -600,29 +600,26 @@ node_stats(NodeId) ->
 %% @end
 %%--------------------------------------------------------------------
 cluster_stats() ->
-    T = cluster_stats_table,
-    case ets:match(T, {{'_', '_', '_'}, '$1', '_', '_', '_', '_', '_'}) of
-        [] ->
-            {error, no_stats_in_cluster};
-        _Other ->
-            Nodes = ets:match(T, {{'$1', '_','_'},'_','_','_','_','_','_'}),
-            Jobs  = ets:match(T, {{'_', '$1','_'},'_','_','_','_','_','_'}),
-            UniqueNodes = lists:umerge(Nodes),
-            UniqueJobs  = lists:umerge(Jobs),
-            
+    CollectStuff =
+        fun ({{Node, Job, _}, Power, Time, Upload, Download, NumTasks, Restarts},
+             {Nodes, Jobs, PowerAcc, TimeAcc, UpAcc, DownAcc, TasksAcc, RestartsAcc}) ->
+                  {[Node | Nodes], [Job | Jobs],
+                  PowerAcc + Power,
+                  TimeAcc + Time,
+                  UpAcc + Upload,
+                  DownAcc + Download,
+                  TasksAcc + NumTasks,
+                  RestartsAcc + Restarts}
+        end,
+    {Nodes, Jobs, Power, Time, Upload, Download, NumTasks, Restarts} =
+        ets:foldl(CollectStuff, {[], [], 0, 0, 0, 0, 0, 0}, cluster_stats_table),
+    UniqueNodes = lists:usort(Nodes),
+    UniqueJobs  = lists:usort(Jobs),
 
-            Stats = ets:match(T, {{'_','_','_'},
-                                 '$1','$2','$3','$4','$5','$6'}),
-            [Power, Time, Upload, Download, Numtasks, Restarts] =
-                sum_stats(Stats, [0,0,0,0,0,0]),
-
-            
-            Reply = clusterstats_string_formatter({UniqueNodes, UniqueJobs,
-                                                   Power, Time,
-                                                   Upload, Download,
-                                                   Numtasks, Restarts}),
-            Reply
-    end.
+    clusterstats_string_formatter({UniqueNodes, UniqueJobs,
+                                   Power, Time,
+                                   Upload, Download,
+                                   NumTasks, Restarts}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -645,7 +642,7 @@ clusterstats_string_formatter(
         "Time executing: ~p seconds~n"
         "Power used: ~p watts~n"
         "Upload: ~p bytes~n"
-	"Download: ~p bytes~n"
+	    "Download: ~p bytes~n"
         "Number of tasks total: ~p~n"
         "Number of task restarts:~p~n",
         [Nodes, Jobs, Power, Time, Upload, Download, Numtasks, Restarts])).

@@ -15,6 +15,7 @@ statistician_slave_test_() ->
     {setup,
      fun start_slave/0,
      fun stop_slave/1,
+     %What is 
      fun ({Pid, Now, Node1, Node2}) ->
              {inorder,
               [
@@ -23,9 +24,14 @@ statistician_slave_test_() ->
                              statistician:get_job_stats(Now)),
                %Normally we'd wait for the flush, but in tests we're better
                %off doing it manually (and instantly)
+               
+               %%Vj & Nordh: What is flush?
                ?_assertEqual(flush, Pid ! flush), %flush when empty...
                ?_assertEqual(ok, statistician:update({{Node1, Now, map},
                                                       1, 1, 1, 1, 1, 1})),
+               %%V&N - check if values are set correctly
+               
+               %% What is checked here?
                ?_assertNot({error, no_such_stats_found} ==
                              statistician:get_job_stats(Now)),
                ?_assertEqual(flush, Pid ! flush), %flush with 1 element...

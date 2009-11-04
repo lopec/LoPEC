@@ -30,7 +30,6 @@ all() ->
 
 db_test() ->
     [{doc, "Test the WHOOOLE database."}].
-
 db_test(_Config) ->
     % chronicler:set_logging_level(all),    
     % Check to see that the database doesn't blow up

@@ -588,7 +588,13 @@ handle_call({add_task, TableName, Task}, _From, State) ->
         job_id     = Task#task.job_id,
         table_name = TableName},
     add(task_relations, TaskRelation),
-    set_job_state_internal(Task#task.job_id, free),
+    Job = read(job, Task#task.job_id),
+    case Job#job.state of
+        no_tasks ->
+            set_job_state_internal(Task#task.job_id, free);
+        _ ->
+            ok
+    end,
     chronicler:debug("~w:Added task."
         "TaskId:~p~n"
         "JobId:~p~n"
@@ -982,6 +988,7 @@ read(TableName, Key) ->
     end,
     case mnesia:transaction(F) of
         {atomic, [Result]} -> Result;
+        {atomic, []} -> {error, key_not_in_table};
         {aborted, Reason} -> {error, Reason}
     end.
 
@@ -1086,7 +1093,8 @@ set_task_state(TaskId, NewState) ->
             end,
 
             ExistsTask = lists:any(F, FreeTasks),
-            case ExistsTask of
+            Job = read(job, JobId),
+            case ExistsTask andalso (Job#job.state == no_tasks) of
                 true ->
                     set_job_state_internal(JobId, free);
                 _ ->

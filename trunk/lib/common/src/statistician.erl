@@ -523,11 +523,12 @@ node_job_stats(NodeId, JobId) ->
                                      '$1', '$2', '$3', '$4', '$5', '$6'}),
             Finalize = ets:match(T, {{NodeId, JobId, finalize},
                                      '$1', '$2', '$3', '$4', '$5', '$6'}),
-            Nodes    = ets:match(T, {{NodeId, JobId, '_'}, 
-                                     '_','_','_','_','_','_'}),
-            UniqueNodes = lists:umerge(Nodes),
-            %In the case of NodeId being defined, the above line should
-            %do basically nothing to the single-element-list.
+            Nodes = case NodeId of
+                        '_' -> lists:umerge(
+                                 ets:match(T, {{'$1', JobId, '_'},
+                                               '_','_','_','_','_','_'}));
+                        _NodeId -> NodeId
+                    end,
             
             Zeroes = [0,0,0,0,0,0],
             
@@ -554,7 +555,7 @@ node_job_stats(NodeId, JobId) ->
                                                ReduceStrings,
                                                FinalStrings,
                                                TimePassed,
-                                               UniqueNodes,
+                                               Nodes,
                                                SumAll}),
             Reply
     end.

@@ -20,9 +20,11 @@ end_per_test_case(JobId) ->
 init_test() ->
     application:start(chronicler),
     application:start(ecg),
+%%     application:start(master).
     dispatcher:start_link(),
     db:start_link(test),
-    examiner:start_link().
+    examiner:start_link(),
+    listener:start_link().
     
 
 task_allocation_test() ->

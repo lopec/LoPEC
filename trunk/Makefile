@@ -1,5 +1,5 @@
 CALLGRAPH_NAME=call_graph
-CALLGRAPH_DIR=LR             # (left to right)
+CALLGRAPH_DIR=LR
 CALLGRAPH_TYPE=pdf
 
 all: build common_test dialyze docs

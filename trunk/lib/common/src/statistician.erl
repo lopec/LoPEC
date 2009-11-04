@@ -25,7 +25,6 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--define(SERVER, ?MODULE).
 -define(UPDATE_INTERVAL, 1000).
 
 -ifndef(debug).
@@ -45,24 +44,25 @@
 %% If Type is the atom master, we create a global stats table as well
 %% as the local.
 %% If it's the atom slave, we only have the local table, but start
-%% an interval timer to flush it to master intermittently.
-%%
+%% an interval timer to send it to master regularly.
+%% 
+%% Type = master | slave
 %% @spec start_link(Type) -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 start_link(Type) ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE,
+    gen_server:start_link({local, ?MODULE}, ?MODULE,
                           [Type], []).
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Stops the statistician. Meant to be used in testing.
+%% Stops the statistician.
 %%
 %% @spec stop() -> ok
 %% @end
 %%--------------------------------------------------------------------
 stop() ->
-    gen_server:cast(?SERVER, stop).
+    gen_server:cast(?MODULE, stop).
 
 
 %%--------------------------------------------------------------------
@@ -73,7 +73,7 @@ stop() ->
 %% @end
 %%--------------------------------------------------------------------
 get_cluster_stats() ->
-    gen_server:call(?SERVER,{get_cluster_stats}).
+    gen_server:call(?MODULE,{get_cluster_stats}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -83,7 +83,7 @@ get_cluster_stats() ->
 %% @end
 %%--------------------------------------------------------------------
 get_job_stats(JobId) ->
-    gen_server:call(?SERVER,{get_job_stats, JobId}).
+    gen_server:call(?MODULE,{get_job_stats, JobId}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -93,7 +93,7 @@ get_job_stats(JobId) ->
 %% @end
 %%--------------------------------------------------------------------
 get_node_stats(NodeId) ->
-    gen_server:call(?SERVER,{get_node_stats, NodeId}).
+    gen_server:call(?MODULE,{get_node_stats, NodeId}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -104,7 +104,7 @@ get_node_stats(NodeId) ->
 %% @end
 %%--------------------------------------------------------------------
 get_node_job_stats(NodeId, JobId) ->
-    gen_server:call(?SERVER,{get_node_job_stats, NodeId, JobId}).
+    gen_server:call(?MODULE,{get_node_job_stats, NodeId, JobId}).
 
 
 %%--------------------------------------------------------------------
@@ -117,7 +117,7 @@ get_node_job_stats(NodeId, JobId) ->
 %% @end
 %%--------------------------------------------------------------------
 update(Data) ->
-    gen_server:cast(?SERVER,{update, Data}).
+    gen_server:cast(?MODULE,{update, Data}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -130,8 +130,9 @@ update(Data) ->
 %% @spec job_finished(JobId) -> please_wait_a_few_seconds
 %% @end
 %%--------------------------------------------------------------------
+%%TODO look at this
 job_finished(JobId) ->
-    {ok, _TimerRef} = timer:send_after(?UPDATE_INTERVAL*2, ?SERVER,
+    {ok, _TimerRef} = timer:send_after(?UPDATE_INTERVAL*2, ?MODULE,
                                        {job_finished, JobId}),
     please_wait_a_few_seconds.
 
@@ -139,12 +140,12 @@ job_finished(JobId) ->
 %% @doc
 %% If a node dies, we should remove it from our (global) stats.
 %% It should be safe to do so immediately, since it has left the cluster.
-%%
+%% rewrite the remove from cluster stats thingy - dont remove stats 
 %% @spec remove_node(NodeId) -> ok
 %% @end
 %%--------------------------------------------------------------------
 remove_node(NodeId) ->
-    gen_server:cast(?SERVER, {remove_node, NodeId}).
+    gen_server:cast(?MODULE, {remove_node, NodeId}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -160,7 +161,7 @@ remove_node(NodeId) ->
 %% @end
 %%--------------------------------------------------------------------
 init([master]) ->
-    global:register_name(?SERVER, self()),
+    global:register_name(?MODULE, self()),
     ets:new(stats,
             [set, private, named_table,
              {keypos, 1}, {heir, none},
@@ -318,8 +319,8 @@ handle_cast(stop, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({update_with_list, List}, State) ->
-    chronicler:debug("Master received flush from a node.~n", []),
-    lists:foreach(fun (X) -> gen_server:cast(?SERVER, {update, X}) end, List),
+    chronicler:debug("Master received message from a node.~n", []),
+    lists:foreach(fun (X) -> gen_server:cast(?MODULE, {update, X}) end, List),
     {noreply, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -390,7 +391,7 @@ handle_cast(Msg, State) ->
 handle_info(flush, State) ->
     chronicler:debug("Node ~p flushing stats.~n", [node()]),
     StatsList = ets:tab2list(stats),
-    gen_server:cast({global, ?SERVER}, {update_with_list, StatsList}),
+    gen_server:cast({global, ?MODULE}, {update_with_list, StatsList}),
     ets:delete_all_objects(stats),
     {noreply, State};
 %%--------------------------------------------------------------------
@@ -402,7 +403,7 @@ handle_info(flush, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info({job_finished, JobId}, State) ->
-    gen_server:cast(?SERVER, {job_finished, JobId}),
+    gen_server:cast(?MODULE, {job_finished, JobId}),
     {noreply, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -714,7 +715,7 @@ sum_stats([H|T], Data) ->
     sum_stats(T, [TempPower    + AccPower,
                   TempTime     + AccTime,
                   TempUpload   + AccUpload,
-		  TempDownload + AccDownload,
+		          TempDownload + AccDownload,
                   TempNumtasks + AccNumtasks,
                   TempRestarts + AccRestarts]).
     

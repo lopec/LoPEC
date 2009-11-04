@@ -2,7 +2,7 @@
 %%% @author Axel Andren <axelandren@gmail.com>
 %%% @copyright (C) 2009, Axel
 %%% @doc
-%%% Tests for the statistician module. Was originally just
+%%% Tests for the statistician module. It was originally just
 %%% a script for copypasting into erl console.
 %%%
 %%% @end

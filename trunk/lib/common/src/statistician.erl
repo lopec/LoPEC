@@ -283,8 +283,8 @@ handle_cast({update,
         undefined ->
             foo; %only master has node_stats_table defined
         _Other ->
-            Node = ets:lookup(T2, {NodeId, JobId, TaskType}),
-            case Node of
+            Item1 = ets:lookup(T2, {NodeId, JobId, TaskType}),
+            case Item1 of
                 [] ->
                     ets:insert(T2, {{NodeId, JobId, TaskType},
                                     Power, Time, Upload,
@@ -302,8 +302,8 @@ handle_cast({update,
                                     Numtasks + OldNodeNumtasks,
                                     Restarts + OldNodeRestarts})
             end,
-            Node = ets:lookup(T3, {NodeId, JobId, TaskType}),
-            case Node of
+            Item2 = ets:lookup(T3, {NodeId, JobId, TaskType}),
+            case Item2 of
                 [] ->
                     ets:insert(T3, {{NodeId, JobId, TaskType},
                                     Power, Time, Upload,
@@ -313,7 +313,7 @@ handle_cast({update,
                   OldClusterPower, OldClusterTime,
                   OldClusterUpload, OldClusterDownload,
                   OldClusterNumtasks, OldClusterRestarts}] ->  
-                    ets:insert(T2, {{NodeId, JobId, TaskType},
+                    ets:insert(T3, {{NodeId, JobId, TaskType},
                                     Power    + OldClusterPower,
                                     Time     + OldClusterTime,
                                     Upload   + OldClusterUpload,

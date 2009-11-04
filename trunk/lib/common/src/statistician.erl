@@ -79,19 +79,14 @@ get_cluster_stats(raw) ->
     gen_server:call(?MODULE,{get_cluster_stats, raw});
 get_cluster_stats(string) ->
     Return = gen_server:call(?MODULE,{get_cluster_stats, string}),
-    case Return of
-	no_such_stats_found ->
-	    no_such_stats_found;
-	_Result ->
-	    io:format(Return)
-    end.
+    io:format(Return).
 
 %%--------------------------------------------------------------------
 %% @doc
 %% Returns a formatted string of specified Job statistics.
 %% Options:
-%%  raw - gives internal representation (Tuples, lists, whatnot)
-%%  string - gives nicely formatted string
+%%  raw - gives internal representation (a list of the total stats)
+%%  string - gives nicely formatted string with stats for each tasktype
 %% @spec get_job_stats(JobId, Options) -> String
 %% @end
 %%--------------------------------------------------------------------
@@ -100,8 +95,8 @@ get_job_stats(JobId, raw) ->
 get_job_stats(JobId, string) ->
     Return = gen_server:call(?MODULE,{get_job_stats, JobId, string}),
     case Return of
-	no_such_stats_found ->
-	    no_such_stats_found;
+	{error, no_such_stats_found} ->
+	    {error, no_such_stats_found};
 	_Result ->
 	    io:format(Return)
     end.
@@ -123,16 +118,16 @@ get_job_stats(JobId, string) ->
 %% @spec get_node_stats(NodeId, Options) -> String
 %% @end
 %%--------------------------------------------------------------------
+get_node_stats(NodeId, raw) ->
+    gen_server:call(?MODULE,{get_node_stats, NodeId, raw});
 get_node_stats(NodeId, string) ->
     Return = gen_server:call(?MODULE,{get_node_stats, NodeId, string}),
     case Return of
-	no_such_stats_found ->
-	    no_such_stats_found;
+	{error, no_such_node_in_stats} ->
+	    {error, no_such_node_in_stats};
 	_Result ->
 	    io:format(Return)
-    end;
-get_node_stats(NodeId, raw) ->
-    gen_server:call(?MODULE,{get_node_stats, NodeId, raw}).
+    end.
 
 
 %%--------------------------------------------------------------------
@@ -149,10 +144,10 @@ get_node_stats(NodeId, raw) ->
 get_node_job_stats(NodeId, JobId, raw) ->
     gen_server:call(?MODULE,{get_node_job_stats, NodeId, JobId, raw});
 get_node_job_stats(NodeId, JobId, string) ->
-    Return = gen_server:call(?MODULE,{get_node_job_stats, NodeId, JobId, string}),
-    case return of
-	no_such_node_in_stats ->
-	    no_such_node_in_stats;
+    Return=gen_server:call(?MODULE,{get_node_job_stats, NodeId, JobId, string}),
+    case Return of
+	{error, no_such_stats_found} ->
+	    {error, no_such_stats_found};
 	_Result ->
 	    io:format(Return)
     end.
@@ -240,67 +235,55 @@ init([slave]) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
+%% Flag = raw | string
 %% @see node_stats/1
 %%
 %% @spec handle_call({get_cluster_stats, Options}, From, State) ->
 %%                          {reply, Reply, State} 
 %% @end
 %%--------------------------------------------------------------------
-handle_call({get_cluster_stats, string}, _From, State) ->
-    Data = gather_cluster_stats(),
-    Reply = format_cluster_stats(Data),
-    {reply, Reply, State};
-handle_call({get_cluster_stats, raw}, _From, State) ->
-    Reply = gather_cluster_stats(),
+handle_call({get_cluster_stats, Flag}, _From, State) ->
+    Reply = gather_cluster_stats(Flag),
     {reply, Reply, State};
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
+%% Flag = raw | string
 %% @see node_job_stats/1
 %%
 %% @spec handle_call({get_job_stats, JobId, Options}, From, State) ->
 %%                                   {reply, Reply, State} 
 %% @end
 %%--------------------------------------------------------------------
-handle_call({get_job_stats, JobId, string}, _From, State) ->
-    Data = gather_node_job_stats('_', JobId),
-    Reply = format_job_stats(Data),
-    {reply, Reply, State};
-handle_call({get_job_stats, JobId, raw}, _From, State) ->
-    Reply = gather_node_job_stats('_', JobId),
+handle_call({get_job_stats, JobId, Flag}, _From, State) ->
+    Reply = gather_node_job_stats('_', JobId, Flag),
     {reply, Reply, State};
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
+%% Flag = raw | string
 %% @see node_stats/1
 %%
 %% @spec handle_call({get_node_stats, NodeId, Options}, From, State) ->
 %%                                   {reply, Reply, State} 
 %% @end
 %%--------------------------------------------------------------------
-handle_call({get_node_stats, NodeId, string}, _From, State) ->
-    Data = gather_node_stats(NodeId),
-    Reply = format_node_stats(Data),
-    {reply, Reply, State};
-handle_call({get_node_stats, NodeId, raw}, _From, State) ->
-    Reply = gather_node_stats(NodeId),
+handle_call({get_node_stats, NodeId, Flag}, _From, State) ->
+    Reply = gather_node_stats(NodeId, Flag),
     {reply, Reply, State};
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
+%% Flag = raw | string
 %% @see node_job_stats/1
 %%
 %% @spec handle_call({get_node_job_stats, NodeId, JobId, Options}, From, State)
 %%                                -> {reply, Reply, State} 
 %% @end
 %%--------------------------------------------------------------------
-handle_call({get_node_job_stats, NodeId, JobId, string}, _From, State) ->
-    Data = gather_node_job_stats(NodeId, JobId),
-    Reply = format_node_stats(Data),
-    {reply, Reply, State};
-handle_call({get_node_job_stats, NodeId, JobId, raw}, _From, State) ->
-    Reply = gather_node_job_stats(NodeId, JobId),
+handle_call({get_node_job_stats, NodeId, JobId, Flag}, _From, State) ->
+    Reply = gather_node_job_stats(NodeId, JobId, Flag),
     {reply, Reply, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -373,10 +356,11 @@ handle_cast({update_with_list, List}, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({job_finished, JobId}, State) ->
-    JobStats = format_job_stats(gather_node_job_stats('_', JobId)),
+    JobStats = gather_node_job_stats('_', JobId, string),
     case ?DELETE_TABLE() of
 	delete ->
-	    ets:match_delete(job_stats_table, {{'_', JobId, '_'},'_','_','_','_','_','_'});
+	    ets:match_delete(job_stats_table,
+                             {{'_', JobId, '_'},'_','_','_','_','_','_'});
 	_Dont ->
 	    ok
     end,
@@ -398,7 +382,7 @@ handle_cast({job_finished, JobId}, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({remove_node, NodeId}, State) ->
-    NodeStats = format_node_stats(gather_node_stats(NodeId)),
+    NodeStats = gather_node_stats(NodeId, string),
     ets:match_delete(node_stats_table, 
                      {{NodeId, '_', '_'},'_','_','_','_','_','_'}),
     {ok, Root} =
@@ -519,22 +503,25 @@ code_change(OldVsn, State, Extra) ->
 %% 
 %% @end
 %%--------------------------------------------------------------------
-
+%TODO: we currently use the same formula for job stats table and node
+%stats table, even though we dont have any use for the tasktype in
+%the node stats table. So at worst we have 4 times as many entries
+%in the node/cluster stats tables than we use.
 update_table(TabName, Stats, []) ->
     ets:insert(TabName, Stats);
 update_table(TabName, Stats, [{{NodeId, JobId, TaskType},
-                  OldPower, OldTime,
-                  OldUpload, OldDownload,
-                  OldNumtasks, OldRestarts}]) ->
+                               OldPower, OldTime,
+                               OldUpload, OldDownload,
+                               OldNumtasks, OldRestarts}]) ->
     {{NodeId, JobId, TaskType}, 
-        Power, Time, Upload, Download, NumTasks, Restarts} = Stats,
+     Power, Time, Upload, Download, NumTasks, Restarts} = Stats,
     ets:insert(TabName, {{NodeId, JobId, TaskType},
-                                    Power    + OldPower,
-                                    Time     + OldTime,
-                                    Upload   + OldUpload,
-                                    Download + OldDownload,
-                                    NumTasks + OldNumtasks,
-                                    Restarts + OldRestarts}).
+                         Power    + OldPower,
+                         Time     + OldTime,
+                         Upload   + OldUpload,
+                         Download + OldDownload,
+                         NumTasks + OldNumtasks,
+                         Restarts + OldRestarts}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -561,25 +548,22 @@ sum_stats([H|T], Data) ->
 %% string showing these. get_job_stats/1 does not want stats on a
 %% specific node, and so passes the atom '_' as NodeId, resulting
 %% in a list of nodes that have worked on the job being matched out.
+%% Flag = raw | string
 %%
-%% @spec gather_node_job_stats(NodeId, JobId) -> String
+%% @spec gather_node_job_stats(NodeId, JobId, Flag) -> String
 %% 
 %% @end
 %%--------------------------------------------------------------------
-gather_node_job_stats(NodeId, JobId) ->
+gather_node_job_stats(NodeId, JobId, Flag) ->
     T = case NodeId of
             '_' -> job_stats_table;
             _Id -> node_stats_table
         end,
-    %could go with the regular stats table, only then we'd be limited
-    %to only being able to check the node_job stats while the job is
-    %still in the system.
-    % TODO Potential bottleneck
+    % TODO: ets:match is a potential bottleneck
     case ets:match(T, {{NodeId, JobId, '_'}, '$1', '_', '_', '_', '_', '_'}) of
         [] ->
             {error, no_such_stats_found};
         _Other ->
-            %% TODO Potential bottleneck
             Split    = ets:match(T, {{NodeId, JobId, split},
                                      '$1', '$2', '$3', '$4', '$5', '$6'}),
             Map      = ets:match(T, {{NodeId, JobId, map},
@@ -603,35 +587,40 @@ gather_node_job_stats(NodeId, JobId) ->
             SumFinal  = sum_stats(Finalize, Zeroes),
             SumAll = sum_stats([SumSplit, SumMap, SumReduce, SumFinal], Zeroes),
 
-            TimeList = integer_to_list(JobId),
-            Then = {list_to_integer(lists:sublist(TimeList, 4)),
-                list_to_integer(lists:sublist(TimeList, 5, 6)),
-                list_to_integer(lists:sublist(TimeList, 11, 6))},
-            TimePassed = timer:now_diff(now(), Then) / 1000000,
-	    
-            SplitStrings  = format_task_stats(split, SumSplit),
-            MapStrings    = format_task_stats(map, SumMap),
-            ReduceStrings = format_task_stats(reduce, SumReduce),
-            FinalStrings  = format_task_stats(finalize, SumFinal),
-            
-            %% Returns result tuple            
-            {JobId, SplitStrings, MapStrings, ReduceStrings, FinalStrings, 
-             TimePassed, Nodes, SumAll}
-
+            case Flag of
+                string ->
+                    TimeList = integer_to_list(JobId),
+                    Then = {list_to_integer(lists:sublist(TimeList, 4)),
+                            list_to_integer(lists:sublist(TimeList, 5, 6)),
+                            list_to_integer(lists:sublist(TimeList, 11, 6))},
+                    TimePassed = timer:now_diff(now(), Then) / 1000000,
+                    
+                    SplitStrings  = format_task_stats(split, SumSplit),
+                    MapStrings    = format_task_stats(map, SumMap),
+                    ReduceStrings = format_task_stats(reduce, SumReduce),
+                    FinalStrings  = format_task_stats(finalize, SumFinal),
+                    
+                    format_job_stats({JobId, SplitStrings, MapStrings,
+                                      ReduceStrings, FinalStrings, 
+                                      TimePassed, Nodes, SumAll});
+                raw ->
+                    SumAll
+            end
     end.
     
 %%--------------------------------------------------------------------
 %% @doc
 %% Extracts statistics about Node and returns it as a formatted string.
+%% Flag = raw | string
 %%
-%% @spec gather_node_stats(NodeId) -> String
+%% @spec gather_node_stats(NodeId, Flag) -> String
 %% 
 %% @end
 %%--------------------------------------------------------------------
-gather_node_stats(NodeId) ->
+gather_node_stats(NodeId, Flag) ->
     T = node_stats_table,
-    % TODO Potential bottleneck
-    case ets:match(T, {{NodeId, '_', '_'}, '$1', '_', '_', '_', '_', '_'}) of
+    % TODO: ets:match is a potential bottleneck
+    case ets:match(T, {{NodeId, '$1', '_'}, '_', '_', '_', '_', '_', '_'}) of
         [] ->
             {error, no_such_node_in_stats};
         Jobs -> 
@@ -639,21 +628,28 @@ gather_node_stats(NodeId) ->
                                  '$1','$2','$3','$4','$5','$6'}),
             [Power, Time, Upload, Download, Numtasks, Restarts] =
                 sum_stats(Stats, [0.0, 0.0, 0, 0, 0, 0]),
-            %% Returns formatted string to user
-            {NodeId, lists:umerge(Jobs),
-             Power, Time, Upload, Download, Numtasks, Restarts}
+            
+            Data = {NodeId, lists:umerge(Jobs),
+                    Power, Time, Upload, Download, Numtasks, Restarts},
+            case Flag of
+                raw ->
+                    Data;
+                string ->
+                    format_node_stats(Data)
+            end
     end.
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Extracts statistics about the entire cluster
-%% and returns it as a formatted string.
+%% Extracts statistics about the entire cluster and returns it as a
+%% formatted string.
+%% Flag = raw | string
 %%
-%% @spec gather_cluster_stats() -> String
+%% @spec gather_cluster_stats(Flag) -> String
 %% 
 %% @end
 %%--------------------------------------------------------------------
-gather_cluster_stats() ->
+gather_cluster_stats(Flag) ->
     CollectStuff =
         fun ({{Node, Job, _}, Power, Time, Upload, Download, NumTasks, Restarts},
              {Nodes, Jobs, PowerAcc, TimeAcc, UpAcc, DownAcc, TasksAcc, RestartsAcc}) ->
@@ -668,9 +664,15 @@ gather_cluster_stats() ->
     
     {Nodes, Jobs, Power, Time, Upload, Download, NumTasks, Restarts} =
         ets:foldl(CollectStuff, {[], [], 0.0, 0.0, 0, 0, 0, 0}, cluster_stats_table),
-
-    {lists:usort(Nodes), lists:usort(Jobs), 
-        Power, Time, Upload, Download, NumTasks, Restarts}.
+    Data = {lists:usort(Nodes), lists:usort(Jobs), 
+             Power, Time, Upload, Download, NumTasks, Restarts},
+    
+    case Flag of
+        raw ->
+            Data;
+        string ->
+            format_cluster_stats(Data)
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc

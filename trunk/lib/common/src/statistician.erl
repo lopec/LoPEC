@@ -760,7 +760,7 @@ format_task_stats(TaskType, [Power,Time,Upload,Download,NumTasks,Restarts]) ->
       "~p~n"
       "------------------------------------------------------------~n"
       "Power used: ~.2f watt seconds~n"
-      "Time spent: ~.2f seconds~n"
+      "Execution time: ~.2f seconds~n"
       "Upload: ~p bytes~n"
       "Download: ~p bytes~n"
       "Number of tasks: ~p~n"

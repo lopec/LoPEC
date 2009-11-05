@@ -389,8 +389,9 @@ handle_cast({remove_node, NodeId}, State) ->
         configparser:read_config(?CONFIGFILE, cluster_root),
     file:write_file(Root ++ "results/node_" ++
                   atom_to_list(NodeId) ++ "_stats", NodeStats),
-    chronicler:info("Node ~p disconnected from cluster! Stats:~n~p~n", 
-                    [NodeId, NodeStats]),
+    chronicler:info("Node "++atom_to_list(NodeId)
+                    ++" disconnected from cluster! Stats:~n" 
+                    ++NodeStats),
     {noreply, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -691,10 +692,10 @@ format_cluster_stats(
         "------------------------------------------------------------~n"
         "Nodes used: ~p~n"
         "Jobs worked on: ~p~n"
-        "Time executing: ~.2f seconds~n"
         "Power used: ~.2f watt hours~n"
+        "Time executing: ~.2f seconds~n"
         "Upload: ~p bytes~n"
-	    "Download: ~p bytes~n"
+        "Download: ~p bytes~n"
         "Number of tasks total: ~p~n"
         "Number of task restarts:~p~n",
         [Nodes, Jobs, Power / 3600, Time, Upload, Download, Numtasks, Restarts]).

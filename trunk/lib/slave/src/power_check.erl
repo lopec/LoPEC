@@ -20,19 +20,13 @@
 %% @end
 %%--------------------------------------------------------------------
 get_load(Period) ->
-    D = os:cmd("uptime") -- "\n",
-    Avg = lists:reverse(hd(string:tokens(lists:reverse(D), ":"))),
-    %% Checks if it's a Linux or Mac OSX system running
-    {ok, [L1, L5, L15], _} =
-        case os:cmd("uname") -- "\n" of
-            "Darwin" -> io_lib:fread("~f ~f ~f", Avg);
-            "Linux" -> io_lib:fread("~f, ~f, ~f", Avg)
-        end,
+    cpu_sup:start(),
     case Period of
-        l1min -> L1;
-        l5min -> L5;
-        l15min -> L15
-    end.
+        l1min -> T = avg1;
+        l5min -> T = avg5;
+        l15min -> T = avg15
+    end,
+    cpu_sup:T()/256.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -45,6 +39,11 @@ get_load(Period) ->
 get_watt(Period) ->
     Load = get_load(Period),
     {ok, Cores} = configparser:read_config(?CONFIGFILE, cores),
+    case Period of
+        l1min -> T = 60;
+        l5min -> T = 5*60;
+        l15min -> T = 15*60
+    end, 
     %% This is not a very effective way to measure watt. But it's the only way right know.
     {ok, HLW} =
         configparser:read_config(?CONFIGFILE, high_load_watt),
@@ -54,7 +53,7 @@ get_watt(Period) ->
         Load when Load > Cores ->
             HLW;
         _ -> 
-            ((HLW-LLW)*(Load/Cores))+LLW
+            (((HLW-LLW)*(Load/Cores))+LLW)*T
     end.
     
 

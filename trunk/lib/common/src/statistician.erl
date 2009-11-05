@@ -330,18 +330,19 @@ handle_cast({update, Stats}, State) ->
             %only master has node_stats_table defined
             table_undefined; 
         _Other ->
-            case ets:lookup(node_stats_table, {NodeId, JobId}) of
+            case ets:lookup(node_stats_table, {NodeId}) of
                 [] ->
-                    ets:insert(node_stats_table, {{NodeId, JobId}, 
-                                                  Power, Time,
+                    ets:insert(node_stats_table, {{NodeId}, 
+                                                  [JobId], Power, Time,
                                                   Upload, Download,
                                                   NumTasks, Restarts});
                 [OldNodeStats] ->
-                    {{_,_}, OldNodePower, OldNodeTime, OldNodeUpload,
+                    {{_}, OldNodeJobs, OldNodePower, OldNodeTime, OldNodeUpload,
                      OldNodeDownload, OldNodeNumTasks, OldNodeRestarts}
                         = OldNodeStats,
                     
-                    ets:insert(node_stats_table, {{NodeId, JobId},
+                    ets:insert(node_stats_table, {{NodeId},
+                                                  [JobId   | OldNodeJobs],
                                                   Power    + OldNodePower,
                                                   Time     + OldNodeTime,
                                                   Upload   + OldNodeUpload,
@@ -411,7 +412,7 @@ handle_cast({job_finished, JobId}, State) ->
 handle_cast({remove_node, NodeId}, State) ->
     NodeStats = gather_node_stats(NodeId, string),
     ets:match_delete(node_stats_table, 
-                     {{NodeId, '_'},'_','_','_','_','_','_'}),
+                     {{NodeId},'_','_','_','_','_','_','_'}),
     {ok, Root} =
         configparser:read_config(?CONFIGFILE, cluster_root),
     file:write_file(Root ++ "results/node_" ++
@@ -542,6 +543,25 @@ sum_stats([H|T], Data) ->
                   TempDownload + AccDownload,
                   TempNumtasks + AccNumtasks,
                   TempRestarts + AccRestarts]).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns the time (in microseconds) since the given job was added to
+%% the cluster - sort of. It's derived from the JobId, which is in turn
+%% based on now() being called when a job is created. So it's not
+%% perfectly exact, but should be good enough for human purposes.
+%%
+%% @spec time_since_job_added(JobId) -> integer
+%% 
+%% @end
+%%--------------------------------------------------------------------
+time_since_job_added(JobId) ->
+    TimeList = integer_to_list(JobId),
+    Then = {list_to_integer(lists:sublist(TimeList, 4)),
+            list_to_integer(lists:sublist(TimeList, 5, 6)),
+            list_to_integer(lists:sublist(TimeList, 11, 6))},
+    timer:now_diff(now(), Then) / 1000000.
+
 %%--------------------------------------------------------------------
 %% @doc
 %% Extracts stats that NodeId has on JobId and returns a formatted
@@ -586,11 +606,7 @@ gather_node_job_stats(NodeId, JobId, Flag) ->
 
             case Flag of
                 string ->
-                    TimeList = integer_to_list(JobId),
-                    Then = {list_to_integer(lists:sublist(TimeList, 4)),
-                            list_to_integer(lists:sublist(TimeList, 5, 6)),
-                            list_to_integer(lists:sublist(TimeList, 11, 6))},
-                    TimePassed = timer:now_diff(now(), Then) / 1000000,
+                    TimePassed = time_since_job_added(JobId),
                     
                     SplitStrings  = format_task_stats(split, SumSplit),
                     MapStrings    = format_task_stats(map, SumMap),
@@ -604,7 +620,7 @@ gather_node_job_stats(NodeId, JobId, Flag) ->
                     SumAll
             end
     end.
-    
+
 %%--------------------------------------------------------------------
 %% @doc
 %% Extracts statistics about Node and returns it as a formatted string.
@@ -617,22 +633,15 @@ gather_node_job_stats(NodeId, JobId, Flag) ->
 gather_node_stats(NodeId, Flag) ->
     T = node_stats_table,
     % TODO: ets:match is a potential bottleneck
-    case ets:match(T, {{NodeId, '$1'}, '_', '_', '_', '_', '_', '_'}) of
+    case ets:lookup(T, {NodeId}) of
         [] ->
             {error, no_such_node_in_stats};
-        Jobs -> 
-            Stats = ets:match(T, {{NodeId,'_'},
-                                 '$1','$2','$3','$4','$5','$6'}),
-            [Power, Time, Upload, Download, Numtasks, Restarts] =
-                sum_stats(Stats, [0.0, 0.0, 0, 0, 0, 0]),
-            
-            Data = {NodeId, lists:umerge(Jobs),
-                    Power, Time, Upload, Download, Numtasks, Restarts},
+        [NodeStats] ->
             case Flag of
                 raw ->
-                    Data;
+                    NodeStats;
                 string ->
-                    format_node_stats(Data)
+                    format_node_stats(NodeStats)
             end
     end.
 
@@ -648,9 +657,9 @@ gather_node_stats(NodeId, Flag) ->
 %%--------------------------------------------------------------------
 gather_cluster_stats(Flag) ->
     CollectStuff =
-        fun ({{Node, Job}, Power, Time, Upload, Download, NumTasks, Restarts},
-             {Nodes, Jobs, PowerAcc, TimeAcc, UpAcc, DownAcc, TasksAcc, RestartsAcc}) ->
-                  {[Node | Nodes], [Job | Jobs],
+        fun ({{Node}, Jobs, Power, Time, Upload, Download, NumTasks, Restarts},
+             {Nodes, JobsAcc, PowerAcc, TimeAcc, UpAcc, DownAcc, TasksAcc, RestartsAcc}) ->
+                  {[Node | Nodes], Jobs ++ JobsAcc,
                   PowerAcc + Power,
                   TimeAcc + Time,
                   UpAcc + Upload,
@@ -674,8 +683,6 @@ gather_cluster_stats(Flag) ->
 %%--------------------------------------------------------------------
 %% @doc
 %% Returns a neatly formatted string for stats of the entire cluster.
-%% Except that of nodes that have been removed from the cluster in any
-%% manner.
 %%
 %% @spec format_cluster_stats(Data) -> String
 %% 
@@ -698,25 +705,25 @@ format_cluster_stats(
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Returns a neatly formatted string for the given job and its stats
+%% Returns a neatly formatted string of the stats of the given node
 %%
 %% @spec format_node_stats(Data) -> String
 %% 
 %% @end
 %%--------------------------------------------------------------------
-format_node_stats(
-  {NodeId, Jobs, Power, Time, Upload, Download, Numtasks, Restarts}) ->
-      io_lib:format(
-        "Stats for node: ~p~n"
-        "------------------------------------------------------------~n"
-        "Jobs worked on by node: ~p~n"
-        "Power used: ~.2f watt hours~n"
-        "Time executing: ~.2f seconds~n"
-        "Upload: ~p bytes~n"
-        "Download: ~p bytes~n"
-        "Number of tasks: ~p~n"
-        "Number of task restarts:~p~n",
-        [NodeId, Jobs, Power / 3600, Time, Upload, Download, Numtasks, Restarts]).
+format_node_stats({{NodeId},
+                  Jobs, Power, Time, Upload, Download, Numtasks, Restarts}) ->
+    io_lib:format(
+      "Stats for node: ~p~n"
+      "------------------------------------------------------------~n"
+      "Jobs worked on by node: ~p~n"
+      "Power used: ~.2f watt hours~n"
+      "Time executing: ~.2f seconds~n"
+      "Upload: ~p bytes~n"
+      "Download: ~p bytes~n"
+      "Number of tasks: ~p~n"
+      "Number of task restarts:~p~n",
+      [NodeId, Jobs, Power / 3600, Time, Upload, Download, Numtasks, Restarts]).
 
 %%--------------------------------------------------------------------
 %% @doc

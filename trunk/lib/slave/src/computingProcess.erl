@@ -42,7 +42,8 @@ start_link(Path, Op, JobId, InputPath, TaskId) ->
     chronicler:info("~w : application starting~n", [?MODULE]),
     StringId = integer_to_list(JobId),
     {ok, Root} = configparser:read_config(?CONFIGFILE, cluster_root),
-    Prog = Root ++ "programs/" ++ atom_to_list(Path) ++ "/script.sh",
+    {ok, Platform} = configparser:read_config(?CONFIGFILE, platform),
+    Prog = Root ++ "programs/" ++ atom_to_list(Path) ++ "/script." ++ Platform,
     LoadPath = Root ++ InputPath,
     SavePath = Root ++
         case Op of

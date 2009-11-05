@@ -420,8 +420,12 @@ add_new_job(ProgramType, ProblemType, Owner, Priority, InputData) ->
                         configparser:read_config(?CONFIGFILE, cluster_root),
                     JobRoot = lists:flatten(io_lib:format("/tmp/~p/", [JobId])),
                     % Make the directory-structure
-                    [filelib:ensure_dir(Root ++ JobRoot ++ SubDir)
-                        || SubDir <- ["map/", "reduce/", "input/", "results/"]],
+                    Dirs = ["map/", "reduce/", "input/", "results/"],
+                    [begin Dir = Root ++ JobRoot ++ SubDir,
+                           filelib:ensure_dir(Dir),
+                           file:change_mode(Dir, 8#777)
+                     end
+                     || SubDir <- Dirs],
                     % Move the files to the right thing
                     Return = file:copy(InputData, Root ++ JobRoot ++ "/input/data.dat"),
 	                case Return of

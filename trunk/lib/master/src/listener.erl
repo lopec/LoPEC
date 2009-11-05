@@ -249,12 +249,18 @@ handle_call({remove_job_name, JobId}, _From, State) ->
 %% Pauses a job
 %%
 %% @spec handle_call({pause_job, JobId}, From, State) ->
-%%           {reply, Result, State}
+%%           {reply, Result, State} | {reply, {error, Reason}, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_call({pause_job, JobId}, _From, State) ->
-    Result = db:pause_job(JobId),
-    {reply, Result, State};
+    case db:get_job(JobId) of
+        {error, Reason} -> 
+            chronicler:user_info("~w : Could not pause Job with id=~p. Reason: ~p~n", [?MODULE, JobId, Reason]),
+            {reply, {error, Reason}, State};
+        _ -> 
+            Result = db:pause_job(JobId),
+            {reply, Result, State}
+    end;
 
 %%--------------------------------------------------------------------
 %% @private

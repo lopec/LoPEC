@@ -162,25 +162,34 @@ handle_call({new_job, ProgramType, ProblemType, Owner, Priority, InputData, Name
             _From, State) ->
     JobsWithThisName = dict:filter(fun (_Id, JobName) -> JobName == Name end,
                                    State#state.active_jobs),
+    %% First case
     case dict:size(JobsWithThisName) of
         0 ->
-            {ok, JobId} = add_new_job(ProgramType, ProblemType, 
-                                Owner, Priority, InputData),
-            NewState =
-                case Name of
-                    no_name -> State;
-                    _ ->
-                        NewJobs = dict:store(JobId, Name,
-                                             State#state.active_jobs),
-                        State#state{active_jobs = NewJobs}
-                end,
-            {reply, {ok, JobId}, NewState};
+            %% 2 Case
+            case add_new_job(ProgramType, ProblemType, 
+                                Owner, Priority, InputData) of
+                {ok, JobId} ->
+                    % 3 Case
+                    NewState = case Name of
+                            no_name -> State;
+                            _ ->
+                                NewJobs = dict:store(JobId, Name,
+                                              State#state.active_jobs),
+                                State#state{active_jobs = NewJobs}
+                    % 3 Case - END
+                    end,
+                {reply, {ok, JobId}, NewState};
+            {error, Reason} ->
+                {reply, {error, Reason}, State}
+            % 2 Case - END
+            end;
         _ ->
             Message = "There is already a job with this name, "
                       "pick another one and try again.",
             chronicler:user_info(Message),
             {reply, {error, Message}, State}
-    end;
+        % 3 Case - END
+        end;
 
 %%--------------------------------------------------------------------
 %% @private
@@ -377,6 +386,11 @@ is_valid_jobtype(JobType) ->
     end.
 
 
+is_valid_inputfile(Path) ->
+    case filelib:is_regular(Path) of
+        true -> {ok};
+        false -> {error, inputdata_dont_exist}
+    end.
 
 %%------------------------------------------------------------------------------
 %% @private
@@ -392,25 +406,30 @@ is_valid_jobtype(JobType) ->
 add_new_job(ProgramType, ProblemType, Owner, Priority, InputData) ->
     case is_valid_jobtype(ProgramType) of
         {ok} ->
-           JobId = dispatcher:add_job({ProgramType, ProblemType, Owner, Priority}),
-           % Read the structurepath from configfile
-            {ok, Root} =
-                configparser:read_config(?CONFIGFILE, cluster_root),
-            JobRoot = lists:flatten(io_lib:format("/tmp/~p/", [JobId])),
-            % Make the directory-structure
-            [filelib:ensure_dir(Root ++ JobRoot ++ SubDir)
-                || SubDir <- ["map/", "reduce/", "input/", "results/"]],
-            % Move the files to the right thing
-            Return = file:copy(InputData, Root ++ JobRoot ++ "/input/data.dat"),
-	        case Return of
-		    {ok, BytesCopied} ->
-		       chronicler:info(
-		        chronicler:info("Split data copied, size: ~p~n",[BytesCopied])),
-                dispatcher:add_task({JobId, ProgramType, split, JobRoot ++ "/input/data.dat"}),
-                {ok, JobId};
-		    {error, Reason} ->
-		        chronicler:error("Could not copy split data, reason: ~p~n", [Reason])
-	        end;
+            case is_valid_inputfile(InputData) of
+                {ok} ->
+                    JobId = dispatcher:add_job({ProgramType, ProblemType, Owner, Priority}),
+                    % Read the structurepath from configfile
+                    {ok, Root} =
+                        configparser:read_config(?CONFIGFILE, cluster_root),
+                    JobRoot = lists:flatten(io_lib:format("/tmp/~p/", [JobId])),
+                    % Make the directory-structure
+                    [filelib:ensure_dir(Root ++ JobRoot ++ SubDir)
+                        || SubDir <- ["map/", "reduce/", "input/", "results/"]],
+                    % Move the files to the right thing
+                    Return = file:copy(InputData, Root ++ JobRoot ++ "/input/data.dat"),
+	                case Return of
+		                {ok, BytesCopied} ->
+		                        chronicler:info("Split data copied, size: ~p~n",[BytesCopied]),
+                                dispatcher:add_task({JobId, ProgramType, split, JobRoot ++ "/input/data.dat"}),
+                                {ok, JobId};
+		                {error, Reason} ->
+		                        chronicler:error("Could not copy split data, reason: ~p~n", [Reason])
+	                end;
+                {error, Reason} ->
+                    chronicler:user_info("~w : Could not add job. Reason: ~p~n", [?MODULE, Reason]),
+                    {error, Reason}
+            end;
         {error, Reason} ->
             chronicler:user_info("~w : Could not add job. Reason: ~p~n", [?MODULE, Reason]),
             {error, Reason}

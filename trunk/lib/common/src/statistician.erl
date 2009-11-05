@@ -714,10 +714,10 @@ format_node_stats(
         "Stats for node: ~p~n"
         "------------------------------------------------------------~n"
         "Jobs worked on by node: ~p~n"
-        "Time executing: ~.2f seconds~n"
         "Power used: ~.2f watt hours~n"
+        "Time executing: ~.2f seconds~n"
         "Upload: ~p bytes~n"
-	    "Download: ~p bytes~n"
+        "Download: ~p bytes~n"
         "Number of tasks: ~p~n"
         "Number of task restarts:~p~n",
         [NodeId, Jobs, Power / 3600, Time, Upload, Download, Numtasks, Restarts]).

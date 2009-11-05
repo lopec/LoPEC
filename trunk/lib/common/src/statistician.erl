@@ -219,10 +219,6 @@ init([master]) ->
             [set, private, named_table,
              {keypos, 1}, {heir, none},
              {write_concurrency, false}]),
-    ets:new(cluster_stats_table,
-            [set, private, named_table,
-             {keypos, 1}, {heir, none},
-             {write_concurrency, false}]),
     {ok, []};
 init([slave]) ->
     {ok, _TimerRef} = timer:send_interval(?UPDATE_INTERVAL, flush),
@@ -310,18 +306,49 @@ handle_call(Msg, From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({update, Stats}, State) ->
-    update_table(job_stats_table, Stats, 
-                 ets:lookup(job_stats_table, element(1, Stats))),
+    {{NodeId, JobId, TaskType}, 
+     Power, Time, Upload, Download, NumTasks, Restarts} = Stats,
+
+    case ets:lookup(job_stats_table, {NodeId, JobId, TaskType}) of
+        [] ->
+            ets:insert(job_stats_table, Stats);
+        [OldStats] ->
+            {{_,_,_}, OldPower, OldTime, OldUpload,
+             OldDownload, OldNumTasks, OldRestarts} = OldStats,
+            
+            ets:insert(job_stats_table, {{NodeId, JobId, TaskType},
+                                         Power    + OldPower,
+                                         Time     + OldTime,
+                                         Upload   + OldUpload,
+                                         Download + OldDownload,
+                                         NumTasks + OldNumTasks,
+                                         Restarts + OldRestarts})
+    end,
+    
     case ets:info(node_stats_table) of
         undefined ->
             %only master has node_stats_table defined
             table_undefined; 
         _Other ->
-
-            update_table(node_stats_table, Stats, 
-                         ets:lookup(node_stats_table, element(1, Stats))),
-            update_table(cluster_stats_table, Stats, 
-                         ets:lookup(cluster_stats_table, element(1, Stats)))
+            case ets:lookup(node_stats_table, {NodeId, JobId}) of
+                [] ->
+                    ets:insert(node_stats_table, {{NodeId, JobId}, 
+                                                  Power, Time,
+                                                  Upload, Download,
+                                                  NumTasks, Restarts});
+                [OldNodeStats] ->
+                    {{_,_}, OldNodePower, OldNodeTime, OldNodeUpload,
+                     OldNodeDownload, OldNodeNumTasks, OldNodeRestarts}
+                        = OldNodeStats,
+                    
+                    ets:insert(node_stats_table, {{NodeId, JobId},
+                                                  Power    + OldNodePower,
+                                                  Time     + OldNodeTime,
+                                                  Upload   + OldNodeUpload,
+                                                  Download + OldNodeDownload,
+                                                  NumTasks + OldNodeNumTasks,
+                                                  Restarts + OldNodeRestarts})
+            end
     end,
     {noreply, State};
 %%--------------------------------------------------------------------
@@ -384,7 +411,7 @@ handle_cast({job_finished, JobId}, State) ->
 handle_cast({remove_node, NodeId}, State) ->
     NodeStats = gather_node_stats(NodeId, string),
     ets:match_delete(node_stats_table, 
-                     {{NodeId, '_', '_'},'_','_','_','_','_','_'}),
+                     {{NodeId, '_'},'_','_','_','_','_','_'}),
     {ok, Root} =
         configparser:read_config(?CONFIGFILE, cluster_root),
     file:write_file(Root ++ "results/node_" ++
@@ -498,34 +525,6 @@ code_change(OldVsn, State, Extra) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Updates designated table with new tuple data
-%%
-%% @spec update_table(TabName, Stats, Entry) -> true
-%% 
-%% @end
-%%--------------------------------------------------------------------
-%TODO: we currently use the same formula for job stats table and node
-%stats table, even though we dont have any use for the tasktype in
-%the node stats table. So at worst we have 4 times as many entries
-%in the node/cluster stats tables than we use.
-update_table(TabName, Stats, []) ->
-    ets:insert(TabName, Stats);
-update_table(TabName, Stats, [{{NodeId, JobId, TaskType},
-                               OldPower, OldTime,
-                               OldUpload, OldDownload,
-                               OldNumtasks, OldRestarts}]) ->
-    {{NodeId, JobId, TaskType}, 
-     Power, Time, Upload, Download, NumTasks, Restarts} = Stats,
-    ets:insert(TabName, {{NodeId, JobId, TaskType},
-                         Power    + OldPower,
-                         Time     + OldTime,
-                         Upload   + OldUpload,
-                         Download + OldDownload,
-                         NumTasks + OldNumtasks,
-                         Restarts + OldRestarts}).
-
-%%--------------------------------------------------------------------
-%% @doc
 %% Every element in the given stats list is summed up.
 %%
 %% @spec sum_stats(List, Data) -> Data + List
@@ -556,10 +555,7 @@ sum_stats([H|T], Data) ->
 %% @end
 %%--------------------------------------------------------------------
 gather_node_job_stats(NodeId, JobId, Flag) ->
-    T = case NodeId of
-            '_' -> job_stats_table;
-            _Id -> node_stats_table
-        end,
+    T = job_stats_table,
     % TODO: ets:match is a potential bottleneck
     case ets:match(T, {{NodeId, JobId, '_'}, '$1', '_', '_', '_', '_', '_'}) of
         [] ->
@@ -621,11 +617,11 @@ gather_node_job_stats(NodeId, JobId, Flag) ->
 gather_node_stats(NodeId, Flag) ->
     T = node_stats_table,
     % TODO: ets:match is a potential bottleneck
-    case ets:match(T, {{NodeId, '$1', '_'}, '_', '_', '_', '_', '_', '_'}) of
+    case ets:match(T, {{NodeId, '$1'}, '_', '_', '_', '_', '_', '_'}) of
         [] ->
             {error, no_such_node_in_stats};
         Jobs -> 
-            Stats = ets:match(T, {{NodeId,'_','_'},
+            Stats = ets:match(T, {{NodeId,'_'},
                                  '$1','$2','$3','$4','$5','$6'}),
             [Power, Time, Upload, Download, Numtasks, Restarts] =
                 sum_stats(Stats, [0.0, 0.0, 0, 0, 0, 0]),
@@ -652,7 +648,7 @@ gather_node_stats(NodeId, Flag) ->
 %%--------------------------------------------------------------------
 gather_cluster_stats(Flag) ->
     CollectStuff =
-        fun ({{Node, Job, _}, Power, Time, Upload, Download, NumTasks, Restarts},
+        fun ({{Node, Job}, Power, Time, Upload, Download, NumTasks, Restarts},
              {Nodes, Jobs, PowerAcc, TimeAcc, UpAcc, DownAcc, TasksAcc, RestartsAcc}) ->
                   {[Node | Nodes], [Job | Jobs],
                   PowerAcc + Power,
@@ -664,7 +660,7 @@ gather_cluster_stats(Flag) ->
         end,
     
     {Nodes, Jobs, Power, Time, Upload, Download, NumTasks, Restarts} =
-        ets:foldl(CollectStuff, {[], [], 0.0, 0.0, 0, 0, 0, 0}, cluster_stats_table),
+        ets:foldl(CollectStuff, {[], [], 0.0, 0.0, 0,0,0,0}, node_stats_table),
     Data = {lists:usort(Nodes), lists:usort(Jobs), 
              Power, Time, Upload, Download, NumTasks, Restarts},
     

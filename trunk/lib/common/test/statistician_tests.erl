@@ -73,6 +73,8 @@ statistician_master_test_() ->
                            statistician:get_node_stats(Node1, raw)),
                ?_assertEqual([0.0, 0.0, 0, 0, 0, 0],
                            statistician:get_node_job_stats(Node1, JobId1, raw)),
+               ?_assertNot({error, no_such_stats_found} ==
+                        statistician:get_node_job_stats(Node1, JobId1, string)),
                %job_finished (API function) requires waiting for ~3 seconds,
                %which we don't really want to do in tests. Thus, a direct call:
                ?_assertEqual({job_finished, JobId1},
@@ -85,10 +87,6 @@ statistician_master_test_() ->
                            statistician:get_cluster_stats( raw)),
                ?_assertEqual({Node1, [JobId1], 0.0,0.0,0,0,0,0},
                            statistician:get_node_stats(Node1, raw)),
-               ?_assertEqual([0.0, 0.0, 0, 0, 0, 0],
-                           statistician:get_node_job_stats(Node1, JobId1, raw)),
-               ?_assertEqual([0.0, 0.0, 0, 0, 0, 0],
-                             statistician:get_node_job_stats(Node1,JobId1,raw)),
                ?_assertEqual(ok, statistician:update({{Node1, JobId3, split},
                                                       1.0, 1.0, 1, 1, 1, 1})),
                ?_assertEqual(ok, statistician:update({{Node2, JobId2, map},
@@ -146,16 +144,13 @@ statistician_master_test_() ->
                              statistician:get_job_stats(JobId2, raw)),
                ?_assertEqual({error, no_such_stats_found},
                              statistician:get_job_stats(JobId3, raw)),
+               ?_assertEqual({error, no_such_stats_found}, 
+                             statistician:get_node_job_stats(Node1,JobId3,raw)),
                %Jobs are finished and removed, but node should remain...
                ?_assertEqual({Node1, [JobId3, JobId1], 1.0, 1.0, 1, 1, 1, 1},
-                           statistician:get_node_stats(Node1, raw)),
+                             statistician:get_node_stats(Node1, raw)),
                ?_assertNot({error, no_such_node_in_stats} ==
                            statistician:get_node_stats(Node1, string)),
-               ?_assertNot({error, no_such_stats_found} ==
-                           statistician:get_node_job_stats(Node1, JobId3,
-                                                           string)),
-               ?_assertEqual([1.0, 1.0, 1, 1, 1, 1], 
-                             statistician:get_node_job_stats(Node1,JobId3,raw)),
                %...Until now!
                ?_assertEqual(ok, statistician:remove_node(Node1)),
                ?_assertEqual({error, no_such_node_in_stats},

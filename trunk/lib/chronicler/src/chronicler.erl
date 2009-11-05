@@ -177,7 +177,7 @@ init(no_args) ->
     case error_logger:logfile(filename) of
         {error, no_log_file} ->
             {ok, LogDir} = configparser:read_config("/etc/clusterbusters.conf", log_dir),
-            LogFile = LogDir ++ atom_to_list(node()),
+            LogFile = LogDir ++ "/" ++ atom_to_list(node()),
             ok = error_logger:logfile({open, LogFile});
         LogFile ->
             LogFile

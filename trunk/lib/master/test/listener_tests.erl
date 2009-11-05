@@ -18,6 +18,7 @@ listener_test_() ->
      fun ({JobId, JobId2}) ->
              {inorder,
               [
+               ?_assertMatch({error, Reason}, listener:add_job(wordcount, mapreduce, kalle, 5, "/storage/temp/lol.txt")), 
                ?_assertEqual(anonymous, listener:get_job_name(JobId)),
                ?_assertEqual({name, "ApanJansson"},
                               listener:get_job_name(JobId2)),

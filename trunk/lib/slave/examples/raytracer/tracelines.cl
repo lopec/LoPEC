@@ -293,7 +293,7 @@ float ray_trace(float4 light,
   createHits(&hit2, INFINITY, (float4)(0,0,0,0));
   
 
-  float4 dir2 = -1.*light;
+  float4 dir2 = (float4)-1.*light;
   //sphere sp = s; 
   sphere_intersect(&hit2,dir2,p,center, r);
  

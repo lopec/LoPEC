@@ -247,7 +247,7 @@ void readScene()
 
 int main(int argc, char* argv[]){
 
-bool write_header = true;
+bool write_header = false;
   if(argc < 5)
     {
       cout << "Usage: <path to OpenCL code> <startline> <stopline> <total lines>" << endl; 
@@ -443,8 +443,11 @@ bool write_header = true;
       //printOutFloat4(center);
       
       
-      data[1] = numobj; 
-  for(y=count-1; y>=0; y--)
+      data[1] = numobj;
+      cl_int start = atoi(argv[2]);
+      cl_int stop  = atoi(argv[3]);
+
+  for(y=start-1; y>=stop; y--)
     {
 
      

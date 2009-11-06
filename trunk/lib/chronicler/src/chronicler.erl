@@ -184,7 +184,7 @@ init(no_args) ->
     end,
 
     %TODO add module information logging level
-    State = #state{loggingLevel = [],
+    State = #state{loggingLevel = [error, user_info],
                    logFile = LogFile},
 
     %register the externalLogger if we are not the logger process

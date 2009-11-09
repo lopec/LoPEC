@@ -33,8 +33,9 @@
 %% Starts the server. Path is the path to the external program, Op
 %% is the first argument, Arg1 is the second and Arg2 is the third
 %% argument. So the os call will look like "Path Op Arg1 Arg2".
+%% The TaskId is there for the statistician.
 %%
-%% @spec start_link(Path, Op, Arg1, Arg2, LOOOOOOOOOOOOOOOOOOOOOL) ->
+%% @spec start_link(Path, Op, Arg1, Arg2, TaskId) ->
 %%           {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------

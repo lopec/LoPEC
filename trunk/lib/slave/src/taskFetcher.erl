@@ -45,9 +45,9 @@ start_link() ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Saves a new job to the database
+%% Queries the dispatcher to create a new task.
 %%
-%% @spec new_task(Id, Type, Path) -> Task | {error, Error}
+%% @spec new_task(Data, Type, Path) -> Task | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 new_task(Data, Type, Path) ->
@@ -240,8 +240,7 @@ code_change(OldVsn, State, Extra) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Returns a free task, if no free tasks exists the master will be contacted to
-%% request more tasks.
+%% Polls the dispatcher for a free task.
 %%
 %% @spec request_task() -> {Task, NewState}
 %% @end
@@ -251,7 +250,7 @@ request_task() ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Creates a new task in the database.
+%% Tells the dispatcher to create a new task
 %%
 %% @spec give_task(Id, Type, Path) -> {Task, NewState}
 %% @end

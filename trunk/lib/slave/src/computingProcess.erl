@@ -51,8 +51,11 @@ start_link(Path, Op, JobId, InputPath, TaskId) ->
             split -> "tmp/" ++ StringId ++ "/map/";
             map -> "tmp/" ++ StringId ++ "/reduce/";
             reduce -> "tmp/" ++ StringId ++ "/results/";
-            finalize -> filelib:ensure_dir(Root ++ "results/" ++ StringId ++ "/"),
-			"results/" ++ StringId
+            finalize ->
+                Dir = Root ++ "results/" ++ StringId ++ "/",
+                filelib:ensure_dir(Dir),
+                file:change_mode(Dir, 8#777),
+                "results/" ++ StringId
         end,
     gen_server:start_link({local, ?SERVER},?MODULE,
 			  [Path, Prog, atom_to_list(Op), LoadPath, SavePath, JobId, TaskId], []).

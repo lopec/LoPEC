@@ -3,7 +3,7 @@
 %%% @author Bjorn "norno" Dahlman <bjorn.dahlman@gmail.com>
 %%% @author Gustav "azariah" Simonsson <gusi7871@student.uu.se>
 %%% @author Vasilij "Chabbrik" Savin <vasilij.savin@gmail.com>
-%%% @copyright (C) 2009, Axel
+%%% @copyright (C) 2009, Axel Andren <axelandren@gmail.com>
 %%% @doc
 %%%
 %%% Collects various statistics about the cluster and its nodes, like
@@ -43,11 +43,11 @@
 %%--------------------------------------------------------------------
 %% @doc
 %% Starts the server.
-%% If Type is an atom: slave, we only have the local table, but start
-%% an interval timer to flush gathered stats to master regularly.
-%% 
-%% 
-%% Type = master | slave
+%% <pre>
+%% Type:
+%%  slave - start an interval timer to flush gathered stats to master regularly
+%%  master - no timer, but create a second ets table for storing node stats in
+%% </pre>
 %% @spec start_link(Type) -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
@@ -68,11 +68,13 @@ stop() ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Returns a formatted string of statistics for entire cluster.
-%% Options:
+%% Returns stats for the entire cluster.
+%% <pre>
+%% Flag:
 %%  raw - gives internal representation (Tuples, lists, whatnot)
 %%  string - gives nicely formatted string
-%% @spec get_cluster_stats(Options) -> String
+%% </pre>
+%% @spec get_cluster_stats(Flag) -> String
 %% @end
 %%--------------------------------------------------------------------
 get_cluster_stats(raw) ->
@@ -83,11 +85,13 @@ get_cluster_stats(string) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Returns a formatted string of specified Job statistics.
-%% Options:
+%% Returns stats for JobId.
+%% <pre>
+%% Flag:
 %%  raw - gives internal representation (a list of the total stats)
 %%  string - gives nicely formatted string with stats for each tasktype
-%% @spec get_job_stats(JobId, Options) -> String
+%% </pre>
+%% @spec get_job_stats(JobId, Flag) -> String
 %% @end
 %%--------------------------------------------------------------------
 get_job_stats(JobId, raw) ->
@@ -103,19 +107,22 @@ get_job_stats(JobId, string) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Returns a formatted string of Node statistics.
+%% Returns stats for NodeId.
+%% <pre>
 %% Current statistics include: 
-%%      Jobs being executed
-%%      Power consumed
-%%      Time spent executing tasks
-%%      Upload network traffic
-%%      Download network traffic
-%%      Number of tasks processed
-%%      Number of task restarts
-%% Options:
+%%    * Jobs being executed
+%%    * Power consumed
+%%    * Time spent executing tasks
+%%    * Upload network traffic
+%%    * Download network traffic
+%%    * Number of tasks processed
+%%    * Number of task restarts
+%%
+%% Flag: 
 %%      raw - gives internal representation (Tuples, lists, whatnot)
 %%      string - gives nicely formatted string
-%% @spec get_node_stats(NodeId, Options) -> String
+%% </pre>
+%% @spec get_node_stats(NodeId, Flag) -> String
 %% @end
 %%--------------------------------------------------------------------
 get_node_stats(NodeId, raw) ->
@@ -132,13 +139,14 @@ get_node_stats(NodeId, string) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Returns a formatted string of stats the node NodeId has on the job
-%% JobId, like how many JobId tasks NodeId has worked on, or how long.
-%% Options:
+%% Returns stats the node NodeId has for the job JobId, like how many
+%% JobId tasks NodeId has worked on, or how long.
+%% <pre>
+%% Flag:
 %%      raw - gives internal representation (Tuples, lists, whatnot)
 %%      string - gives nicely formatted string
-%%
-%% @spec get_node_job_stats(NodeId, JobId, Options) -> String
+%% </pre>
+%% @spec get_node_job_stats(NodeId, JobId, Flag) -> String
 %% @end
 %%--------------------------------------------------------------------
 get_node_job_stats(NodeId, JobId, raw) ->
@@ -158,9 +166,11 @@ get_node_job_stats(NodeId, JobId, string) ->
 %% Updates local (node) ets table with statistics, adding the job and
 %% its stats to the table if it doesn't already exist, otherwise
 %% updating the existing entry.
-%% Data variable should look like this tuple:
+%% <pre>
+%% The Data variable should look like this tuple:
 %% {{NodeId, JobId, TaskType},
-%%      Power, Time, Upload, Download, NumTasks, Restarts}
+%%      Power, Time, Upload, Download, NumTasks, Restarts}</pre>
+%% 
 %% @spec update(Data) -> ok
 %% @end
 %%--------------------------------------------------------------------
@@ -169,13 +179,16 @@ update(Data) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Jobs that are finished in our cluster should have their stats dumped to 
-%% file and their entry cleared out of the table, but we have to wait
-%% to make sure that all slaves have sent their stats updates.  This is
-%% by no means a sure thing, but we hope that waiting two update intervals
-%% will be sufficient.
-%% Due to sending a message to itself after the waiting time has passed,
-%% we must use handle_info, though it passes the call onto handle_cast.
+%% Jobs, once finished in our cluster, have their stats dumped to file
+%% and their entry cleared out of the ets table. However, we have to 
+%% wait to make sure that all slaves have sent their stats updates -
+%% we hope that waiting two update intervals will be sufficient, but
+%% if a node is stalled for more than that long, we're out of luck.
+%%
+%% This wait is done using timer:send_after/3, which sends a regular
+%% Erlang message, meaning we have to use handle_info/2 to catch
+%% it. After the message is catched we pass the command onto
+%% handle_cast/2 though.
 %%
 %% @spec job_finished(JobId) -> please_wait_a_few_seconds
 %% @end
@@ -187,8 +200,8 @@ job_finished(JobId) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% If a node dies, we should remove it from our (global) stats.
-%% It should be safe to do so immediately, since it has left the cluster.
+%% Remove a node from the global stats. Probably called when a node
+%% drops from the cluster for some reason.
 %% 
 %% @spec remove_node(NodeId) -> ok
 %% @end
@@ -234,7 +247,7 @@ init([slave]) ->
 %% Flag = raw | string
 %% @see node_stats/1
 %%
-%% @spec handle_call({get_cluster_stats, Options}, From, State) ->
+%% @spec handle_call({get_cluster_stats, Flag}, From, State) ->
 %%                          {reply, Reply, State} 
 %% @end
 %%--------------------------------------------------------------------
@@ -248,7 +261,7 @@ handle_call({get_cluster_stats, Flag}, _From, State) ->
 %% Flag = raw | string
 %% @see node_job_stats/1
 %%
-%% @spec handle_call({get_job_stats, JobId, Options}, From, State) ->
+%% @spec handle_call({get_job_stats, JobId, Flag}, From, State) ->
 %%                                   {reply, Reply, State} 
 %% @end
 %%--------------------------------------------------------------------
@@ -261,7 +274,7 @@ handle_call({get_job_stats, JobId, Flag}, _From, State) ->
 %% Flag = raw | string
 %% @see node_stats/1
 %%
-%% @spec handle_call({get_node_stats, NodeId, Options}, From, State) ->
+%% @spec handle_call({get_node_stats, NodeId, Flag}, From, State) ->
 %%                                   {reply, Reply, State} 
 %% @end
 %%--------------------------------------------------------------------
@@ -274,7 +287,7 @@ handle_call({get_node_stats, NodeId, Flag}, _From, State) ->
 %% Flag = raw | string
 %% @see node_job_stats/1
 %%
-%% @spec handle_call({get_node_job_stats, NodeId, JobId, Options}, From, State)
+%% @spec handle_call({get_node_job_stats, NodeId, JobId, Flag}, From, State)
 %%                                -> {reply, Reply, State} 
 %% @end
 %%--------------------------------------------------------------------

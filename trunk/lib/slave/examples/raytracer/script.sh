@@ -15,29 +15,22 @@ def split(input, output, split_count)
       puts("NEW_SPLIT split#{split_id}")
     end
   end
-  File.open(output + "/header", "w") do | header_file |
-    header_file.puts("P2 #{side} #{side} 255\n")
-      puts("NEW_SPLIT header")
-  end
 end
 
 def map(input, output)
   split_id = input.split("/").last
-  case split_id
-  when "header"
-    system("cp #{input} #{output}/header")
-  else
-    scene_spec = File.new(input, "r").gets.split
-    side = scene_spec[0].to_i
-    start = scene_spec[1].to_i
-    stop = scene_spec[2].to_i
-    output_file = output + "/#{split_id}"
-    prog_path = "/storage/test/programs/raytracer"
-    tracer = "#{prog_path}/oclRaytrace"
-    cl_code = "#{prog_path}/traceLines.cl"
-    system("#{tracer} #{cl_code} #{start} #{stop} #{side} > #{output_file}")
-  end
-  puts("NEW_REDUCE_TASK #{split_id}")
+  scene_spec = File.new(input, "r").gets.split
+  side = scene_spec[0].to_i
+  start = scene_spec[1].to_i
+  stop = scene_spec[2].to_i
+  output_file = output + "/#{split_id}"
+  prog_path = "/storage/test/programs/raytracer"
+  # comment out the correct one
+  tracer = "#{prog_path}/linux_tracer"
+  tracer = "#{prog_path}/mac_tracer"
+  cl_code = "#{prog_path}/traceLines.cl"
+  system("#{tracer} #{cl_code} #{start} #{stop} #{side} | convert - #{output_file}.png")
+  puts("NEW_REDUCE_TASK #{split_id}.png")
 end
 
 def reduce(input, output)
@@ -48,9 +41,8 @@ def reduce(input, output)
 end
 
 def finalize(input, output)
-  output_path = output + "/final_image.pgm"
-  system("cat #{input}/header > #{output_path}")
-  system("cat #{input}/split* >> #{output_path}")
+  output_path = output + "/final_image.png"
+  system("convert #{input}/split* -append #{output_path}")
   puts("FINALIZING_DONE")
 end
 

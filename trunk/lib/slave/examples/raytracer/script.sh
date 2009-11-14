@@ -23,21 +23,21 @@ def map(input, output)
   side = scene_spec[0].to_i
   start = scene_spec[1].to_i
   stop = scene_spec[2].to_i
-  output_file = output + "/#{split_id}"
+  output_file = output + "/#{split_id}.png"
   prog_path = "/storage/test/programs/raytracer"
   # comment out the correct one
   tracer = "#{prog_path}/linux_tracer"
-  tracer = "#{prog_path}/mac_tracer"
-  cl_code = "#{prog_path}/traceLines.cl"
-  system("#{tracer} #{cl_code} #{start} #{stop} #{side} | convert - #{output_file}.png")
+  # tracer = "#{prog_path}/mac_tracer"
+  cl_code = "#{prog_path}/tracelines.cl"
+  system("#{tracer} #{cl_code} #{start} #{stop} #{side} | convert - #{output_file}")
   puts("NEW_REDUCE_TASK #{split_id}.png")
 end
 
 def reduce(input, output)
   split_id = input.split("/").last
-  system("cp #{input} #{output}/#{split_id}")
-  if (split_id == "header")
-    puts("NEW_REDUCE_RESULT #{output}")
+  output_path = "#{output}/#{split_id}"
+  system("cp #{input} #{output_path}")
+  puts("NEW_REDUCE_RESULT #{output_path}")
 end
 
 def finalize(input, output)

@@ -20,8 +20,8 @@ typedef struct{
 cl_float *center = (cl_float *)malloc(sizeof(cl_float)*4);
 cl_float *light = (cl_float*)malloc(sizeof(cl_float)*4);  
 cl_float *origin = (cl_float*)malloc(sizeof(cl_float)*4);
-cl_float *r;
-cl_int *colorid;
+cl_float *r = (cl_float*)malloc(sizeof(cl_float)); 
+cl_int *colorid = (cl_int*)malloc(sizeof(cl_int)); 
 cl_int numobj;  
 
 
@@ -80,8 +80,73 @@ void printResults(const cl_float *res, cl_int *col, cl_uint count);
 #define DATA_SIZE (1)
 #define OUTPUT_SIZE (1024*1024)
 int colorvals[3] = {255,255,0}; 
-color map[4];
+color map[16];
 
+void addCenterToList(cl_float *item)
+{
+  center=(cl_float*)realloc(center, sizeof(cl_float4)*4*(numobj+1));
+  for(int i=0; i<4; i++)
+    {
+      center[(numobj*4)+i] = item[i]; 
+    }
+  
+}
+
+void readSceneFromFile(const char *filename)
+{
+
+   FILE *file;  
+
+  file = fopen(filename,"r+"); // open in text mode
+  
+  if(file == NULL)
+    {
+      cout << "could not load file " << filename <<  endl; 
+
+    }
+
+ 
+  int res = 1; 
+
+  while(res!=EOF)
+    {
+      float num; 
+      
+      res = fscanf(file, "%f", &num);
+      if(res!=EOF)
+	{
+	  cl_float *centerval = (cl_float*)malloc(sizeof(cl_float)*4);
+	  centerval[0]=num;
+	
+	  
+	  for(int i=1; i<3; i++)
+	    {
+	  
+	      
+	      fscanf(file, "%f", &num); 
+	
+
+	      centerval[i] = num;
+	  
+	    }
+	  float num2; 
+	  float num3; 
+	  centerval[3]=0; 
+	  res=fscanf(file, "%f", &num2);
+
+	  r=(cl_float*)realloc(r,sizeof(cl_float)*(numobj+1));
+
+	  r[numobj] = num2;
+
+	  res=fscanf(file, "%f", &num3); 
+	  colorid=(cl_int*)realloc(colorid, sizeof(cl_int)*(numobj+1));
+	  colorid[numobj]=(cl_int)int(num3);
+
+	  addCenterToList(centerval); 
+	  numobj++;
+	}
+    } 
+}
 
 //assign a float4 array to another 
 void float4Assign(cl_float *to, cl_float from[4])
@@ -96,14 +161,7 @@ void float4Assign(cl_float *to, cl_float from[4])
  
 }
 
-void addCenterToList(cl_float *item)
-{
-  for(int i=0; i<4; i++)
-    {
-      center[(numobj*4)+i] = item[i]; 
-    }
-  
-}
+
 
 void printOutFloat4(cl_float in[4])
 {
@@ -149,7 +207,7 @@ color getColor(cl_int id)
 }
 
 
-void readScene()
+void readScene(const char *filename)
 {
   
   int scenesize = 3; 
@@ -175,73 +233,57 @@ void readScene()
   // Fix this function
   float4Assign(light, inlight);
   float4Assign(origin, inorig); 
-  
-  //Fix this function
-  //printOutFloat4(light);
-  // cl_float **centerlist = (cl_float **)malloc(sizeof(cl_float*)*3);
-  /* for(int i=0; i < 4; i++)
+
+
+  if(filename!=NULL)
     {
-      center[i] = (cl_float *)malloc(sizeof(cl_float)*4);
-      }*/
-  cl_float *center1 =  (cl_float *)malloc(sizeof(cl_float)*4);
-  center1[0] = 0;
-  center1[1] = 0;
-  center1[2] = -1;
-  center1[3] = 0; 
-  cl_float *center2 = (cl_float *)malloc(sizeof(cl_float)*4);
-  center2[0] = 1;
-  center2[1] = 0;
-  center2[2] = 0;
-  center2[3] = 0;
-  cl_float *center3 = (cl_float *)malloc(sizeof(cl_float)*4);
-  center3[0] = -0.5;
-  center3[1] = 0;
-  center3[2] = 0;
-  center3[3] = 0;
+  readSceneFromFile(filename);
+    }
+  else 
+    {
+      //Fix this function
+      //printOutFloat4(light);
+      // cl_float **centerlist = (cl_float **)malloc(sizeof(cl_float*)*3);
+      /* for(int i=0; i < 4; i++)
+    {
+    center[i] = (cl_float *)malloc(sizeof(cl_float)*4);
+    }*/
+      cl_float *center1 =  (cl_float *)malloc(sizeof(cl_float)*4);
+      /* 00-1
+	 100
+	 -0.500*/
+      center1[0] = -1;
+      center1[1] = 0.5;
+      center1[2] = -1;
+      center1[3] = 0; 
+      cl_float *center2 = (cl_float *)malloc(sizeof(cl_float)*4);
+      center2[0] = 1;
+      center2[1] = 0.5;
+      center2[2] = -1;
+      center2[3] = 0;
+      cl_float *center3 = (cl_float *)malloc(sizeof(cl_float)*4);
+      center3[0] = 0;
+      center3[1] = 0;
+      center3[2] = 1;
+      center3[3] = 0;
 
   
 
     
   
-   addCenterToList(center1); 
-  r[numobj] = 0.25;
-  colorid[numobj] = 1;
-  numobj++;
-  addCenterToList(center2); 
-  r[numobj] = 0.5; 
-  colorid[numobj]=2; 
-  numobj++; 
-  addCenterToList(center3); 
-  r[numobj] = 0.5; 
-  colorid[numobj]=3; 
-  numobj++; 
-  //printOutFloat4(center[0]); 
-  
-
-  /*  sphere sp = newSphere(0.25,center); 
-  sphere sp1 = newSphere(0.5,center1); 
-  sphere sp2 = newSphere(0.5,center2);
-
-  float4Assign(&s.center[s.numobj],sp.center); 
-  s.r[s.numobj] = sp.r;
-  cout << s.r[s.numobj] << " successfully added " << endl;
-  s.colorid[s.numobj] = 1; 
-  s.numobj++; 
-  float4Assign(&s.center[s.numobj], sp1.center); 
-  s.r[s.numobj]  = sp1.r; 
-  cout << s.r[s.numobj] << " successfully added " << endl;
-  s.colorid[s.numobj] = 2; 
-  s.numobj++; 
-   s.list[s.numobj] = sp2; 
-     s.numobj++;
-  ins->r[0] = s.r[0];
-  ins->r[1] = s.r[1]; 
-  //float4Assign(&ins->center,s.center); 
-  float4Assign(&ins->light,s.light); 
-  float4Assign(&ins->origin,s.origin); 
-  ins->colorid[0] = s.colorid[0];
-  ins->colorid[1] = s.colorid[1];*/ 
-
+      addCenterToList(center1); 
+      r[numobj] = 0.5;
+      colorid[numobj] = 1;
+      numobj++;
+      addCenterToList(center2); 
+      r[numobj] = 0.5; 
+      colorid[numobj]=2; 
+      numobj++; 
+      addCenterToList(center3); 
+      r[numobj] = 1.5; 
+      colorid[numobj]=3; 
+      numobj++;
+    }
 }
 
 
@@ -254,13 +296,19 @@ bool write_header = true;
       exit(0);
     }
 
-  if(argc == 8)
+  char *filename = NULL;  
+  /* if(argc == 8)
     {
   
       colorvals[0] = atoi(argv[5]); 
       colorvals[1] = atoi(argv[6]); 
       colorvals[2] = atoi(argv[7]);
   
+      }*/
+
+  if(argc > 4) 
+    {
+      filename = argv[5]; 
     }
   //size_t global, local;
   int err;
@@ -287,13 +335,18 @@ bool write_header = true;
 
   
 
-  map[0]=newColor(0,0,0); 
-  map[1]=newColor(255,0,0);
-  map[2]=newColor(0,255,0); 
-  map[3]=newColor(0,0,255); 
- 
- 
- 
+  map[0]=newColor(0,0,0);//black 
+  map[1]=newColor(255,0,0);//red
+  map[2]=newColor(0,255,0);//green 
+  map[3]=newColor(0,0,255); //blue
+  map[4]=newColor(255,255,0);//yellow
+  map[5]=newColor(255,255,255);//white  
+  map[6]=newColor(255,127,2); //orange  
+  map[7]=newColor(222,0,255); //purple 
+  map[8]=newColor(155,155,155); //gray 
+  map[9]=newColor(2, 253,232); //turquoise
+  map[10]=newColor(179,253,2); //slimegreen 
+  map[11]=newColor(255,170,200); //pink
   //count = DATA_SIZE;
 
   
@@ -434,7 +487,7 @@ bool write_header = true;
 	  cout << "P3\n" << count << " " << start-stop << "\n" << "255" << "\n";
         }
       
-      readScene();
+      readScene(filename);
             
       //cl_mem centermem;
       //cl_mem radiusmem;
@@ -571,7 +624,7 @@ bool write_header = true;
 	  err = clEnqueueWriteBuffer(queue, input, CL_TRUE, 0, sizeof(cl_int) * 3,
 				 &data, 0, NULL, NULL);
 
-	  err  = clEnqueueWriteBuffer(queue, centermem, CL_TRUE, 0, sizeof(cl_float)*(numobj*4),
+	  err  = clEnqueueWriteBuffer(queue, centermem, CL_TRUE, 0, sizeof(cl_float)*(4*numobj),
 				      center, 0, NULL, NULL);
 
 	  err  = clEnqueueWriteBuffer(queue, radiusmem, CL_TRUE, 0, sizeof(cl_float)*numobj, 
@@ -687,6 +740,7 @@ bool write_header = true;
 
 int getColorValue(int max, int value)
 {
+ 
   
   if(value<=max)
       return value;

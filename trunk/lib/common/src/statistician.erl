@@ -671,7 +671,8 @@ gather_node_stats(NodeId, Flag) ->
 gather_cluster_stats(Flag) ->
     CollectStuff =
         fun ({{Node}, Jobs, Power, Time, Upload, Download, NumTasks, Restarts},
-             {Nodes, JobsAcc, PowerAcc, TimeAcc, UpAcc, DownAcc, TasksAcc, RestartsAcc}) ->
+             {Nodes, JobsAcc, PowerAcc, TimeAcc,
+	      UpAcc, DownAcc, TasksAcc, RestartsAcc}) ->
                   {[Node | Nodes], Jobs ++ JobsAcc,
                   PowerAcc + Power,
                   TimeAcc + Time,
@@ -714,7 +715,8 @@ format_cluster_stats(
         "Download: ~p bytes~n"
         "Number of tasks total: ~p~n"
         "Number of task restarts:~p~n",
-        [Nodes, Jobs, Power / 3600, Time, Upload, Download, Numtasks, Restarts]).
+        [Nodes, Jobs, Power / 3600, Time, Upload,
+	 Download, Numtasks, Restarts]).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -763,7 +765,8 @@ format_job_stats(
         "Number of tasks: ~p~n"
         "Number of restarts: ~p~n",
         [JobId, SplitString, MapString, ReduceString, FinalizeString, Nodes,
-	 TimePassed,TimeExecuted, Power / 3600, Upload,Download, Numtasks, Restarts]).
+	 TimePassed,TimeExecuted, Power / 3600, Upload,
+	 Download, Numtasks, Restarts]).
 
 %%--------------------------------------------------------------------
 %% @doc

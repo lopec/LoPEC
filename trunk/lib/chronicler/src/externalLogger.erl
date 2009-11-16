@@ -54,13 +54,16 @@ init(State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_event({error_report, _From, Msg}, State) ->
-    gen_server:cast({global, externalLoggerPID}, {error, {node(), self()}, Msg}),
+    gen_server:cast({global, externalLoggerPID},
+		    {error, {node(), self()}, Msg}),
     {ok, State};
 handle_event({info_report, _From, Msg}, State) ->
-    gen_server:cast({global, externalLoggerPID}, {info, {node(), self()}, Msg}),
+    gen_server:cast({global, externalLoggerPID},
+		    {info, {node(), self()}, Msg}),
     {ok, State};
 handle_event({warning_report, _From, Msg}, State) ->
-    gen_server:cast({global, externalLoggerPID}, {warning, {node(), self()}, Msg}),
+    gen_server:cast({global, externalLoggerPID},
+		    {warning, {node(), self()}, Msg}),
     {ok, State};
 handle_event(_Other, State) ->
     {ok, State}.

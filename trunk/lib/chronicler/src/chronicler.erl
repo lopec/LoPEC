@@ -176,7 +176,8 @@ fetch_logfile() ->
 init(no_args) ->
     case error_logger:logfile(filename) of
         {error, no_log_file} ->
-            {ok, LogDir} = configparser:read_config("/etc/clusterbusters.conf", log_dir),
+            {ok, LogDir} = configparser:read_config("/etc/clusterbusters.conf",
+						    log_dir),
             LogFile = LogDir ++ "/" ++ atom_to_list(node()),
             ok = error_logger:logfile({open, LogFile});
         LogFile ->
@@ -188,7 +189,8 @@ init(no_args) ->
                    logFile = LogFile},
 
     %register the externalLogger if we are not the logger process
-    case "logger" == lists:takewhile(fun(X)->X /= $@ end, atom_to_list(node())) of
+    case "logger" == lists:takewhile(fun(X)->X /= $@ end,
+				     atom_to_list(node())) of
         true -> info("I am the externalLogger"),
             global:register_name(externalLoggerPID, self()),
             ok;
@@ -295,7 +297,8 @@ terminate(Reason, State) ->
     info({"logger was stopped~n Reason : ~p~n State: ~p~n", Reason, State}),
 
     %removes the externalHander if we have registered it.
-    case "logger" == lists:takewhile(fun(X)->X /= $@ end, atom_to_list(node())) of
+    case "logger" == lists:takewhile(fun(X)->X /= $@ end,
+				     atom_to_list(node())) of
         true -> ok;
         false -> error_logger:delete_report_handler(externalLogger)
     end,

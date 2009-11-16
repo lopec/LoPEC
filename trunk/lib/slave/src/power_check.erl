@@ -44,7 +44,8 @@ get_watt(Period) ->
         l5min -> T = 5*60;
         l15min -> T = 15*60
     end, 
-    %% This is not a very effective way to measure watt. But it's the only way right know.
+    %% This is not a very effective way to measure watt.
+    %% But it's the only way right know.
     {ok, HLW} =
         configparser:read_config(?CONFIGFILE, high_load_watt),
     {ok, LLW} =

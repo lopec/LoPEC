@@ -58,7 +58,8 @@ start_link(Path, Op, JobId, InputPath, TaskId) ->
                 "results/" ++ StringId
         end,
     gen_server:start_link({local, ?SERVER},?MODULE,
-			  [Path, Prog, atom_to_list(Op), LoadPath, SavePath, JobId, TaskId], []).
+			  [Path, Prog, atom_to_list(Op),
+			   LoadPath, SavePath, JobId, TaskId], []).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -89,14 +90,16 @@ stop() ->
 %%--------------------------------------------------------------------
 init([Progname, Path, "split", LoadPath, SavePath, JobId, TaskId]) ->
     {ok, Val} = configparser:read_config(?CONFIGFILE, split_value),
-    chronicler:debug("~w : Path: ~ts~nOperation: ~ts~nLoadpath: ~ts~nSavepath: ~ts~nJobId: ~p~n",
+    chronicler:debug("~w : Path: ~ts~nOperation: ~ts~nLoadpath:"
+		     " ~ts~nSavepath: ~ts~nJobId: ~p~n",
                      [?MODULE, Path, "split", LoadPath, SavePath, JobId]),
     open_port({spawn_executable, Path},
 	      [use_stdio, exit_status, {line, 512},
 	       {args, ["split", LoadPath, SavePath, integer_to_list(Val)]}]),
     {ok, {JobId, TaskId, now(), "split", Progname}};
 init([Progname, Path, Op, LoadPath, SavePath, JobId, TaskId]) ->
-    chronicler:debug("~w : Path: ~ts~nOperation: ~ts~nLoadpath: ~ts~nSavepath: ~ts~nJobId: ~p~n",
+    chronicler:debug("~w : Path: ~ts~nOperation: ~ts~nLoadpath:"
+		     " ~ts~nSavepath: ~ts~nJobId: ~p~n",
                      [?MODULE, Path, Op, LoadPath, SavePath, JobId]),
     open_port({spawn_executable, Path},
 	      [use_stdio, exit_status, {line, 512},
@@ -176,14 +179,15 @@ handle_info({_Pid, {data, {_Flag, "LOG " ++ Data}}}, State) ->
     chronicler:user_info("~w : LOG: ~ts~n", [?MODULE, Data]),
     {noreply, State};
 handle_info({_Pid, {data, {_Flag, Data}}}, State) ->
-    chronicler:info(io_lib:format("~w : PORT PRINTOUT: ~ts~n", [?MODULE, Data])),
+    chronicler:info(io_lib:format("~w : PORT PRINTOUT: ~ts~n",[?MODULE, Data])),
     {noreply, State};
 handle_info({Pid, {exit_status, Status}}, State) when Status == 0 ->
     chronicler:debug("~w : Process ~p exited normally~n", [?MODULE, Pid]),
     gen_server:cast(?FETCHER, {self(), done, State}),
     {stop, normal, State};
 handle_info({Pid, {exit_status, Status}}, State) ->
-    chronicler:error("~w : Process ~p exited with status: ~p~n", [?MODULE, Pid, Status]),
+    chronicler:error("~w : Process ~p exited with status: ~p~n",
+		     [?MODULE, Pid, Status]),
     gen_server:cast(?FETCHER, {self(), error, State}),
     {stop, normal, State};
 %%--------------------------------------------------------------------

@@ -14,11 +14,12 @@
 listener_test_() ->
     {setup,
      fun tests_init/0,
-     fun tests_stop/1, 
+     fun tests_stop/1,
      fun ({JobId, JobId2}) ->
              {inorder,
               [
-               ?_assertMatch({error, _Reason}, listener:add_job(wordcount, mapreduce, kalle, 5, "/storage/temp/lol.txt")), 
+               ?_assertMatch({error, inputdata_dont_exist},
+                   listener:add_job(wordcount, mapreduce, kalle, 5, "/storage/temp/lol.txt")),
                ?_assertMatch({error, _Reason}, listener:pause_job(123123)),
                ?_assertEqual(anonymous, listener:get_job_name(JobId)),
                ?_assertEqual({name, "ApanJansson"},
@@ -57,4 +58,3 @@ tests_stop(_) ->
     examiner:stop(),
     db:stop(),
     timer:sleep(10). %fuck you erlang we shouldnt have to wait for db to stop 
-    

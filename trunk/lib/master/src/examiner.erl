@@ -172,6 +172,7 @@ handle_cast({remove_entry, JobId}, State) ->
 
 handle_cast({update_entry, JobId, TaskType, NewTaskState}, State) ->
     [Item] = ets:lookup(job_status, JobId),
+    % @todo fix race condition, what if we are swapped out here?
     case update_job(Item, TaskType, NewTaskState) of
         #job_stats{split = {0,0,_},
                    map = {0,0,_},

@@ -19,7 +19,9 @@
 %% API
 -export([start_link/0,
          add_job/1,
-         add_task/1, 
+         add_task/1,
+         stop_job/1,
+         cancel_job/1,
          fetch_task/2,
          report_task_done/2, 
          report_task_done/1,
@@ -72,6 +74,28 @@ add_task(TaskSpec) ->
 %%--------------------------------------------------------------------
 free_tasks(NodeId) ->
     gen_server:cast({global, ?MODULE}, {free_tasks, NodeId}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Stops a job. A stopping job is halted before completion and stays
+%% in that state until its resumed
+%%
+%% @spec stop_job(JobId) -> ok
+%% @end
+%%--------------------------------------------------------------------
+stop_job(JobId) ->
+    gen_server:cast({global, ?MODULE}, {stop_job, JobId}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Cancels a job. Its the same as for stop_job/1 but the job will also
+%% be removed from the database.
+%%
+%% @spec cancel_job(JobId) -> ok
+%% @end
+%%--------------------------------------------------------------------
+cancel_job(JobId) ->
+    gen_server:cast({global, ?MODULE}, {cancel_job, JobId}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -216,6 +240,30 @@ handle_call({task_done, TaskId, TaskSpec}, _From, State) ->
 handle_call({add_task, TaskSpec}, _From, State) ->
     NewTaskId = create_task(TaskSpec),
     {reply, NewTaskId, State};
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Stops a job.
+%%
+%% @spec handle_call({stop_job, JobId}, From, State) ->
+%%                                   {reply, ok, State} 
+%% @end
+%%--------------------------------------------------------------------
+handle_call({stop_job, JobId}, _From, State) ->
+    db:stop_job(JobId),    
+    {reply, ok, State};
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Cancels a job.
+%%
+%% @spec handle_call({cancel_job, JobId}, From, State) ->
+%%                                   {reply, ok, State} 
+%% @end
+%%--------------------------------------------------------------------
+handle_call({cancel_job, JobId}, _From, State) ->
+    db:cancel_job(JobId),
+    {reply, ok, State};
 
 %%--------------------------------------------------------------------
 %% @doc

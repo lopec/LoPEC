@@ -23,7 +23,8 @@
 
 %% APIs for handling jobs
 -export([add_job/1, remove_job/1, set_job_path/2, set_job_state/2,
-        pause_job/1, stop_job/1, resume_job/1, get_user_jobs/1]).
+        pause_job/1, stop_job/1, resume_job/1, get_user_jobs/1,
+	list_active_jobs/0]).
 
 %% APIs for handling tasks
 -export([add_task/1, fetch_task/1, mark_done/1, free_tasks/1, list/1]).
@@ -230,6 +231,19 @@ get_user_jobs(User) ->
             end
     end,
     _Return = lists:filter(UserJobs, ListOfJobs).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Returns a list of all jobs that currently have their states set
+%% as 'free'.
+%%
+%% @spec list_active_jobs() -> List
+%%                       List = [JobId::integer()]
+%% @end
+%%--------------------------------------------------------------------
+list_active_jobs() ->
+    gen_server:call(?SERVER, {list_active_jobs}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -753,6 +767,28 @@ handle_call({list_node_tasks, NodeId}, _From, State) ->
             Result = '$1',
             Guard = {'==', '$2', NodeId},
             mnesia:select(assigned_tasks, [{MatchHead, [Guard], [Result]}])
+    end,
+    {atomic, Result} = mnesia:transaction(F),
+    {reply, Result, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Lists all active jobs.
+%%
+%% @spec handle_call({list_active_jobs}, _From, State) ->
+%%                                 {reply, List, State} | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({list_active_jobs}, _From, State) ->
+    F = fun() ->
+            MatchHead = #job{job_id = '$1',
+			     state = '$2',
+			     _ = '_'},
+            Result = '$1',
+            Guard = {'==', '$2', free},
+            mnesia:select(job, [{MatchHead, [Guard], [Result]}])
     end,
     {atomic, Result} = mnesia:transaction(F),
     {reply, Result, State}.

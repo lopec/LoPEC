@@ -355,7 +355,7 @@ handle_cast({update, Stats}, State) ->
                         = OldNodeStats,
                     
                     ets:insert(node_stats_table, {{NodeId},
-                                                  [JobId   | OldNodeJobs],
+                                                  lists:umerge([JobId], OldNodeJobs),
                                                   Power    + OldNodePower,
                                                   Time     + OldNodeTime,
                                                   Upload   + OldNodeUpload,

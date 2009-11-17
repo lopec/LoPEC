@@ -11,8 +11,9 @@
 
 -behaviour(gen_server).
 
--export([add_job/5, add_job/6, pause_job/1, resume_job/1, stop_job/1,
-         get_job_name/1, get_job_id/1, remove_job_name/1, is_valid_jobtype/1]).
+-export([add_job/5, add_job/6, pause_job/1, resume_job/1, stop_job/1, 
+        cancel_job/1, get_job_name/1, get_job_id/1, remove_job_name/1,
+        is_valid_jobtype/1]).
 
 -export([start_link/0, init/1, handle_call/3, handle_cast/2, handle_info/2, 
         terminate/2, code_change/3]).
@@ -88,14 +89,26 @@ resume_job(JobId) ->
 %%------------------------------------------------------------------------------
 %% @doc
 %% Stops a job
-%% This method is not yet implemented, so don't use this for now.
+%% Hard-stops a job. The job will be stopped without finishing current tasks.
 %%
 %% @spec stop_job(JobId) -> ok
 %% @end
 %%------------------------------------------------------------------------------
 stop_job(JobId) ->
     chronicler:user_info("~w : Stopped job with Id=~p~n", [?MODULE, JobId]),
-    ok.
+    gen_server:call(?MODULE, {stop_job, JobId}).
+
+%%------------------------------------------------------------------------------
+%% @doc
+%% cancel a job
+%% Does the same as stop/1 but it also removes the job from the database. 
+%%
+%% @spec cancel_job(JobId) -> ok
+%% @end
+%%------------------------------------------------------------------------------
+cancel_job(JobId) ->
+    chronicler:user_info("~w : Stopped job with Id=~p~n", [?MODULE, JobId]),
+    gen_server:call(?MODULE, {cancel_job, JobId}).
 
 %%------------------------------------------------------------------------------
 %% @doc
@@ -285,7 +298,20 @@ handle_call({resume_job, JobId}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({stop_job, JobId}, _From, State) ->
-    db:stop_job(JobId),
+    %% Call dispatcher
+    {reply, ok, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Cancels a job
+%%
+%% @spec handle_call({cancel_job, JobId}, From, State) ->
+%%           {reply, ok, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({cancel_job, JobId}, _From, State) ->
+    %% Call dispatcher
     {reply, ok, State};
 
 

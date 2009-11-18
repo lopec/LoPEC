@@ -17,7 +17,7 @@
         cleanup_map/1
         ]).
 
--export([start_link/0, init/1, handle_call/3, handle_cast/2, handle_info/2, 
+-export([start_link/0, init/1, handle_call/3, handle_cast/2, handle_info/2,
         terminate/2, code_change/3]).
 
 %%%=============================================================================
@@ -28,7 +28,7 @@
 %% @doc
 %% Starts the server
 %%
-%% @spec start_link() -> {ok, Pid} 
+%% @spec start_link() -> {ok, Pid}
 %% @end
 %%------------------------------------------------------------------------------
 start_link() ->
@@ -43,7 +43,7 @@ start_link() ->
 %% @end
 %%------------------------------------------------------------------------------
 cleanup_job(JobId) ->
-    gen_server:call(?MODULE, {cleanup_job, JobId}). 
+    gen_server:call(?MODULE, {cleanup_job, JobId}).
 
 %%------------------------------------------------------------------------------
 %% @doc
@@ -84,12 +84,11 @@ cleanup_map(JobId) ->
 %% @doc
 %% Initializes the server.
 %%
-%% @spec init(Args) -> {ok, State} 
+%% @spec init(Args) -> {ok, State}
 %% @end
 %%------------------------------------------------------------------------------
 init(_Args) ->
     {ok, []}.
-
 
 %%--------------------------------------------------------------------
 %% @private
@@ -102,10 +101,9 @@ init(_Args) ->
 %%--------------------------------------------------------------------
 handle_call({cleanup_job, JobId}, _From, State) ->
     {ok, Path} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
-    JobString = lists:flatten(io_lib:format("~p", [JobId])),
-    ReturnValue = file:del_dir(Path ++ "/tmp/" ++ JobString),
+    JobPath = concat_path([Path, tmp, JobId]),
+    ReturnValue = file:del_dir(JobPath),
     {reply, ReturnValue, State};
-
 
 %%--------------------------------------------------------------------
 %% @private
@@ -118,8 +116,8 @@ handle_call({cleanup_job, JobId}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({cleanup_split, JobId}, _From, State) ->
     {ok, Path} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
-    JobString = lists:flatten(io_lib:format("~p", [JobId])),
-    ReturnValue = file:del_dir(Path ++ "/tmp/" ++ JobString ++ "/split"),
+    SplitPath = concat_path([Path, tmp, JobId, split]),
+    ReturnValue = file:del_dir(SplitPath),
     {reply, ReturnValue, State};
 
 %%--------------------------------------------------------------------
@@ -133,10 +131,9 @@ handle_call({cleanup_split, JobId}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({cleanup_reduce, JobId}, _From, State) ->
     {ok, Path} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
-    JobString = lists:flatten(io_lib:format("~p", [JobId])),
-    ReturnValue = file:del_dir(Path ++ "/tmp/" ++ JobString ++ "/reduce"),
+    ReducePath = concat_path([Path, tmp, JobId, reduce]),
+    ReturnValue = file:del_dir(ReducePath),
     {reply, ReturnValue, State};
-
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -148,8 +145,8 @@ handle_call({cleanup_reduce, JobId}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({cleanup_map, JobId}, _From, State) ->
     {ok, Path} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
-    JobString = lists:flatten(io_lib:format("~p", [JobId])),
-    ReturnValue = file:del_dir(Path ++ "/tmp/" ++ JobString ++ "/map"),
+    MapPath = concat_path([Path, tmp, JobId, map]),
+    ReturnValue = file:del_dir(MapPath),
     {reply, ReturnValue, State}.
 
 %%------------------------------------------------------------------------------
@@ -183,10 +180,10 @@ handle_cast(Msg, State) ->
 %% @doc
 %% Logs and discards unexpected messages.
 %%
-%% @spec handle_info(Info, State) -> {noreply, State} 
+%% @spec handle_info(Info, State) -> {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(Info, State) -> 
+handle_info(Info, State) ->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -198,5 +195,24 @@ handle_info(Info, State) ->
 %% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% @end
 %%--------------------------------------------------------------------
-code_change(OldVsn, State, Extra) -> 
+code_change(OldVsn, State, Extra) ->
     {ok, State}.
+
+%%--------------------------------------------------------------------
+%% Internal functions
+%%--------------------------------------------------------------------
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Like lists:concat/1, but adds slashes between items.
+%%
+%% @spec concat_path(Items :: list()) -> string()
+%% @end
+%%--------------------------------------------------------------------
+concat_path(Items) ->
+    concat_path(Items, []).
+concat_path([Item], Acc) ->
+    lists:concat(lists:reverse([Item | Acc]));
+concat_path([Head | Tail], Acc) ->
+    concat_path(Tail, ["/", Head | Acc]).

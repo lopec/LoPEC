@@ -24,7 +24,7 @@
 %% APIs for handling jobs
 -export([add_job/1, remove_job/1, set_job_path/2, set_job_state/2,
         pause_job/1, stop_job/1, resume_job/1, get_user_jobs/1,
-	list_active_jobs/0]).
+	list_active_jobs/0, cancel_job/1]).
 
 %% APIs for handling tasks
 -export([add_task/1, fetch_task/1, mark_done/1, free_tasks/1, list/1]).
@@ -332,6 +332,26 @@ stop_job(JobId) ->
         "Affected nodes:~p~n",
         [?MODULE, JobId, ListOfNodes]),
     ListOfNodes.
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Sets the state of the specified job to stopped.
+%% then removes the job from the job tale
+%%
+%% @spec stop_job(JobId::integer()) -> TaskList
+%%                                     | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+cancel_job(JobId) ->
+   NodeList = stop_job(JobId),
+   gen_server:call(?SERVER, {remove_job, JobId}),
+   chronicler:info("~w:Canceled job.~n"
+                    "JobId:~p~n"
+                    "Affected nodes:~p~n",
+                    [?MODULE, JobId, NodeList]),
+   NodeList.
+
 
 %%--------------------------------------------------------------------
 %% @doc

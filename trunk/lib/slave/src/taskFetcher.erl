@@ -125,8 +125,7 @@ handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType, _Progname}},
     %% Report to statistician
     Diff = timer:now_diff(now(), Time) / 1000000,
     Power = power_check:get_watt_per_task(Diff),
-    {NewUpload, NewDownload} = netMonitor:get_net_stats(),
-    {NewUp, NewDown} = {NewUpload, NewDownload},
+    {NewUp, NewDown} = netMonitor:get_net_stats(),
     statistician:update({{node(), JobId, list_to_atom(TaskType)},
                          Power, Diff, NewUp - OldUp, NewDown - OldDown, 1, 0}),
     
@@ -151,10 +150,26 @@ handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType, _Progname}},
 %% @spec handle_cast({Pid, error, CallState}, State) -> {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({Pid, error, CallState}, State) ->
-    chronicler:warning("~w : Process ~p exited unexpected with state ~w.", 
-        [?MODULE, Pid,CallState]),
-    {noreply, State};
+handle_cast({Pid, error,  {JobId, _TaskId, Time, TaskType, _Progname}},
+	    {_Timer, {OldUp, OldDown}}) ->
+    %% Report to statistician
+    Diff = timer:now_diff(now(), Time) / 1000000,
+    Power = power_check:get_watt_per_task(Diff),
+    {NewUp, NewDown} = netMonitor:get_net_stats(),
+    statistician:update({{node(), JobId, list_to_atom(TaskType)},
+                         Power, Diff, NewUp - OldUp, NewDown - OldDown, 0, 1}),
+    
+    %% Free task that has been given to node
+    dispatcher:free_tasks(node()),
+
+    %% Kill and remove computingProcess spec from dynamic supervisor
+    supervisor:terminate_child(?DYNSUP, ?WORKER),
+    supervisor:delete_child(?DYNSUP, ?WORKER),
+
+    %% Reinstate poll timer and request task
+    {ok, Timer} = timer:send_interval(?TASK_FETCH_INTERVAL, poll),
+    request_task(),
+    {noreply, {#state{work_state = no_task, timer = Timer}, {NewUp, NewDown}}};
 %%--------------------------------------------------------------------
 %% @private
 %% @doc

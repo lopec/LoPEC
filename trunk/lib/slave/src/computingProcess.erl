@@ -94,7 +94,7 @@ init([Progname, Path, "split", LoadPath, SavePath, JobId, TaskId]) ->
 		     " ~ts~nSavepath: ~ts~nJobId: ~p~n",
                      [?MODULE, Path, "split", LoadPath, SavePath, JobId]),
     open_port({spawn_executable, Path},
-	      [use_stdio, exit_status, {line, 512},
+	      [use_stdio, stderr_to_stdout, exit_status, {line, 512},
 	       {args, ["split", LoadPath, SavePath, integer_to_list(Val)]}]),
     {ok, {JobId, TaskId, now(), "split", Progname}};
 init([Progname, Path, Op, LoadPath, SavePath, JobId, TaskId]) ->
@@ -102,7 +102,7 @@ init([Progname, Path, Op, LoadPath, SavePath, JobId, TaskId]) ->
 		     " ~ts~nSavepath: ~ts~nJobId: ~p~n",
                      [?MODULE, Path, Op, LoadPath, SavePath, JobId]),
     open_port({spawn_executable, Path},
-	      [use_stdio, exit_status, {line, 512},
+	      [use_stdio, stderr_to_stdout, exit_status, {line, 512},
 	       {args, [Op, LoadPath, SavePath]}]),
     {ok, {JobId, TaskId, now(), Op, Progname}}.
 
@@ -178,6 +178,11 @@ handle_info({_Pid, {data, {_Flag, "ERROR " ++ Data}}}, State) ->
 handle_info({_Pid, {data, {_Flag, "LOG " ++ Data}}}, State) ->
     chronicler:user_info("~w : LOG: ~ts~n", [?MODULE, Data]),
     {noreply, State};
+handle_info({Pid, {data, {_Flag, "Segmentation fault"}}}, State) ->
+    chronicler:error("~w : Process ~p exited with reason: Segmentation fault",
+		     [?MODULE, Pid]),
+    gen_server:cast(?FETCHER, {self(), error, State}),
+    {stop, normal, State};
 handle_info({_Pid, {data, {_Flag, Data}}}, State) ->
     chronicler:info(io_lib:format("~w : PORT PRINTOUT: ~ts~n",[?MODULE, Data])),
     {noreply, State};

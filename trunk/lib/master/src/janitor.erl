@@ -13,8 +13,9 @@
 -export([
         cleanup_job/1,
         cleanup_split/1,
+        cleanup_map/1,
         cleanup_reduce/1,
-        cleanup_map/1
+        cleanup_finalize/1
         ]).
 
 -export([start_link/0, init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -57,6 +58,16 @@ cleanup_split(JobId) ->
 
 %%------------------------------------------------------------------------------
 %% @doc
+%% Clean up storage from map-files beloning to a specific job.
+%%
+%% @spec cleanup_map(JobId) -> ok | {error, Reason}
+%% @end
+%%------------------------------------------------------------------------------
+cleanup_map(JobId) ->
+    gen_server:call(?MODULE, {cleanup_map, JobId}).
+
+%%------------------------------------------------------------------------------
+%% @doc
 %% Clean up storage from reduce-files beloning to a specific job.
 %%
 %% @spec cleanup_reduce(JobId) -> ok | {error, Reason}
@@ -67,13 +78,13 @@ cleanup_reduce(JobId) ->
 
 %%------------------------------------------------------------------------------
 %% @doc
-%% Clean up storage from map-files beloning to a specific job.
+%% Clean up storage from finalize-files beloning to a specific job.
 %%
-%% @spec cleanup_map(JobId) -> ok | {error, Reason}
+%% @spec cleanup_finalize(JobId) -> ok | {error, Reason}
 %% @end
 %%------------------------------------------------------------------------------
-cleanup_map(JobId) ->
-    gen_server:call(?MODULE, {cleanup_map, JobId}).
+cleanup_finalize(JobId) ->
+    gen_server:call(?MODULE, {cleanup_finalize, JobId}).
 
 %%%=============================================================================
 %%% gen_server callbacks
@@ -116,8 +127,23 @@ handle_call({cleanup_job, JobId}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({cleanup_split, JobId}, _From, State) ->
     {ok, Path} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
-    SplitPath = concat_path([Path, tmp, JobId, split]),
+    SplitPath = concat_path([Path, tmp, JobId, input]),
     ReturnValue = file:del_dir(SplitPath),
+    {reply, ReturnValue, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Removes all temporary map-files for a specific job.
+%%
+%% @spec handle_call({cleanup_job, JobId}, From, State) ->
+%%           {reply, ok, State} | {reply, {error, Reason}, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({cleanup_map, JobId}, _From, State) ->
+    {ok, Path} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
+    MapPath = concat_path([Path, tmp, JobId, map]),
+    ReturnValue = file:del_dir(MapPath),
     {reply, ReturnValue, State};
 
 %%--------------------------------------------------------------------
@@ -134,19 +160,20 @@ handle_call({cleanup_reduce, JobId}, _From, State) ->
     ReducePath = concat_path([Path, tmp, JobId, reduce]),
     ReturnValue = file:del_dir(ReducePath),
     {reply, ReturnValue, State};
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Removes all temporary map-files for a specific job.
+%% Removes all temporary finalize-files for a specific job.
 %%
 %% @spec handle_call({cleanup_job, JobId}, From, State) ->
 %%           {reply, ok, State} | {reply, {error, Reason}, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({cleanup_map, JobId}, _From, State) ->
+handle_call({cleanup_finalize, JobId}, _From, State) ->
     {ok, Path} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
-    MapPath = concat_path([Path, tmp, JobId, map]),
-    ReturnValue = file:del_dir(MapPath),
+    FinalizePath = concat_path([Path, tmp, JobId, results]),
+    ReturnValue = file:del_dir(FinalizePath),
     {reply, ReturnValue, State}.
 
 %%------------------------------------------------------------------------------

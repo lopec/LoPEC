@@ -408,18 +408,8 @@ code_change(OldVsn, State, Extra) ->
 is_valid_jobtype(JobType) ->
     {ok, Root} = 
         configparser:read_config(?CONFIGFILE, cluster_root),
-    JobTypeString = atom_to_list(JobType),
-    %TODO look for program dir instead of the script file.
-    % use filelib:ensure dir for this.
-    %ProgramFile = Root++"programs/"++JobTypeString++"/script.sh",
-    % Because there is no function to check if file exists.
-    %io:format("~p~n", [ProgramFile]),
-    %Result = file:rename(ProgramFile, ProgramFile),
-    %case Result of
-    %    ok -> {ok};
-    %    {error, Reason} -> {error, Reason}
-    %end.
-    {ok}.
+    ProgramDir = lists:concat([Root, "programs/", JobType]),
+    filelib:is_dir(ProgramDir).
 
 
 is_valid_inputfile(Path) ->
@@ -441,7 +431,7 @@ is_valid_inputfile(Path) ->
 %%------------------------------------------------------------------------------
 add_new_job(ProgramType, ProblemType, Owner, Priority, InputData) ->
     case is_valid_jobtype(ProgramType) of
-        {ok} ->
+        true ->
             case is_valid_inputfile(InputData) of
                 {ok} ->
                     JobId = dispatcher:add_job({ProgramType, ProblemType, Owner, Priority}),
@@ -470,7 +460,7 @@ add_new_job(ProgramType, ProblemType, Owner, Priority, InputData) ->
                     chronicler:user_info("~w : Could not add job. Reason: ~p~n", [?MODULE, Reason]),
                     {error, Reason}
             end;
-        {error, Reason} ->
-            chronicler:user_info("~w : Could not add job. Reason: ~p~n", [?MODULE, Reason]),
-            {error, Reason}
+        false ->
+            chronicler:user_info("~w : Could not add job. Reason: No such program~n", [?MODULE]),
+            {error, no_such_program}
     end.

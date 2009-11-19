@@ -35,14 +35,22 @@ db_test(_Config) ->
     % Check to see that the database doesn't blow up
     % just because there are no jobs and stuff
     no_task = db:fetch_task(node()),
+    JobC = {wordcount, mapreduce, skatasbort, 30},
+    JobCId = db:add_job(JobC),
+    db:add_task({JobCId, raytracer, split, '/pr/stuff'}),
+    db:fetch_task(skadellas),
+    [skadellas] = db:cancel_job(JobCId),
+    
+
 
     % Two jobs.
     JobA = {raytracer, mapreduce, ystadsnisse, 15},
     JobB = {wordcount, mapreduce, grillbritt, 30},
-    
+   
     % Let's add them
     JobAId = db:add_job(JobA),
     JobBId = db:add_job(JobB),
+    
     
     ListOfUserJobs = db:get_user_jobs(grillbritt),
     [JobBId] = ListOfUserJobs,

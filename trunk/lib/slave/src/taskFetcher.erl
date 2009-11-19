@@ -41,7 +41,7 @@
 %%--------------------------------------------------------------------
 start_link() ->
     chronicler:info("~w : module started", [?MODULE]),
-    gen_server:start_link({local, ?MODULE}, ?MODULE, no_args, []).
+    gen_server:start_link({global, node()}, ?MODULE, no_args, []).
 
 %%--------------------------------------------------------------------
 %% @doc

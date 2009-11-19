@@ -15,7 +15,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/5, stop/0]).
+-export([start_link/5, stop/0, stop_job/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -23,6 +23,12 @@
 
 -define(SERVER, ?MODULE). 
 -define(FETCHER, taskFetcher).
+
+kill_all_procs([]) ->
+    [];
+kill_all_procs([{pid, Pid}|T]) ->
+    os:cmd("kill -9 " ++ Pid),
+    kill_all_procs(T).
 
 %%%===================================================================
 %%% API
@@ -68,10 +74,22 @@ start_link(Path, Op, JobId, InputPath, TaskId) ->
 %% @spec stop() -> void()
 %% @end
 %%--------------------------------------------------------------------
-
 stop() ->
     chronicler:info("~w : module stopping~n", [?MODULE]),
     gen_server:cast(?SERVER, stop).
+
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Stops the currently running task on the node.
+%%
+%% @spec stop_job() -> ok
+%% @end
+%%--------------------------------------------------------------------
+stop_job() ->
+    chronicler:info("~w : Stopping current task.~n", [?MODULE]),
+    gen_server:call(?MODULE, {stop_job}),
+    ok.
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -96,7 +114,7 @@ init([Progname, Path, "split", LoadPath, SavePath, JobId, TaskId]) ->
     open_port({spawn_executable, Path},
 	      [use_stdio, stderr_to_stdout, exit_status, {line, 512},
 	       {args, ["split", LoadPath, SavePath, integer_to_list(Val)]}]),
-    {ok, {JobId, TaskId, now(), "split", Progname}};
+    {ok, {JobId, TaskId, now(), "split", Progname, []}};
 init([Progname, Path, Op, LoadPath, SavePath, JobId, TaskId]) ->
     chronicler:debug("~w : Path: ~ts~nOperation: ~ts~nLoadpath:"
 		     " ~ts~nSavepath: ~ts~nJobId: ~p~n",
@@ -104,7 +122,7 @@ init([Progname, Path, Op, LoadPath, SavePath, JobId, TaskId]) ->
     open_port({spawn_executable, Path},
 	      [use_stdio, stderr_to_stdout, exit_status, {line, 512},
 	       {args, [Op, LoadPath, SavePath]}]),
-    {ok, {JobId, TaskId, now(), Op, Progname}}.
+    {ok, {JobId, TaskId, now(), Op, Progname, []}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -114,6 +132,12 @@ init([Progname, Path, Op, LoadPath, SavePath, JobId, TaskId]) ->
 %% @spec handle_call(Msg, From, State) ->  {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
+handle_call({stop_job}, _From,
+            {JobId, TaskId, Time, TaskType, Progname, StartedPids}) ->
+    Result = kill_all_procs(StartedPids),
+    %taskfetcher:reset_state(),
+    {noreply, {JobId, TaskId, Time, TaskType, Progname, Result}};
+
 handle_call(Msg, From, State) ->
     chronicler:warning("~w : Received unexpected handle_call call.~n"
                        "Message: ~p~n"
@@ -160,17 +184,28 @@ handle_cast(Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info({_Pid, {data, {_Flag, "NEW_SPLIT " ++ Data}}}, State) ->
+handle_info({_Pid, {data, {_Flag, "MY_PID " ++ Data}}},
+            {JobId, TaskId, Time, TaskType, Progname, StartedPids}) ->
+    chronicler:debug("~w : MY_PID Reported~n", [?MODULE]),
+    {noreply, {JobId, TaskId, Time, TaskType, Progname, 
+        [{pid, Data}|StartedPids]}};
+handle_info({_Pid, {data, {_Flag, "NEW_SPLIT " ++ Data}}},
+            State = {JobId, TaskId, Time, TaskType, Progname, _StartedPids}) ->
     chronicler:debug("~w : SPLIT: New map task: ~ts~n", [?MODULE, Data]),
-    taskFetcher:new_task(State, map, "/map/" ++ Data),
+    taskFetcher:new_task({JobId, TaskId, Time, TaskType, Progname},
+                         map, "/map/" ++ Data),
     {noreply, State};
-handle_info({_Pid, {data, {_Flag, "NEW_REDUCE_TASK " ++ Data}}}, State) ->
+handle_info({_Pid, {data, {_Flag, "NEW_REDUCE_TASK " ++ Data}}},
+            State = {JobId, TaskId, Time, TaskType, Progname, _StartedPids}) ->
     chronicler:debug("~w : MAP: New reduce task: ~ts~n", [?MODULE, Data]),
-    taskFetcher:new_task(State, reduce, "/reduce/" ++ Data),
+    taskFetcher:new_task({JobId, TaskId, Time, TaskType, Progname},
+                         reduce, "/reduce/" ++ Data),
     {noreply, State};
-handle_info({_Pid, {data, {_Flag, "NEW_REDUCE_RESULT " ++ Data}}}, State) ->
+handle_info({_Pid, {data, {_Flag, "NEW_REDUCE_RESULT " ++ Data}}},
+            State = {JobId, TaskId, Time, TaskType, Progname, _StartedPids}) ->
     chronicler:debug("~w : REDUCE: New finalize task: ~ts~n", [?MODULE, Data]),
-    taskFetcher:new_task(State, finalize, "/results/"),
+    taskFetcher:new_task({JobId, TaskId, Time, TaskType, Progname},
+                         finalize, "/results/"),
     {noreply, State};
 handle_info({_Pid, {data, {_Flag, "ERROR " ++ Data}}}, State) ->
     chronicler:error("~w : ERROR: ~ts~n", [?MODULE, Data]),
@@ -178,22 +213,29 @@ handle_info({_Pid, {data, {_Flag, "ERROR " ++ Data}}}, State) ->
 handle_info({_Pid, {data, {_Flag, "LOG " ++ Data}}}, State) ->
     chronicler:user_info("~w : LOG: ~ts~n", [?MODULE, Data]),
     {noreply, State};
-handle_info({Pid, {data, {_Flag, "Segmentation fault"}}}, State) ->
+handle_info({Pid, {data, {_Flag, "Segmentation fault"}}},
+            State = {JobId, TaskId, Time, TaskType, Progname, _StartedPids}) ->
     chronicler:error("~w : Process ~p exited with reason: Segmentation fault",
 		     [?MODULE, Pid]),
-    gen_server:cast(?FETCHER, {self(), error, State}),
+    gen_server:cast(?FETCHER, {self(), error,
+                               {JobId, TaskId, Time, TaskType, Progname}}),
     {stop, normal, State};
 handle_info({_Pid, {data, {_Flag, Data}}}, State) ->
     chronicler:info(io_lib:format("~w : PORT PRINTOUT: ~ts~n",[?MODULE, Data])),
     {noreply, State};
-handle_info({Pid, {exit_status, Status}}, State) when Status == 0 ->
+handle_info({Pid, {exit_status, Status}}, State =
+            {JobId, TaskId, Time, TaskType, Progname, _StartedPids})
+  when Status == 0 ->
     chronicler:debug("~w : Process ~p exited normally~n", [?MODULE, Pid]),
-    gen_server:cast(?FETCHER, {self(), done, State}),
+    gen_server:cast(?FETCHER, {self(), done,
+                               {JobId, TaskId, Time, TaskType, Progname}}),
     {stop, normal, State};
-handle_info({Pid, {exit_status, Status}}, State) ->
+handle_info({Pid, {exit_status, Status}},
+            State = {JobId, TaskId, Time, TaskType, Progname, _StartedPids}) ->
     chronicler:error("~w : Process ~p exited with status: ~p~n",
 		     [?MODULE, Pid, Status]),
-    gen_server:cast(?FETCHER, {self(), error, State}),
+    gen_server:cast(?FETCHER, {self(), error,
+                               {JobId, TaskId, Time, TaskType, Progname}}),
     {stop, normal, State};
 %%--------------------------------------------------------------------
 %% @private

@@ -409,13 +409,17 @@ is_valid_jobtype(JobType) ->
     {ok, Root} = 
         configparser:read_config(?CONFIGFILE, cluster_root),
     JobTypeString = atom_to_list(JobType),
-    ProgramFile = Root++"programs/"++JobTypeString++"/script.sh",
+    %TODO look for program dir instead of the script file.
+    % use filelib:ensure dir for this.
+    %ProgramFile = Root++"programs/"++JobTypeString++"/script.sh",
     % Because there is no function to check if file exists.
-    Result = file:rename(ProgramFile, ProgramFile),
-    case Result of
-        ok -> {ok};
-        {error, Reason} -> {error, Reason}
-    end.
+    %io:format("~p~n", [ProgramFile]),
+    %Result = file:rename(ProgramFile, ProgramFile),
+    %case Result of
+    %    ok -> {ok};
+    %    {error, Reason} -> {error, Reason}
+    %end.
+    {ok}.
 
 
 is_valid_inputfile(Path) ->

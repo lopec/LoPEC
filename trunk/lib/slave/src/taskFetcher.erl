@@ -150,7 +150,7 @@ handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType, _Progname}},
 %% @spec handle_cast({Pid, error, CallState}, State) -> {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({Pid, error,  {JobId, _TaskId, Time, TaskType, _Progname}},
+handle_cast({_Pid, error,  {JobId, _TaskId, Time, TaskType, _Progname}},
 	    {_Timer, {OldUp, OldDown}}) ->
     %% Report to statistician
     Diff = timer:now_diff(now(), Time) / 1000000,
@@ -160,7 +160,7 @@ handle_cast({Pid, error,  {JobId, _TaskId, Time, TaskType, _Progname}},
                          Power, Diff, NewUp - OldUp, NewDown - OldDown, 0, 1}),
     
     %% Free task that has been given to node
-    dispatcher:free_tasks(node()),
+    dispatcher:task_failed(JobId, list_to_atom(TaskType)),
 
     %% Kill and remove computingProcess spec from dynamic supervisor
     supervisor:terminate_child(?DYNSUP, ?WORKER),

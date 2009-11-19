@@ -1,13 +1,14 @@
 %% The NEW job record.
 -record(job, {
-          job_id,
+          job_id, 
           program_name, % program name to be run
           problem_type, % default should be mapreduce
           path,         % Path to the directory containing input data
-          state = free, % [free | stopped | paused | no_tasks]
+          state = free, % [free | stopped | paused]
           owner, % Name of the user who submitted job
-          priority % for future use, not supported right now
-         }).
+          priority, % for future use, not supported right now
+          tasks_restarted = 0
+	 }).
 
 %% The NEW task record.
 -record(task, {

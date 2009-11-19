@@ -25,7 +25,8 @@
          fetch_task/2,
          report_task_done/2, 
          report_task_done/1,
-         free_tasks/1
+         free_tasks/1,
+	 task_failed/2
         ]).
 
 %% gen_server callbacks
@@ -148,6 +149,18 @@ report_task_done(TaskId) ->
 report_task_done(TaskId, TaskSpec) ->
     gen_server:call({global, ?MODULE}, {task_done, TaskId, TaskSpec}).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Increases the task restart counter for the job and makes the
+%% task free. If the threshold for the max task restarts is reached
+%% for the job the job will be stopped.
+%%
+%% @spec task_failed(JobId, TaskType) -> ok | {ok, stopped}
+%% @end
+%%--------------------------------------------------------------------
+task_failed(JobId, TaskType) ->
+    gen_server:call({global, ?MODULE},
+                    {task_failed, JobId, node(), TaskType}).   
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -277,6 +290,34 @@ handle_call({add_job, JobSpec}, _From, State) ->
     NewJobId = db:add_job(JobSpec),
     examiner:insert(NewJobId),
     {reply, NewJobId, State};
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Restarts task if job isn't over-restarted, in that case it
+%% stops the job.
+%%
+%% @spec handle_call({task_failed, JobId, Node}, From, State) ->
+%%                                   {reply, ok, State} |
+%%                                   {reply, {ok, stopped}, state}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({task_failed, JobId, Node, TaskType}, _From, State) ->
+    Result = db:increment_task_restarts(JobId),
+    {ok, Max_Restarts} = configparser:read_config("/etc/clusterbusters.conf",
+						  max_restarts),
+    if
+	Result < Max_Restarts ->
+	    db:free_tasks(Node),
+            examiner:report_free([{JobId, TaskType}]),
+	    {reply, ok, State};
+	Result >= Max_Restarts ->
+	    db:stop_job(JobId),
+            chronicler:user_info("Job ~p stopped, reason: "
+                                 "Too many task restarts", [JobId]),
+            examiner:remove(JobId),
+	    {reply, {ok, stopped}, State}
+    end;
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc

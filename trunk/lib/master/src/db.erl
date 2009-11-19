@@ -24,7 +24,7 @@
 %% APIs for handling jobs
 -export([add_job/1, remove_job/1, set_job_path/2, set_job_state/2,
         pause_job/1, stop_job/1, resume_job/1, get_user_jobs/1,
-	list_active_jobs/0, cancel_job/1]).
+	list_active_jobs/0, cancel_job/1, increment_task_restarts/1]).
 
 %% APIs for handling tasks
 -export([add_task/1, fetch_task/1, mark_done/1, free_tasks/1, list/1]).
@@ -122,7 +122,9 @@ add_job({ProgramName, ProblemType, Owner, Priority}) ->
             #job{program_name = ProgramName,
                 problem_type = ProblemType,
                 owner        = Owner,
-                priority     = Priority}}).
+                priority     = Priority,
+                tasks_restarted = 0
+                }}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -418,6 +420,19 @@ list(TableName) ->
 %%--------------------------------------------------------------------
 list_node_tasks(NodeId) ->
     gen_server:call(?SERVER, {list_node_tasks, NodeId}).
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Increments restart counter in job. If it supercedes the threshold
+%% the job is stopped.
+%%
+%% @spec increment_task_restarts(JobId::integer()) -> ok | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+increment_task_restarts(JobId) ->
+    gen_server:call(?SERVER, {task_failed, JobId}).
 
 %%====================================================================
 %% gen_server callbacks
@@ -811,8 +826,30 @@ handle_call({list_active_jobs}, _From, State) ->
             mnesia:select(job, [{MatchHead, [Guard], [Result]}])
     end,
     {atomic, Result} = mnesia:transaction(F),
-    {reply, Result, State}.
+    {reply, Result, State};
 
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Increments restart counter in job. If it supercedes the threshold
+%% the job is stopped.
+%%
+%% @spec handle_call({list_active_jobs}, _From, State) ->
+%%                                 {reply, List, State} | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({task_failed, JobId}, _From, State) ->
+    F = fun() ->
+		Job = read(job, JobId),
+		remove(job, JobId),
+		NewJob = Job#job{tasks_restarted = Job#job.tasks_restarted + 1},
+		add(job, NewJob),
+		NewJob#job.tasks_restarted
+    end,
+    {atomic, Result} = mnesia:transaction(F),
+    {reply, Result, State}.
+    
 %%--------------------------------------------------------------------
 %% @private
 %% @doc

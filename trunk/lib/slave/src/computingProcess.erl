@@ -22,7 +22,6 @@
 	 terminate/2, code_change/3]).
 
 -define(SERVER, ?MODULE). 
--define(FETCHER, taskFetcher).
 
 kill_all_procs([]) ->
     [];
@@ -217,8 +216,8 @@ handle_info({Pid, {data, {_Flag, "Segmentation fault"}}},
             State = {JobId, TaskId, Time, TaskType, Progname, _StartedPids}) ->
     chronicler:error("~w : Process ~p exited with reason: Segmentation fault",
 		     [?MODULE, Pid]),
-    gen_server:cast(?FETCHER, {self(), error,
-                               {JobId, TaskId, Time, TaskType, Progname}}),
+    taskFetcher:error({self(), error,
+                       {JobId, TaskId, Time, TaskType, Progname}}),
     {stop, normal, State};
 handle_info({_Pid, {data, {_Flag, Data}}}, State) ->
     chronicler:info(io_lib:format("~w : PORT PRINTOUT: ~ts~n",[?MODULE, Data])),
@@ -227,14 +226,14 @@ handle_info({Pid, {exit_status, Status}}, State =
             {JobId, TaskId, Time, TaskType, Progname, _StartedPids})
   when Status == 0 ->
     chronicler:debug("~w : Process ~p exited normally~n", [?MODULE, Pid]),
-    gen_server:cast(?FETCHER, {self(), done,
+    taskFetcher:task_done({self(), done,
                                {JobId, TaskId, Time, TaskType, Progname}}),
     {stop, normal, State};
 handle_info({Pid, {exit_status, Status}},
             State = {JobId, TaskId, Time, TaskType, Progname, _StartedPids}) ->
     chronicler:error("~w : Process ~p exited with status: ~p~n",
 		     [?MODULE, Pid, Status]),
-    gen_server:cast(?FETCHER, {self(), error,
+    taskFetcher:error({self(), error,
                                {JobId, TaskId, Time, TaskType, Progname}}),
     {stop, normal, State};
 %%--------------------------------------------------------------------

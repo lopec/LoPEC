@@ -12,7 +12,9 @@
 
 %% API
 -export([start_link/0,
-	new_task/3]).
+         task_done/1,
+         error/1,
+         new_task/3]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -52,7 +54,13 @@ start_link() ->
 %%--------------------------------------------------------------------
 new_task(Data, Type, Path) ->
     chronicler:info("~w : called new_task of type ~w", [?MODULE, Type]),
-    gen_server:call(?MODULE, {request, new_task, Data, Type, Path}).
+    gen_server:call({global, node()}, {request, new_task, Data, Type, Path}).
+
+task_done(Data) ->
+    gen_server:cast({global, node()}, Data).
+
+error(Data) ->
+    gen_server:cast({global, node()}, Data).
 
 %%%===================================================================
 %%% gen_server callbacks

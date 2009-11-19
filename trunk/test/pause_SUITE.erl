@@ -11,9 +11,11 @@ all() ->
 
 init_per_suite(Config) ->
     % Args argument dosent seem to work :(
-    {ok, Master} = slave:start(localhost, master),
+    {ok, Hostname} = inet:gethostname(),
+
+    {ok, Master} = slave:start(Hostname, master),
         %, "+W w -pa ../,,/test -pa ../../lib/*/ebin"),
-    {ok, Slave} = slave:start(localhost, slave),
+    {ok, Slave} = slave:start(Hostname, slave),
         %, "+W w -pa ../,,/test -pa ../../lib/*/ebin"),
 
     spawn(Master, code, add_path, ["../../test/"]),

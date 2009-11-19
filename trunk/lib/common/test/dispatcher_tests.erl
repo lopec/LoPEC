@@ -18,20 +18,17 @@ end_per_test_case(JobId) ->
     db:remove_job(JobId).
 
 init_test() ->
+    application:start(common),
     application:start(chronicler),
     application:start(ecg),
-%%     application:start(master).
-    dispatcher:start_link(),
-    db:start_link(test),
-    examiner:start_link(),
-    listener:start_link().
-    
+    application:start(master),
+    db:create_tables(ram_copies).
 
 task_allocation_test() ->
     JobId = dispatcher:add_job({raytracer, mapreduce, chabbrik, 0}),
     TaskSpec = {JobId, raytracer, split, "input_path"},
     TaskId =  dispatcher:add_task(TaskSpec),
-    
+
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
     %% The most buggy piece of cluster, unfortunately most critical too.
     %% Do not touch it, unles you REALLY know what you are doing.

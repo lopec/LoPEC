@@ -5,9 +5,11 @@
 {alias, ecg, "@PATH@/lib/ecg"}.
 {alias, master, "@PATH@/lib/master"}.
 {alias, common, "@PATH@/lib/common"}.
+{alias, userstories, "@PATH@/test"}.
 
 {suites, chronicler, [chronicler_SUITE]}.
 {suites, master, [master_SUITE, db_SUITE, examiner_SUITE, listener_SUITE, janitor_SUITE]}.
 {suites, ecg, [ecg_SUITE]}.
 {suites, common, [common_SUITE]}.
 {suites, slave, [slave_SUITE]}.
+{suites, userstories, [pause_SUITE]}.

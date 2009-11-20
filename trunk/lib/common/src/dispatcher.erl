@@ -26,7 +26,8 @@
          report_task_done/2, 
          report_task_done/1,
          free_tasks/1,
-	 task_failed/2
+	 task_failed/2,
+         get_split_amount/0
         ]).
 
 %% gen_server callbacks
@@ -164,7 +165,17 @@ report_task_done(TaskId, TaskSpec) ->
 %%--------------------------------------------------------------------
 task_failed(JobId, TaskType) ->
     gen_server:call({global, ?MODULE},
-                    {task_failed, JobId, node(), TaskType}).   
+                    {task_failed, JobId, node(), TaskType}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns the amount of splits to be done.
+%%
+%% @spec get_split_amount() -> Amount::integer()
+%% @end
+%%--------------------------------------------------------------------
+get_split_amount() ->
+    gen_server:call({global, ?MODULE}, get_split_amount).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -327,6 +338,17 @@ handle_call({task_failed, JobId, Node, TaskType}, _From, State) ->
             examiner:remove(JobId),
 	    {reply, {ok, stopped}, State}
     end;
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Returns the amount of files to split to.
+%%
+%% @spec handle_call(get_split_amount, From, State) ->  {Amount, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_call(get_split_amount, _From, State) ->
+    {reply, erlang:length(erlang:nodes()) * 2, State};
 
 %%--------------------------------------------------------------------
 %% @private

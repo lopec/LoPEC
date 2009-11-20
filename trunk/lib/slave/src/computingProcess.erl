@@ -107,13 +107,13 @@ stop_job() ->
 %% @end
 %%--------------------------------------------------------------------
 init([Progname, Path, "split", LoadPath, SavePath, JobId, TaskId]) ->
-    {ok, Val} = configparser:read_config(?CONFIGFILE, split_value),
+    Splits = dispatcher:get_split_amount(),
     chronicler:debug("~w : Path: ~ts~nOperation: ~ts~nLoadpath:"
 		     " ~ts~nSavepath: ~ts~nJobId: ~p~n",
                      [?MODULE, Path, "split", LoadPath, SavePath, JobId]),
     open_port({spawn_executable, Path},
 	      [use_stdio, stderr_to_stdout, exit_status, {line, 512},
-	       {args, ["split", LoadPath, SavePath, integer_to_list(Val)]}]),
+	       {args, ["split", LoadPath, SavePath, integer_to_list(Splits)]}]),
     {ok, {JobId, TaskId, now(), "split", Progname, []}};
 init([Progname, Path, Op, LoadPath, SavePath, JobId, TaskId]) ->
     chronicler:debug("~w : Path: ~ts~nOperation: ~ts~nLoadpath:"

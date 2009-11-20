@@ -54,6 +54,7 @@ terminate(_Reason,_Alarms)  -> ok.
 
 log_alarm(Type, Alarm) when Type==set_alarm; Type==clear_alarm ->
     % do custom logging here
+    gen_server:cast({global, statistician}, {alarm, node(), Type, Alarm}),
     io:format("Custom alarm log function invoked for ~w: ~p~n", [Type, Alarm]),
     ok.
 

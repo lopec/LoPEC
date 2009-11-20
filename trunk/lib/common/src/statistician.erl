@@ -121,32 +121,34 @@ get_cluster_stats(string) ->
     io:format(Return).
 
 %%--------------------------------------------------------------------
-%% @doc
+%% doc
 %% Returns disk usage for the entire cluster.
 %% <pre>
 %% Flag:
 %%  raw - gives internal representation (Tuples, lists, whatnot)
 %%  string - gives nicely formatted string
 %% </pre>
-%% @spec get_cluster_disk_usage(Flag) -> String
-%% @end
+%% spec get_cluster_disk_usage(Flag) -> String
+%% end
 %%--------------------------------------------------------------------
-get_cluster_disk_usage(raw) ->
-    gen_server:call(?MODULE,{get_cluster_disk_usage, raw});
-get_cluster_disk_usage(string) ->
-    Return = gen_server:call(?MODULE,{get_cluster_disk_usage, string}),
-    io:format(Return).
+
+
+%%get_cluster_disk_usage(raw) ->
+%%  gen_server:call(?MODULE,{get_cluster_disk_usage, raw});
+%%get_cluster_disk_usage(string) ->
+%%    Return = gen_server:call(?MODULE,{get_cluster_disk_usage, string}),
+%%   io:format(Return).
 
 %%--------------------------------------------------------------------
-%% @doc
+%% doc
 %% Returns stats for JobId.
 %% <pre>
 %% Flag:
 %%  raw - gives internal representation (a list of the total stats)
 %%  string - gives nicely formatted string with stats for each tasktype
 %% </pre>
-%% @spec get_job_stats(JobId, Flag) -> String
-%% @end
+%% spec get_job_stats(JobId, Flag) -> String
+%% end
 %%--------------------------------------------------------------------
 get_job_stats(JobId, raw) ->
     gen_server:call(?MODULE, {get_job_stats, JobId, raw});
@@ -325,20 +327,18 @@ handle_call({get_cluster_stats, Flag}, _From, State) ->
     {reply, Reply, State};
 
 %%--------------------------------------------------------------------
-%% @private
-%% @doc
+%% private
+%% doc
 %% Flag = raw | string
-%% @see node_stats/1
+%% see node_stats/1
 %%
-%% @spec handle_call({get_cluster_disk_usage, Flag}, From, State) ->
+%% spec handle_call({get_cluster_disk_usage, Flag}, From, State) ->
 %%                          {reply, Reply, State} 
-%% @end
+%% end
 %%--------------------------------------------------------------------
-handle_call({get_cluster_disk_usage, Flag}, _From, State) ->
-    
-    
-    
-    {reply, Reply, State};
+
+%%handle_call({get_cluster_disk_usage, Flag}, _From, State) ->
+%%        {reply, Reply, State};
 
 %%--------------------------------------------------------------------
 %% @private

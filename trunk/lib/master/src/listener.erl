@@ -313,7 +313,7 @@ handle_call({stop_job, JobId}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({cancel_job, JobId}, _From, State) ->
     %% Call dispatcher
-    dispatcher:cancel_job({JobId}),
+    dispatcher:cancel_job(JobId),
     {reply, ok, State};
 
 

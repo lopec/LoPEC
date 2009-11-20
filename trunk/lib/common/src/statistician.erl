@@ -75,8 +75,8 @@ stop() ->
 %%  raw - gives internal representation (Tuples, lists, whatnot)
 %%  string - gives nicely formatted string
 %% </pre>
-%% @spec get_node_disk_usage(Flag) -> String() | {Total::Integer(),
-%% Percentage::Integer()}
+%% @spec get_node_disk_usage(Flag) -> String
+%%                                 | {Total::Integer, Percentage::Integer}
 %% @end
 %%--------------------------------------------------------------------
 get_node_disk_usage(raw) ->
@@ -93,11 +93,10 @@ get_node_disk_usage(string) ->
 %%  raw - gives internal representation (Tuples, lists, whatnot)
 %%  string - gives nicely formatted string
 %% </pre>
-%% @spec get_node_disk_usage(Flag) -> String() | {Total::Integer(),
-%% Percentage::Integer()}
+%% @spec get_node_mem_usage(Flag) -> String | {Total::Integer,
+%% Percentage::Integer}
 %% @end
 %%--------------------------------------------------------------------
-
 get_node_mem_usage(raw) ->
     gen_server:call(?MODULE,{get_node_mem_usage, raw});
 get_node_mem_usage(string) ->
@@ -119,6 +118,23 @@ get_cluster_stats(raw) ->
     gen_server:call(?MODULE,{get_cluster_stats, raw});
 get_cluster_stats(string) ->
     Return = gen_server:call(?MODULE,{get_cluster_stats, string}),
+    io:format(Return).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns disk usage for the entire cluster.
+%% <pre>
+%% Flag:
+%%  raw - gives internal representation (Tuples, lists, whatnot)
+%%  string - gives nicely formatted string
+%% </pre>
+%% @spec get_cluster_disk_usage(Flag) -> String
+%% @end
+%%--------------------------------------------------------------------
+get_cluster_disk_usage(raw) ->
+    gen_server:call(?MODULE,{get_cluster_disk_usage, raw});
+get_cluster_disk_usage(string) ->
+    Return = gen_server:call(?MODULE,{get_cluster_disk_usage, string}),
     io:format(Return).
 
 %%--------------------------------------------------------------------
@@ -306,6 +322,22 @@ init([slave]) ->
 %%--------------------------------------------------------------------
 handle_call({get_cluster_stats, Flag}, _From, State) ->
     Reply = gather_cluster_stats(Flag),
+    {reply, Reply, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Flag = raw | string
+%% @see node_stats/1
+%%
+%% @spec handle_call({get_cluster_disk_usage, Flag}, From, State) ->
+%%                          {reply, Reply, State} 
+%% @end
+%%--------------------------------------------------------------------
+handle_call({get_cluster_disk_usage, Flag}, _From, State) ->
+    
+    
+    
     {reply, Reply, State};
 
 %%--------------------------------------------------------------------
@@ -501,6 +533,20 @@ handle_cast({update, Stats}, State) ->
 %%--------------------------------------------------------------------
 handle_cast(stop, State) ->
     {stop, normal, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% @see stop/0
+%%
+%% @spec handle_cast({alarm, Type, Alarm}, State) -> {stop, State} 
+%% @end
+%%--------------------------------------------------------------------
+handle_cast({alarm, Node, Type, Alarm}, State) ->
+    chronicler:warning("~w: Alarm at node ~p of type ~p: ~p",
+		       [?MODULE, Node, Type, Alarm]), 
+    {noreply, State};
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc

@@ -85,7 +85,10 @@ free_tasks(NodeId) ->
 %% @end
 %%--------------------------------------------------------------------
 stop_job(JobId) ->
-    gen_server:cast({global, ?MODULE}, {stop_job, JobId}).
+    chronicler:debug("~w : Stopping job~n", [?MODULE]),
+    gen_server:call({global, ?MODULE}, {stop_job, JobId}).
+
+
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -96,7 +99,8 @@ stop_job(JobId) ->
 %% @end
 %%--------------------------------------------------------------------
 cancel_job(JobId) ->
-    gen_server:cast({global, ?MODULE}, {cancel_job, JobId}).
+    chronicler:debug("~w : Canceling job~n", [?MODULE]),
+    gen_server:call({global, ?MODULE}, {cancel_job, JobId}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -263,7 +267,10 @@ handle_call({add_task, TaskSpec}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({stop_job, JobId}, _From, State) ->
-    db:stop_job(JobId),    
+    NodeList = db:stop_job(JobId),
+    %% This sends a message "stop" to all nodes. This message will be
+    %% caught in taskFetcher on the slave-side. 
+    lists:foreach(fun (X) -> global:send(X, stop_job) end, NodeList),
     {reply, ok, State};
 
 %%--------------------------------------------------------------------
@@ -275,7 +282,10 @@ handle_call({stop_job, JobId}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({cancel_job, JobId}, _From, State) ->
-    db:cancel_job(JobId),
+    NodeList = db:cancel_job(JobId),
+    %% This sends a message "stop" to all nodes. This message will be
+    %% caught in taskFetcher on the slave-side. 
+    lists:foreach(fun (X) -> global:send(X, stop_job) end, NodeList),
     {reply, ok, State};
 
 %%--------------------------------------------------------------------
@@ -383,6 +393,12 @@ create_task(TaskSpec) ->
             examiner:report_created(Task#task.job_id, Task#task.type),
             NewTaskId
     end.
+
+%% Make this nice nice nice nice nice
+stop_nodes([]) -> ok;
+stop_nodes([H|T]) -> 
+    global:send(H, stop),
+    stop_nodes(T).
 
 %%%===================================================================
 %%% Not implemented stuff

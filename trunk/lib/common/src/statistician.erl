@@ -21,12 +21,14 @@
 %% API
 -export([start_link/1, update/1, job_finished/1, remove_node/1, stop/0,
          get_cluster_stats/1, get_job_stats/2,
-         get_node_stats/2, get_node_job_stats/3]).
+         get_node_stats/2, get_node_job_stats/3,
+	 get_node_disk_usage/1, get_node_mem_usage/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
+% Milliseconds
 -define(UPDATE_INTERVAL, 1000).
 
 -ifndef(debug).
@@ -65,7 +67,43 @@ start_link(Type) ->
 stop() ->
     gen_server:cast(?MODULE, stop).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns disk usage on a node.
+%% <pre>
+%% Flag:
+%%  raw - gives internal representation (Tuples, lists, whatnot)
+%%  string - gives nicely formatted string
+%% </pre>
+%% @spec get_node_disk_usage(Flag) -> String() | {Total::Integer(),
+%% Percentage::Integer()}
+%% @end
+%%--------------------------------------------------------------------
+get_node_disk_usage(raw) ->
+    gen_server:call(?MODULE,{get_node_disk_usage, raw});
+get_node_disk_usage(string) ->
+    Return = gen_server:call(?MODULE,{get_node_disk_usage, string}),
+    io:format(Return).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns memory usage on a node.
+%% <pre>
+%% Flag:
+%%  raw - gives internal representation (Tuples, lists, whatnot)
+%%  string - gives nicely formatted string
+%% </pre>
+%% @spec get_node_disk_usage(Flag) -> String() | {Total::Integer(),
+%% Percentage::Integer()}
+%% @end
+%%--------------------------------------------------------------------
+
+get_node_mem_usage(raw) ->
+    gen_server:call(?MODULE,{get_node_mem_usage, raw});
+get_node_mem_usage(string) ->
+    Return = gen_server:call(?MODULE,{get_node_mem_usage, string}),
+    io:format(Return).
+    
 %%--------------------------------------------------------------------
 %% @doc
 %% Returns stats for the entire cluster.
@@ -239,6 +277,21 @@ init([slave]) ->
             [set, private, named_table,
              {keypos, 1}, {heir, none},
              {write_concurrency, false}]),
+
+    % Setting up disk/mem alarm handler
+    case os:cmd("uname") -- "\n" of
+        "Darwin" ->
+	    ok;
+	"Linux" ->
+	    application:start(sasl),
+	    application:start(os_mon),
+    
+	    diskMemHandler:start({olol,ololigen});
+	_ ->
+	    chronicler:debug("~w : statistican init called on unsupported OS~n"),
+	    ok
+    end,
+
     {ok, []}.
 
 %%--------------------------------------------------------------------
@@ -253,6 +306,79 @@ init([slave]) ->
 %%--------------------------------------------------------------------
 handle_call({get_cluster_stats, Flag}, _From, State) ->
     Reply = gather_cluster_stats(Flag),
+    {reply, Reply, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Flag = raw | string
+%% @see get_node_disk_usage/1
+%%
+%% @spec handle_call({get_node_disk_usage, Flag}, From, State) ->
+%%                          {reply, Reply, State} 
+%% @end
+%%--------------------------------------------------------------------
+handle_call({get_node_disk_usage, Flag}, _From, State) ->
+    F = fun() ->
+		case os:cmd("uname") -- "\n" of
+		    "Darwin" ->
+			chronicler:debug("~w : disk_usage on mac unsupported~n"),
+			_Stats = {0,0};
+		    "Linux" ->
+			{_Dir, Total, Percentage} = hd(disksup:get_disk_data()),
+			_Stats = {Total, Percentage};
+		    _ ->
+			chronicler:debug("~w : disk_usage call on unsupported OS~n"),
+			_Stats = {0,0}
+		end
+	end,
+    {Total, Percentage} = F(),
+
+    case Flag of
+	raw ->
+	    Reply = {Total, Percentage};
+	string ->
+	    Reply = lists:concat(["~nTotal disk size (Kb): ", Total,
+				  "~nPercentage used: ", Percentage, "%~n"])
+    end,
+      
+    {reply, Reply, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Flag = raw | string
+%% @see get_node_mem_usage/1
+%%
+%% @spec handle_call({get_node_mem_usage, Flag}, From, State) ->
+%%                          {reply, Reply, State} 
+%% @end
+%%--------------------------------------------------------------------
+handle_call({get_node_mem_usage, Flag}, _From, State) ->
+    F = fun() ->
+		case os:cmd("uname") -- "\n" of
+		    "Darwin" ->
+			chronicler:debug("~w : mem_usage on mac unsupported~n"),
+			_Stats = {0,0};
+		    "Linux" ->
+			{Total, Alloc, _Lol} = memsup:get_memory_data(),
+			Percentage = trunc((Alloc / Total) * 100),
+			_Stats = {Total, Percentage};
+		    _ ->
+			chronicler:debug("~w : mem_usage call on unsupported OS~n"),
+			_Stats = {0,0}
+		end
+	end,
+    {Total, Percentage} = F(),
+
+    case Flag of
+	raw ->
+	    Reply = {Total, Percentage};
+	string ->
+	    Reply = lists:concat(["~nTotal memory size (Bytes): ", Total,
+				  "~nPercentage used: ", Percentage, "%~n"])
+    end,
+      
     {reply, Reply, State};
 
 %%--------------------------------------------------------------------

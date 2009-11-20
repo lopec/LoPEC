@@ -26,6 +26,7 @@
 kill_all_procs([]) ->
     [];
 kill_all_procs([{pid, Pid}|T]) ->
+    chronicler:info("~w : Killing PID = ~w~n", [?MODULE, Pid]),
     os:cmd("kill -9 " ++ Pid),
     kill_all_procs(T).
 
@@ -81,12 +82,12 @@ stop() ->
 %%--------------------------------------------------------------------
 %% @doc
 %% Stops the currently running task on the node.
-%%
+%
 %% @spec stop_job() -> ok
 %% @end
 %%--------------------------------------------------------------------
 stop_job() ->
-    chronicler:info("~w : Stopping current task.~n", [?MODULE]),
+    chronicler:debug("~w : Stopping current task.~n", [?MODULE]),
     gen_server:call(?MODULE, {stop_job}),
     ok.
 
@@ -137,6 +138,14 @@ handle_call({stop_job}, _From,
     %taskfetcher:reset_state(),
     {noreply, {JobId, TaskId, Time, TaskType, Progname, Result}};
 
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Logs and discards unexpected messages.
+%%
+%% @spec handle_call(Msg, From, State) ->  {noreply, State}
+%% @end
+%%--------------------------------------------------------------------
 handle_call(Msg, From, State) ->
     chronicler:warning("~w : Received unexpected handle_call call.~n"
                        "Message: ~p~n"

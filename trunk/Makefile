@@ -8,7 +8,7 @@ all: build common_test dialyze docs
 
 build:
 	$(MAKE) -C lib build
-
+.PHONY: test
 test:
 	$(MAKE) -C lib test
 

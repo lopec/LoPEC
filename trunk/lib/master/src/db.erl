@@ -341,7 +341,7 @@ stop_job(JobId) ->
 %% Sets the state of the specified job to stopped.
 %% then removes the job from the job tale
 %%
-%% @spec stop_job(JobId::integer()) -> TaskList
+%% @spec cancel_job(JobId::integer()) -> TaskList
 %%                                     | {error, Error}
 %% @end
 %%--------------------------------------------------------------------

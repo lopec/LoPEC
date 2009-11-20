@@ -209,6 +209,12 @@ handle_info({task_response, Task}, {State, NetLoad}) ->
     start_task(Task),
     timer:cancel(State#state.timer),
     {noreply, {State#state{work_state = task}, NetLoad}};
+handle_info(stop_job, {State, NetLoad}) ->
+    chronicler:debug("~w : Stopping job~n", [?MODULE]),
+    computingProcess:stop(),
+    {NewUp, NewDown} = netMonitor:get_net_stats(),
+    {ok, Timer} = timer:send_interval(?TASK_FETCH_INTERVAL, poll),
+    {noreply, {#state{work_state = no_task, timer = Timer}, {NewUp, NewDown}}};
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -278,7 +284,6 @@ request_task() ->
 %% @spec give_task(Id, Type, Path) -> {Task, NewState}
 %% @end
 %%--------------------------------------------------------------------
-
 give_task({JobId, _TaskId, _Time, _OldType, Progname}, Type, Path) ->
     dispatcher:add_task({JobId, Progname, Type,
 			    "tmp/" ++ integer_to_list(JobId) ++ Path}).

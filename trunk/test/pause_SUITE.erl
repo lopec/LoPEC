@@ -69,6 +69,14 @@ pause_resume_test(Config) ->
                     ok = chronicler:info(masterStarted),
                     From ! {reply, ok},
                     F(F);
+                {request, {stop, From}} ->
+                    ok = application:stop(master),
+                    ok = application:stop(ecg),
+                    ok = application:stop(chronicler),
+                    ok = application:stop(common),
+
+                    From ! {reply, ok},
+                    F(F);
                 {request, {add_jobs, From}} ->
                     {ok, Pid1} = listener:add_job(wordcount, mapreduce,
                         test, 1, "/storage/test/lol.txt"),
@@ -164,5 +172,11 @@ pause_resume_test(Config) ->
         "/storage/test/results/", JobId1, "/word_count "
         "/storage/test/results/", JobId2, "/word_count"]),
     [] = os:cmd(DiffCmd),
+
+    M ! {request, {stop, self()}},
+    receive
+        {reply, ok} ->
+                ok
+    end,
 
     ok.

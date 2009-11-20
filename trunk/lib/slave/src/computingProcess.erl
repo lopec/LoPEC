@@ -194,7 +194,7 @@ handle_cast(Msg, State) ->
 %%--------------------------------------------------------------------
 handle_info({_Pid, {data, {_Flag, "MY_PID " ++ Data}}},
             {JobId, TaskId, Time, TaskType, Progname, StartedPids}) ->
-    chronicler:debug("~w : MY_PID Reported~n", [?MODULE]),
+    chronicler:debug("~w : MY_PID ~w Reported~n", [?MODULE, Data]),
     {noreply, {JobId, TaskId, Time, TaskType, Progname, 
         [{pid, Data}|StartedPids]}};
 handle_info({_Pid, {data, {_Flag, "NEW_SPLIT " ++ Data}}},

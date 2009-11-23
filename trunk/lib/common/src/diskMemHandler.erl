@@ -6,7 +6,7 @@
 %% gen_event callbacks
 -export([init/1, handle_event/2, handle_call/2, handle_info/2, terminate/2, code_change/3]).
 
-%%-behavior(gen_event).
+%% -behavior(gen_event).
 
 start(Options) ->
     % gen_event:add_handler/2 doesn't check for duplicates

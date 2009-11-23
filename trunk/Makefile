@@ -3,8 +3,6 @@ CALLGRAPH_DIR=LR
 CALLGRAPH_TYPE=pdf
 
 all: build common_test dialyze docs
-#	$(MAKE) -C lib all
-#	$(MAKE) dialyze
 
 build:
 	$(MAKE) -C lib build

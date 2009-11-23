@@ -196,7 +196,9 @@ start_master() ->
 stop_master({_Pid, {_JobId1, _JobId2, _JobId3}, {_Node1, _Node2, _Node3, _Node4}}) ->
     application:stop(chronicler),
     application:stop(common),
-    statistician:stop().
+    statistician:stop(),
+    db:stop(),
+    ok.
 
 start_slave() ->
     application:start(chronicler),

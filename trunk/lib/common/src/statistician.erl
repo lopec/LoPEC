@@ -779,24 +779,27 @@ gather_node_mem_usage(Flag) ->
 		case os:cmd("uname") -- "\n" of
 		    "Darwin" ->
 			chronicler:debug("~w : mem_usage on mac unsupported~n"),
-			_Stats = {0,0};
+			_Stats = {0,0,0};
 		    "Linux" ->
-			{Total, Alloc, _Lol} = memsup:get_memory_data(),
+			{Total, Alloc, Worst} = memsup:get_memory_data(),
 			Percentage = trunc((Alloc / Total) * 100),
-			_Stats = {Total, Percentage};
+			_Stats = {Total, Percentage, Worst};
 		    _ ->
 			chronicler:debug("~w : mem_usage call on unsupported OS~n"),
-			_Stats = {0,0}
+			_Stats = {0,0,0}
 		end
 	end,
-    {Total, Percentage} = F(),
+    {Total, Percentage, Worst} = F(),
 
     case Flag of
 	raw ->
-	    Reply = {Total, Percentage};
+	    Reply = {Total, Percentage, Worst};
 	string ->
+	    {Pid, Size} = Worst,
 	    Reply = lists:concat(["~nTotal memory size (Bytes): ", Total,
-				  "~nPercentage used: ", Percentage, "%~n"])
+				  "~nPercentage used: ", Percentage, "%",
+				  "~nErlang process ", Pid,
+				  " using most memory, ", Size, " bytes"])
     end,
     Reply.
 
@@ -972,7 +975,7 @@ format_cluster_stats(
 format_node_stats({{NodeId},
 		   Jobs, Power, Time, Upload, Download, Numtasks, Restarts,
 		   {DiskTotal, DiskPercentage},
-		   {MemTotal, MemPercentage}}) ->
+		   {MemTotal, MemPercentage, {WorstPid, WorstSize}}}) ->
     io_lib:format(
       "Stats for node: ~p~n"
       "------------------------------------------------------------~n"
@@ -986,9 +989,11 @@ format_node_stats({{NodeId},
       "Disk size: ~p~n"
       "Disk used: ~p%~n"
       "Primary memory size: ~p~n"
-      "Primary memory used: ~p%~n",
+      "Primary memory used: ~p%~n"
+      "Erlang process ~p "
+      "using most memory, ~p bytes~n",
       [NodeId, Jobs, Power / 3600, Time, Upload, Download, Numtasks, Restarts,
-      DiskTotal, DiskPercentage, MemTotal, MemPercentage]).
+      DiskTotal, DiskPercentage, MemTotal, MemPercentage, WorstPid, WorstSize]).
 
 %%--------------------------------------------------------------------
 %% @doc

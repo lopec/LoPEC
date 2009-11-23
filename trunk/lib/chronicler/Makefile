@@ -1,6 +1,6 @@
 # A very basic Makefile (this line is a comment)
 APPNAME = slave
-DEBUG_FLAGS= 
+DEBUG_FLAGS= -Ddebug
 ERLC_FLAGS= -I include +debug_info
 C_FLAGS= -I/usr/local/lib/erlang/usr/include -I/usr/lib/erlang/usr/include/
 SOURCES= $(wildcard src/*.erl)

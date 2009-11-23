@@ -1,6 +1,6 @@
 # A very basic Makefile (this line is a comment)
 APPNAME = master
-DEBUG_FLAGS= 
+DEBUG_FLAGS= -Ddebug
 ERLC_FLAGS= -I include +debug_info
 SOURCES= $(wildcard src/*.erl)
 TESTFILES= $(wildcard test/*_tests.erl)

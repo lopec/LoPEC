@@ -137,8 +137,7 @@ add_job({ProgramName, ProblemType, Owner, Priority}) ->
                          #job{program_name = ProgramName,
                               problem_type = ProblemType,
                               owner        = Owner,
-                              priority     = Priority,
-                              tasks_restarted = 0
+                              priority     = Priority
                              }}).
 
 %%--------------------------------------------------------------------
@@ -461,7 +460,7 @@ list_node_tasks(NodeId) ->
 %% Increments restart counter in job. If it supercedes the threshold
 %% the job is stopped.
 %%
-%% @spec increment_task_restarts(JobId::integer()) -> ok | {error, Error}
+%% @spec increment_task_restarts(JobId::integer()) -> NumRestarts::integer()
 %% @end
 %%--------------------------------------------------------------------
 increment_task_restarts(JobId) ->
@@ -733,7 +732,7 @@ handle_call({add_task, TableName, Task}, _From, State) ->
                     _ ->
                         ok
                 end,
-                
+
                 NodesToKill =
                     case Task#task.type of
                         Type when Type == split ; Type == map ->
@@ -744,14 +743,13 @@ handle_call({add_task, TableName, Task}, _From, State) ->
                         _ ->
                             []
                     end,
-                
+
                 chronicler:debug("~w:Added task.~nTaskId:~p~n"
                                  "JobId:~p~nType:~p~n",
                                  [?MODULE, TaskId, Task#task.job_id,
                                   Task#task.type]),
                 {TaskId, NodesToKill}
         end,
-                
     {reply, Reply, State};
 
 
@@ -937,10 +935,10 @@ handle_call({list_active_jobs}, _From, State) ->
 %% @doc
 %%
 %% Increments restart counter in job. If it supercedes the threshold
-%% the job is stopped.
+%% the job is stopped by dispatcher.
 %%
-%% @spec handle_call({list_active_jobs}, _From, State) ->
-%%                                 {reply, List, State} | {error, Error}
+%% @spec handle_call({task_failed, JobId}, _From, State) ->
+%%           NumRestarts::integer()
 %% @end
 %%--------------------------------------------------------------------
 handle_call({task_failed, JobId}, _From, State) ->
@@ -1310,7 +1308,7 @@ set_task_state(TaskId, NewState) ->
             TableName = TaskRelation#task_relations.table_name,
             case read(TableName, TaskId) of
                 {error, _} -> {error, task_not_found};
-                Task -> 
+                Task ->
                     remove(TableName, TaskId),
                     remove(task_relations, TaskId),
                     remove(assigned_tasks, TaskId),

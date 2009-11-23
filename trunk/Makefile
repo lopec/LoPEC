@@ -10,11 +10,9 @@ build:
 test:
 	$(MAKE) -C lib test
 
-clean:	clean_db
-	$(MAKE) -C lib clean
-
-clean_db:
+clean:
 	rm -rf Mnesia*
+	$(MAKE) -C lib clean
 
 docs:
 	$(MAKE) -C lib docs

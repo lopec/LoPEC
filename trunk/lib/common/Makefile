@@ -21,6 +21,7 @@ test/%.beam : test/%.erl $(HEADERS) Makefile
 	erlc $(ERLC_FLAGS) $(DEBIG_FLAGS) -o test/ $<
 
 clean:
+	rm -rf Mnesia*
 	rm -f ebin/*.beam test/*.beam test/*.html
 
 .PHONY: test

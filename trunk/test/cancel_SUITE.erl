@@ -10,9 +10,9 @@ all() ->
     [cancel_resume_test].
 
 init_per_suite(Config) ->
-    % Args argument dosent seem to work :(
     {ok, Hostname} = inet:gethostname(),
 
+    % Args argument dosent seem to work :(
     {ok, Master} = slave:start(Hostname, master),
         %, "+W w -pa ../,,/test -pa ../../lib/*/ebin"),
     {ok, Slave} = slave:start(Hostname, slave),

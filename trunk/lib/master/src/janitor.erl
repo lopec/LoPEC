@@ -187,7 +187,7 @@ handle_call({cleanup_finalize, JobId}, _From, State) ->
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%------------------------------------------------------------------------------
-terminate(Reason, _State) ->
+terminate(_Reason, _State) ->
     ok.
 
 %%--------------------------------------------------------------------
@@ -198,7 +198,7 @@ terminate(Reason, _State) ->
 %% @spec handle_cast(Msg, State) ->  {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast(Msg, State) ->
+handle_cast(_Msg, State) ->
     {noreply, State}.
 
 
@@ -210,7 +210,7 @@ handle_cast(Msg, State) ->
 %% @spec handle_info(Info, State) -> {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(Info, State) ->
+handle_info(_Info, State) ->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -222,7 +222,7 @@ handle_info(Info, State) ->
 %% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% @end
 %%--------------------------------------------------------------------
-code_change(OldVsn, State, Extra) ->
+code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
 %%--------------------------------------------------------------------

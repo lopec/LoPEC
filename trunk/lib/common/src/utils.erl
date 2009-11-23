@@ -50,4 +50,8 @@ get_programs() ->
 get_program_executables(Program) ->
     {ok, Result} = file:list_dir(
                      lists:concat([get_cluster_path(), "/programs/", Program])),
-    Result.
+    Execs = lists:filter(fun (X) ->
+                                 string:equal("script.",
+                                              string:substr(X, 1, 7)) end,
+                         Result),
+    [string:substr(A, 8) || A <- Execs].

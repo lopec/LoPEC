@@ -124,7 +124,7 @@ add_job(JobSpec) ->
 %%--------------------------------------------------------------------
 %% @doc
 %% Sends a message to the caller with the first available task.
-%% If no tasks are available, we just let the request time out.
+%% If no task is available a {task_response, no_task} message is returned
 %%
 %% @spec fetch_task(NodeID, PID) -> ok
 %% @end
@@ -374,7 +374,7 @@ handle_call(Msg, From, State) ->
 %% @doc
 %% Sends a message to given PID with the first found task in the DB,
 %% and tells the ECG to register this new node with that PID. If no
-%% task is found, it terminates and lets request time out.
+%% task is found a {task_response, no_task} is returned.
 %%
 %% @spec find_task(RequesterPID, NodeId) -> ok | db:assign_task()
 %% @end
@@ -382,10 +382,9 @@ handle_call(Msg, From, State) ->
 find_task(RequesterPID, NodeId) ->
     FreeTask = db:fetch_task(NodeId),
     case FreeTask of
-        % If no task found - let the request time out and try again
-        % Therefore we just terminate
         no_task ->
             chronicler:debug("~p: Found no tasks.~n",[?MODULE]),
+            RequesterPID ! {task_response, no_task},
             ok;
         Task ->
             chronicler:debug("~p: Found task ~p.~n",

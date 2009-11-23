@@ -29,7 +29,7 @@ init_per_suite(Config) ->
     ok = application:start(ecg),
     ok = application:start(master),
 
-    db:create_tables(ram_copies),
+    %db:create_tables(ram_copies),
 
     Config.
 
@@ -51,6 +51,9 @@ init_per_testcase(task_completed, Config) ->
 init_per_testcase(free_tasks, Config) ->
     JobId = dispatcher:add_job({raytracer, mapreduce, chabbrik, 0}),
     [{job, JobId} | Config];
+init_per_testcase(assigned_test, Config) ->
+    JobId = dispatcher:add_job({raytracer, mapreduce, chabbrik, 0}),
+    [{job, JobId} | Config];
 init_per_testcase(_TestCase, Config) ->
     Config.
 
@@ -65,6 +68,11 @@ end_per_testcase(task_completed, Config) ->
     db:remove_job(JobId),
     ok;
 end_per_testcase(free_tasks, Config) ->
+    {job, JobId} = lists:keyfind(job, 1, Config),
+    db:free_tasks(node()),
+    db:remove_job(JobId),
+    ok;
+end_per_testcase(assigned_test, Config) ->
     {job, JobId} = lists:keyfind(job, 1, Config),
     db:free_tasks(node()),
     db:remove_job(JobId),
@@ -144,46 +152,39 @@ free_tasks(Config) ->
 
 assigned_test(Config) ->
     {job, JobId} = lists:keyfind(job, 1, Config),
-    %TaskId = dispatcher:add_task({JobId, raytracer, split, "/input/data.dat"}),
-    %ok = dispatcher:fetch_task(node(), self()),
-    receive
-        {task_response, Task} ->
-            MapTask1 = {JobId, raytracer, map, "input data1"},
-            TaskId = dispatcher:add_task(MapTask1),
+    MapTask1 = {JobId, raytracer, map, "input data1"},
+    TaskId = dispatcher:add_task(MapTask1),
 
-            %Expecting to get added tasks back,
-            %If the matches below fails the database was not clean
-            NewTask = db:fetch_task(node()),
+    %Expecting to get added tasks back,
+    %If the matches below fails the database was not clean
+    NewTask = db:fetch_task(node()),
 
-            TaskId  = NewTask#task.task_id,
-            JobId  = NewTask#task.job_id,
-            raytracer  = NewTask#task.program_name,
-            map  = NewTask#task.type,
-            "input data1"  = NewTask#task.path,
-            free  = NewTask#task.state,
+    TaskId  = NewTask#task.task_id,
+    JobId  = NewTask#task.job_id,
+    raytracer  = NewTask#task.program_name,
+    map  = NewTask#task.type,
+    "input data1"  = NewTask#task.path,
+    free  = NewTask#task.state,
 
-            examiner:report_assigned(NewTask#task.job_id, NewTask#task.type),
+    examiner:report_assigned(NewTask#task.job_id, NewTask#task.type),
 
-            AssignedTask = db:fetch_task(node()),
+    AssignedTask = db:fetch_task(node()),
 
-            TaskId  = AssignedTask#task.task_id,
-            JobId  = AssignedTask#task.job_id,
-            raytracer  = AssignedTask#task.program_name,
-            map  = AssignedTask#task.type,
-            "input data1"  = AssignedTask#task.path,
-            free  = AssignedTask#task.state,
+    TaskId  = AssignedTask#task.task_id,
+    JobId  = AssignedTask#task.job_id,
+    raytracer  = AssignedTask#task.program_name,
+    map  = AssignedTask#task.type,
+    "input data1"  = AssignedTask#task.path,
+    free  = AssignedTask#task.state,
 
-            examiner:report_assigned(AssignedTask#task.job_id, AssignedTask#task.type),
+    examiner:report_assigned(AssignedTask#task.job_id, AssignedTask#task.type),
 
-            %clean up
-            ok = dispatcher:report_task_done(AssignedTask#task.task_id),
-            ok = dispatcher:free_tasks(node()),
+    %clean up
+    ok = dispatcher:report_task_done(AssignedTask#task.task_id),
+    ok = dispatcher:free_tasks(node()),
 
-            % We need to wait for cast to be processed.
-            timer:sleep(100),
-            [] = db:list(map_assigned)
-    after 1000 ->
-            ct:fail(timeout)
-    end,
+    % We need to wait for cast to be processed.
+    timer:sleep(100),
+    [] = db:list(map_assigned),
     ok.
 

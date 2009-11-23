@@ -18,8 +18,8 @@ init_per_suite(Config) ->
     Config.
 
 end_per_suite(_Config) ->
-    application:stop(chronicler),
-    application:stop(common).
+    ok = application:stop(chronicler),
+    ok = application:stop(common).
 
 init_per_testcase(_TestCase, Config) ->
     {ok, _Pid} = db:start_link(test),
@@ -36,7 +36,7 @@ all() ->
 report_test() ->
     [{doc, "Test the progress reporting in examiner."}].
 report_test(_Config) ->
-    JobId = db:add_job({raytracer, mapreduce, chabbrik, 0}),
+    JobId = db:add_job({raytracer, mapreduce, examiner_report, 1}),
     examiner:insert(JobId),
     examiner:report_created(JobId, split),
     examiner:report_assigned(JobId, split),

@@ -12,7 +12,8 @@ run_test() ->
                 application:start(ecg)
                 end,
      %% A dummy functions to satisfy the number of terms in test.
-     fun (_) -> ok end,
+     fun (_) -> application:stop(chronicler),
+                application:stop(ecg) end,
      fun (_) -> testing_ecg() end}.
 
 testing_ecg() ->

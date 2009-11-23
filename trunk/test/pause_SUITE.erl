@@ -12,9 +12,9 @@ all() ->
 init_per_suite(Config) ->
     error_logger:tty(false),
 
-    % Args argument dosent seem to work :(
     {ok, Hostname} = inet:gethostname(),
 
+    % Args argument dosent seem to work :(
     {ok, Master} = slave:start(Hostname, master),
         %, "+W w -pa ../,,/test -pa ../../lib/*/ebin"),
     {ok, Slave} = slave:start(Hostname, slave),
@@ -65,7 +65,7 @@ pause_resume_test(Config) ->
                     code:add_path("../../lib/master/ebin"),
                     ok = application:start(master),
 
-                    db:create_tables(ram_copies),
+                    %db:create_tables(ram_copies),
 
                     chronicler:set_logging_level([user_info, error]),
                     ok = chronicler:info(masterStarted),

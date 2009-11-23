@@ -214,14 +214,23 @@ add_task({JobId, ProgramName, Type, Path})
     TableName = list_to_atom(lists:concat([Type, '_free'])),
     case gen_server:call(?SERVER, {exists_path, TableName, JobId, Path}) of
         false ->
-            call_add(TableName, JobId, ProgramName, Type, Path);
+            case read(job, JobId) of
+                {error, _Reason} ->
+                    job_not_in_db;
+                _ ->
+                    call_add(TableName, JobId, ProgramName, Type, Path)
+            end;
         _ ->
             task_not_added
     end;
-add_task({JobId, ProgramName, Type, Path})
-  when Type == split ; Type == map ->
+add_task({JobId, ProgramName, Type, Path}) when Type == split ; Type == map ->
     TableName = list_to_atom(lists:concat([Type, '_free'])),
-    call_add(TableName, JobId, ProgramName, Type, Path);
+    case read(job, JobId) of
+        {error, _Reason} ->
+            {error, job_not_in_db};
+        _ ->
+            call_add(TableName, JobId, ProgramName, Type, Path)
+    end;
 add_task({_JobId, _ProgramName, Type, _Path}) ->
     chronicler:error("~w:add_task failed:~n"
                      "Incorrect input type: ~p~n", [?MODULE, Type]),

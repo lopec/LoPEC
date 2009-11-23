@@ -22,19 +22,33 @@
 -export([start_link/0, start_link/1, stop/0, create_tables/1]).
 
 %% APIs for handling jobs
--export([add_job/1, remove_job/1, set_job_path/2, set_job_state/2,
-        pause_job/1, stop_job/1, resume_job/1, get_user_jobs/1,
-	list_active_jobs/0, cancel_job/1, increment_task_restarts/1]).
+-export([add_job/1,
+         add_bg_job/1,
+         remove_job/1,
+         set_job_path/2,
+         set_job_state/2,
+         pause_job/1,
+         stop_job/1,
+         resume_job/1,
+         get_user_jobs/1,
+         list_active_jobs/0,
+         cancel_job/1,
+         increment_task_restarts/1]).
 
 %% APIs for handling tasks
--export([add_task/1, fetch_task/1, mark_done/1, free_tasks/1, list/1]).
+-export([add_task/1,
+         fetch_task/1,
+         mark_done/1,
+         free_tasks/1,
+         list/1]).
 
 %% APIs for information
--export([get_job/1, get_task/1]).
+-export([get_job/1,
+         get_task/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-        terminate/2, code_change/3]).
+         terminate/2, code_change/3]).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -49,7 +63,7 @@ start_link(test) ->
     {ok, Pid} = gen_server:start_link({local, ?SERVER}, ?MODULE, [], []),
     create_tables(ram_copies),
     chronicler:info("~w:Database started in test environment.~n",
-        [?MODULE]),
+                    [?MODULE]),
     {ok, Pid}.
 
 %%--------------------------------------------------------------------
@@ -76,7 +90,7 @@ start_link() ->
 stop() ->
     gen_server:cast(?SERVER, stop),
     chronicler:info("~w:Database stopped.~n",
-        [?MODULE]).
+                    [?MODULE]).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -96,9 +110,8 @@ stop() ->
 %%--------------------------------------------------------------------
 create_tables(StorageType) ->
     gen_server:call(?SERVER, {create_tables, StorageType}),
-    chronicler:info("~w:Tables created.~n"
-        "Type:~p~n",
-        [?MODULE, StorageType]).
+    chronicler:info("~w:Tables created.~nType:~p~n",
+                    [?MODULE, StorageType]).
 
 
 %%====================================================================
@@ -114,17 +127,44 @@ create_tables(StorageType) ->
 %%
 %% @spec add_job({ProgramName::atom(), ProblemType::atom(),
 %%                Owner::atom(), Priority::integer()}) ->
-%%                     ok | {error, Error}
+%%           JobId | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 add_job({ProgramName, ProblemType, Owner, Priority}) ->
-    _JobId = gen_server:call(?SERVER, {add_job,
-            #job{program_name = ProgramName,
-                problem_type = ProblemType,
-                owner        = Owner,
-                priority     = Priority,
-                tasks_restarted = 0
-                }}).
+    _JobId =
+        gen_server:call(?SERVER,
+                        {add_job,
+                         #job{program_name = ProgramName,
+                              problem_type = ProblemType,
+                              owner        = Owner,
+                              priority     = Priority,
+                              tasks_restarted = 0
+                             }}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Adds a background job to the database. ProgramName is the name of
+%% the program to be run, ProblemType is how the problem is run (by
+%% default map/reduce for now), Owner is the user who submitted the
+%% job and Priority is the priority of the job.
+%%
+%% @spec add_bg_job({ProgramName::atom(), ProblemType::atom(),
+%%                  Owner::atom(), Priority::integer()}) ->
+%%           JobId | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+add_bg_job({ProgramName, ProblemType, Owner, Priority}) ->
+    JobId =
+        gen_server:call(?SERVER,
+                        {add_job,
+                         #job{program_name = ProgramName,
+                              problem_type = ProblemType,
+                              owner        = Owner,
+                              priority     = Priority,
+                              is_bg        = true}}),
+    gen_server:call(?SERVER, {add_bg_job, JobId}),
+    JobId.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -152,10 +192,10 @@ fetch_task(NodeId) ->
 %% @private helper for add_task/1
 call_add(TableName, JobId, ProgramName, Type, Path) ->
     gen_server:call(?SERVER, {add_task, TableName,
-            #task{job_id = JobId,
-                program_name = ProgramName,
-                type = Type,
-                path = Path}}).
+                              #task{job_id = JobId,
+                                    program_name = ProgramName,
+                                    type = Type,
+                                    path = Path}}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -171,8 +211,7 @@ call_add(TableName, JobId, ProgramName, Type, Path) ->
 %% @end
 %%--------------------------------------------------------------------
 add_task({JobId, ProgramName, Type, Path})
-when Type == reduce;
-Type == finalize ->
+  when Type == reduce ; Type == finalize ->
     TableName = list_to_atom(lists:concat([Type, '_free'])),
     case gen_server:call(?SERVER, {exists_path, TableName, JobId, Path}) of
         false ->
@@ -181,13 +220,12 @@ Type == finalize ->
             task_not_added
     end;
 add_task({JobId, ProgramName, Type, Path})
-when Type == split;
-Type == map ->
+  when Type == split ; Type == map ->
     TableName = list_to_atom(lists:concat([Type, '_free'])),
     call_add(TableName, JobId, ProgramName, Type, Path);
 add_task({_JobId, _ProgramName, Type, _Path}) ->
-    chronicler:error("~w:add_task failed:"
-        "Incorrect input type: ~p~n", [?MODULE, Type]).
+    chronicler:error("~w:add_task failed:~n"
+                     "Incorrect input type: ~p~n", [?MODULE, Type]).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -223,15 +261,15 @@ get_job(JobId) ->
 get_user_jobs(User) ->
     ListOfJobs = list(job),
     UserJobs = fun(H) ->
-            Job = get_job(H),
-            JobUser = Job#job.owner,
-            case JobUser of
-                User ->
-                    true;
-                _ ->
-                    false
-            end
-    end,
+                       Job = get_job(H),
+                       JobUser = Job#job.owner,
+                       case JobUser of
+                           User ->
+                               true;
+                           _ ->
+                               false
+                       end
+               end,
     _Return = lists:filter(UserJobs, ListOfJobs).
 
 %%--------------------------------------------------------------------
@@ -283,9 +321,8 @@ set_job_path(JobId, NewPath) ->
 %%--------------------------------------------------------------------
 mark_done(TaskId) ->
     gen_server:call(?SERVER, {set_task_state, TaskId, done}),
-    chronicler:debug("~w:Marked task as done.~n"
-        "TaskId:~p~n",
-        [?MODULE, TaskId]).
+    chronicler:debug("~w:Marked task as done.~nTaskId:~p~n",
+                     [?MODULE, TaskId]).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -298,9 +335,8 @@ mark_done(TaskId) ->
 %%--------------------------------------------------------------------
 pause_job(JobId) ->
     set_job_state(JobId, paused),
-    chronicler:info("~w:Paused job.~n"
-        "JobId:~p~n",
-        [?MODULE, JobId]).
+    chronicler:info("~w:Paused job.~nJobId:~p~n",
+                    [?MODULE, JobId]).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -314,25 +350,25 @@ pause_job(JobId) ->
 stop_job(JobId) ->
     set_job_state(JobId, stopped),
     ListOfTasks = list_job_tasks(JobId),
-    AssignedFilter = fun(H) ->
-            Task = get_task(H),
-            TaskState = Task#task.state,
-            case TaskState of
-                assigned ->
-                    true;
-                _ ->
-                    false
-            end
-    end,
-    GetNode = fun(H) ->
-            _NodeId = gen_server:call(?SERVER, {get_node, H})
-    end,
+    AssignedFilter =
+        fun(H) ->
+                Task = get_task(H),
+                TaskState = Task#task.state,
+                case TaskState of
+                    assigned ->
+                        true;
+                    _ ->
+                        false
+                end
+        end,
+    GetNode =
+        fun(H) ->
+                _NodeId = gen_server:call(?SERVER, {get_node, H})
+        end,
     ListOfNodes =
-    lists:map(GetNode, lists:filter(AssignedFilter, ListOfTasks)),
-    chronicler:info("~w:Stopped job.~n"
-        "JobId:~p~n"
-        "Affected nodes:~p~n",
-        [?MODULE, JobId, ListOfNodes]),
+        lists:map(GetNode, lists:filter(AssignedFilter, ListOfTasks)),
+    chronicler:info("~w:Stopped job.~nJobId:~p~nAffected nodes:~p~n",
+                    [?MODULE, JobId, ListOfNodes]),
     ListOfNodes.
 
 %%--------------------------------------------------------------------
@@ -346,13 +382,11 @@ stop_job(JobId) ->
 %% @end
 %%--------------------------------------------------------------------
 cancel_job(JobId) ->
-   NodeList = stop_job(JobId),
-   gen_server:call(?SERVER, {remove_job, JobId}),
-   chronicler:info("~w:Canceled job.~n"
-                    "JobId:~p~n"
-                    "Affected nodes:~p~n",
+    NodeList = stop_job(JobId),
+    gen_server:call(?SERVER, {remove_job, JobId}),
+    chronicler:info("~w:Canceled job.~nJobId:~p~nAffected nodes:~p~n",
                     [?MODULE, JobId, NodeList]),
-   NodeList.
+    NodeList.
 
 
 %%--------------------------------------------------------------------
@@ -366,9 +400,8 @@ cancel_job(JobId) ->
 %%--------------------------------------------------------------------
 resume_job(JobId) ->
     set_job_state(JobId, free),
-    chronicler:info("~w:Resumed job.~n"
-        "JobId:~p~n",
-        [?MODULE, JobId]).
+    chronicler:info("~w:Resumed job.~nJobId:~p~n",
+                    [?MODULE, JobId]).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -383,19 +416,18 @@ resume_job(JobId) ->
 free_tasks(NodeId) ->
     ListOfTasks = list_node_tasks(NodeId),
     Free = fun(H) ->
-            gen_server:call(?SERVER, {set_task_state, H, free})
-    end,
+                   gen_server:call(?SERVER, {set_task_state, H, free})
+           end,
     lists:foreach(Free, ListOfTasks),
 
     MakeReturn = fun(H) ->
-            Task = gen_server:call(?SERVER, {get_task, H}),
-            JobId = Task#task.job_id,
-            TaskType = Task#task.type,
-            {JobId, TaskType}
-    end,
-    chronicler:debug("~w:Freed tasks from node:~p~n"
-        "Tasks:~p~n",
-        [?MODULE, NodeId, ListOfTasks]),
+                         Task = gen_server:call(?SERVER, {get_task, H}),
+                         JobId = Task#task.job_id,
+                         TaskType = Task#task.type,
+                         {JobId, TaskType}
+                 end,
+    chronicler:debug("~w:Freed tasks from node:~p~nTasks:~p~n",
+                     [?MODULE, NodeId, ListOfTasks]),
     _ReturnList = lists:map(MakeReturn, ListOfTasks).
 
 %%--------------------------------------------------------------------
@@ -470,34 +502,41 @@ init(_Args) ->
 handle_call({create_tables, StorageType}, _From, State) ->
     % Set the options for the tables, such as how to store them.
     Opts = [{type, set}, {StorageType, [node()]}],
-    % Create the job table
-    {atomic, ok} = mnesia:create_table(
-        job,
-        [{attributes, record_info(fields, job)}|Opts]),
-    TaskTableNames =
-    [list_to_atom(lists:concat([TaskType, '_', TaskState]))
-        || TaskType <- [split, map, reduce, finalize],
-        TaskState <- [free, assigned, done]],
+
+    % Create the job tables
+    {atomic, ok} =
+        mnesia:create_table(job,
+                            [{attributes, record_info(fields, job)}|Opts]),
+    {atomic, ok} =
+        mnesia:create_table(bg_job,
+                            [{attributes, record_info(fields, bg_job)}|Opts]),
+
     % Create all the task tables
-    [{atomic, ok} = mnesia:create_table(
-            TableName,
-            [{record_name, task},
-                {attributes, record_info(fields, task)}|Opts])
-        || TableName <- TaskTableNames],
-    {atomic, ok} = mnesia:create_table(
-        assigned_tasks,
-        [{record_name, assigned_tasks},
-            {attributes, record_info(fields, assigned_tasks)}|Opts]),
-    {atomic, ok} = mnesia:create_table(
-        task_relations,
-        [{record_name, task_relations},
-            {attributes, record_info(fields, task_relations)}|Opts]),
+    TaskTableNames =
+        [list_to_atom(lists:concat([TaskType, '_', TaskState]))
+         || TaskType <- [split, map, reduce, finalize],
+            TaskState <- [free, assigned, done]],
+    [{atomic, ok} = mnesia:create_table(TableName,
+                                        [{record_name, task},
+                                         {attributes,
+                                          record_info(fields, task)}|Opts])
+     || TableName <- TaskTableNames],
+    {atomic, ok} =
+        mnesia:create_table(assigned_tasks,
+                            [{record_name, assigned_tasks},
+                             {attributes,
+                              record_info(fields, assigned_tasks)}|Opts]),
+    {atomic, ok} =
+        mnesia:create_table(task_relations,
+                            [{record_name, task_relations},
+                             {attributes,
+                              record_info(fields, task_relations)}|Opts]),
 
     % Add secondary keys to some of the tables
     mnesia:add_table_index(assigned_task, job_id),
     mnesia:add_table_index(assigned_task, node_id),
     [mnesia:add_table_index(TableName, job_id)
-        || TableName <- TaskTableNames],
+     || TableName <- TaskTableNames],
     {reply, tables_created, State};
 
 %%--------------------------------------------------------------------
@@ -516,15 +555,31 @@ handle_call({add_job, Job}, _From, State) ->
     JobId = generate_id(),
     add(job, Job#job{job_id=JobId}),
     chronicler:debug("~w:Added job.~n"
-        "JobId:~p~n"
-        "Program name:~p~n"
-        "Problem type:~p~n"
-        "Owner:~p~n"
-        "Priority:~p~n",
-        [?MODULE, JobId, Job#job.program_name,
-            Job#job.problem_type, Job#job.owner,
-            Job#job.priority]),
+                     "JobId:~p~n"
+                     "Program name:~p~n"
+                     "Problem type:~p~n"
+                     "Owner:~p~n"
+                     "Priority:~p~n",
+                     [?MODULE, JobId, Job#job.program_name,
+                      Job#job.problem_type, Job#job.owner,
+                      Job#job.priority]),
     {reply, JobId, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Adds a job to the database.
+%%
+%% @spec handle_call({add_bg_job, JobId::integer()}, _From, State) ->
+%%           {reply, ok, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({add_bg_job, JobId}, _From, State) ->
+    add(bg_job, #bg_job{job_id=JobId}),
+    chronicler:debug("~w:Added bg job.~nJobId:~p~n",
+                     [?MODULE, JobId]),
+    {reply, ok, State};
 
 %%--------------------------------------------------------------------
 %% @private
@@ -540,16 +595,16 @@ handle_call({add_job, Job}, _From, State) ->
 handle_call({remove_job, JobId}, _From, State) ->
     ListOfTasks = list_job_tasks(JobId),
     remove(job, JobId),
+    remove(bg_job, JobId),
     Remove = fun(H) ->
-            Task = read(task_relations, H),
-            remove(Task#task_relations.table_name, H),
-            remove(assigned_tasks, H),
-            remove(task_relations, H)
-    end,
+                     Task = read(task_relations, H),
+                     remove(Task#task_relations.table_name, H),
+                     remove(assigned_tasks, H),
+                     remove(task_relations, H)
+             end,
     lists:foreach(Remove, ListOfTasks),
-    chronicler:debug("~w:Removed job and associated tasks.~n"
-        "JobId:~p~n",
-        [?MODULE, JobId]),
+    chronicler:debug("~w:Removed job and associated tasks.~nJobId:~p~n",
+                     [?MODULE, JobId]),
     {reply, ok, State};
 
 %%--------------------------------------------------------------------
@@ -567,56 +622,84 @@ handle_call({remove_job, JobId}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({fetch_task, NodeId}, _From, State) ->
     %TODO Change this =)
-    F = fun() ->
-            JobId = fetch_job(no_arg),
-            case JobId of
-                no_job ->
-                    Task = no_task;
-                _ ->
-                    case get_split(JobId) of
-                        {ok, SplitTask} ->
-                            Task = SplitTask;
+    FetchTask =
+        fun(JobId) ->
+                Task =
+                    case JobId of
+                        no_job ->
+                            no_task;
                         _ ->
-                            case get_map(JobId) of
-                                {ok, MapTask} ->
-                                    Task = MapTask;
+                            case get_split(JobId) of
+                                {ok, SplitTask} ->
+                                    SplitTask;
                                 _ ->
-                                    case get_reduce(JobId) of
-                                        {ok, ReduceTask} ->
-                                            Task = ReduceTask;
-                                        wait ->
-                                            Task = no_task;
+                                    case get_map(JobId) of
+                                        {ok, MapTask} ->
+                                            MapTask;
                                         _ ->
-                                            case get_finalize(JobId) of
-                                                {ok, FinalizeTask} ->
-                                                    Task = FinalizeTask;
+                                            case get_reduce(JobId) of
+                                                {ok, ReduceTask, NodesToKill} ->
+                                                    {ReduceTask, NodesToKill};
+                                                wait ->
+                                                    no_task;
                                                 _ ->
-                                                    set_job_state_internal(
-                                                        JobId, no_tasks),
-                                                    Task = no_task
+                                                    case get_finalize(JobId) of
+                                                        {ok, FinalizeTask, NodesToKill} ->
+                                                            {FinalizeTask, NodesToKill};
+                                                        _ ->
+                                                            set_job_state_internal(
+                                                              JobId, no_tasks),
+                                                            no_task
+                                                    end
                                             end
                                     end
                             end
-                    end
-            end,
-
-            case Task of
-                no_task ->
-                    no_task;
-                _ ->
-                    TaskId = Task#task.task_id,
-                    set_task_state(TaskId, assigned),
-                    add(assigned_tasks,
-                        #assigned_tasks{task_id = TaskId,
-                            job_id  = JobId,
-                            node_id = NodeId})
-            end,
-            Task
-    end,
-    {atomic, Result} = mnesia:transaction(F),
-    chronicler:debug("~w:Retrieved task."
-        "Task:~p~n",
-        [?MODULE, Result]),
+                    end,
+                case Task of
+                    no_task ->
+                        no_task;
+                    Task ->
+                        TaskId =
+                            case Task of
+                                {ProperTask, _NodesToKill} ->
+                                    ProperTask#task.task_id;
+                                ProperTask ->
+                                    ProperTask#task.task_id
+                            end,
+                        set_task_state(TaskId, assigned),
+                        add(assigned_tasks,
+                            #assigned_tasks{task_id = TaskId,
+                                            job_id  = JobId,
+                                            node_id = NodeId})
+                end,
+                Task
+        end, % End FetchTask
+    GetNonBgJob = fun () -> FetchTask(fetch_job(no_arg)) end,
+    GetBgJob = fun () -> FetchTask(fetch_bg_job(no_arg)) end,
+    Result =
+        case mnesia:transaction(GetNonBgJob) of
+            {atomic, no_task} ->
+                case mnesia:transaction(GetBgJob) of
+                    {atomic, no_task} ->
+                        no_task;
+                    {atomic, Task} ->
+                        case Task of
+                            {ProperTask, NodesToKill} ->
+                                {ProperTask, NodesToKill};
+                            ProperTask ->
+                                {ProperTask, []}
+                        end
+                end;
+            {atomic, Task} ->
+                case Task of
+                    {ProperTask, NodesToKill} ->
+                        {ProperTask, NodesToKill};
+                    ProperTask ->
+                        {ProperTask, []}
+                end
+        end,
+    chronicler:info("~w:Retrieved task.~nTask:~p~n",
+                    [?MODULE, Result]),
     {reply, Result, State};
 
 %%--------------------------------------------------------------------
@@ -627,29 +710,41 @@ handle_call({fetch_task, NodeId}, _From, State) ->
 %%
 %% @spec handle_call({add_task, TableName::atom(), Task},
 %%                    _From, State) ->
-%%                                 {reply, JobId::integer(), State}
+%%                                 {reply, TaskId::integer(), State}
 %% @end
 %%--------------------------------------------------------------------
 handle_call({add_task, TableName, Task}, _From, State) ->
     TaskId = generate_id(),
     add(TableName, Task#task{task_id = TaskId}),
-    TaskRelation = #task_relations{task_id    = TaskId,
-        job_id     = Task#task.job_id,
-        table_name = TableName},
+    TaskRelation =
+        #task_relations{task_id    = TaskId,
+                        job_id     = Task#task.job_id,
+                        table_name = TableName},
     add(task_relations, TaskRelation),
     Job = read(job, Task#task.job_id),
+
     case Job#job.state of
         no_tasks ->
             set_job_state_internal(Task#task.job_id, free);
         _ ->
             ok
     end,
-    chronicler:debug("~w:Added task."
-        "TaskId:~p~n"
-        "JobId:~p~n"
-        "Type:~p~n",
-        [?MODULE, TaskId, Task#task.job_id, Task#task.type]),
-    {reply, TaskId, State};
+
+    NodesToKill =
+        case Task#task.type of
+            Type when Type == split ; Type == map ->
+                case Job#job.is_bg of
+                    true  -> [];
+                    false -> kill_one()
+                end;
+            _ ->
+                []
+        end,
+
+    chronicler:debug("~w:Added task.~nTaskId:~p~nJobId:~p~nType:~p~n",
+                     [?MODULE, TaskId, Task#task.job_id, Task#task.type]),
+    {reply, {TaskId, NodesToKill}, State};
+
 
 %%--------------------------------------------------------------------
 %% @private
@@ -779,8 +874,8 @@ handle_call({exists_path, TableName, JobId, Path}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({list, TableName}, _From, State) ->
     F = fun() ->
-            mnesia:all_keys(TableName)
-    end,
+                mnesia:all_keys(TableName)
+        end,
     {atomic, Result} = mnesia:transaction(F),
     {reply, Result, State};
 
@@ -796,13 +891,13 @@ handle_call({list, TableName}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({list_node_tasks, NodeId}, _From, State) ->
     F = fun() ->
-            MatchHead = #assigned_tasks{task_id = '$1',
-                node_id = '$2',
-                _ = '_'},
-            Result = '$1',
-            Guard = {'==', '$2', NodeId},
-            mnesia:select(assigned_tasks, [{MatchHead, [Guard], [Result]}])
-    end,
+                MatchHead = #assigned_tasks{task_id = '$1',
+                                            node_id = '$2',
+                                            _ = '_'},
+                Result = '$1',
+                Guard = {'==', '$2', NodeId},
+                mnesia:select(assigned_tasks, [{MatchHead, [Guard], [Result]}])
+        end,
     {atomic, Result} = mnesia:transaction(F),
     {reply, Result, State};
 
@@ -818,13 +913,13 @@ handle_call({list_node_tasks, NodeId}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({list_active_jobs}, _From, State) ->
     F = fun() ->
-            MatchHead = #job{job_id = '$1',
-			     state = '$2',
-			     _ = '_'},
-            Result = '$1',
-            Guard = {'==', '$2', free},
-            mnesia:select(job, [{MatchHead, [Guard], [Result]}])
-    end,
+                MatchHead = #job{job_id = '$1',
+                                 state = '$2',
+                                 _ = '_'},
+                Result = '$1',
+                Guard = {'==', '$2', free},
+                mnesia:select(job, [{MatchHead, [Guard], [Result]}])
+        end,
     {atomic, Result} = mnesia:transaction(F),
     {reply, Result, State};
 
@@ -846,10 +941,10 @@ handle_call({task_failed, JobId}, _From, State) ->
 		NewJob = Job#job{tasks_restarted = Job#job.tasks_restarted + 1},
 		add(job, NewJob),
 		NewJob#job.tasks_restarted
-    end,
+        end,
     {atomic, Result} = mnesia:transaction(F),
     {reply, Result, State}.
-    
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -871,8 +966,8 @@ handle_cast(stop, State) ->
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
     chronicler:warning("~w:Received unexpected handle_cast call.~n"
-        "Message: ~p~n",
-        [?MODULE, Msg]),
+                       "Message: ~p~n",
+                       [?MODULE, Msg]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -885,8 +980,8 @@ handle_cast(Msg, State) ->
 %%--------------------------------------------------------------------
 handle_info(Info, State) ->
     chronicler:warning("~w:Received unexpected handle_info call.~n"
-        "Info: ~p~n",
-        [?MODULE, Info]),
+                       "Info: ~p~n",
+                       [?MODULE, Info]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -902,8 +997,8 @@ handle_info(Info, State) ->
 %%--------------------------------------------------------------------
 terminate(Reason, _State) ->
     chronicler:debug("~w:Received terminate call.~n"
-        "Reason: ~p~n",
-        [?MODULE, Reason]),
+                     "Reason: ~p~n",
+                     [?MODULE, Reason]),
     application:stop(mnesia).
 %%--------------------------------------------------------------------
 %% @private
@@ -916,9 +1011,9 @@ terminate(Reason, _State) ->
 %%--------------------------------------------------------------------
 code_change(OldVsn, State, Extra) ->
     chronicler:warning("~w:Received unexpected code_change call.~n"
-        "Old version: ~p~n"
-        "Extra: ~p~n",
-        [?MODULE, OldVsn, Extra]),
+                       "Old version: ~p~n"
+                       "Extra: ~p~n",
+                       [?MODULE, OldVsn, Extra]),
     {ok, State}.
 
 %%%===================================================================
@@ -950,8 +1045,7 @@ generate_id() ->
 get_split(JobId) ->
     SplitTask = find_task_in_table(split_free, JobId),
     case SplitTask of
-        no_task ->
-            no_task;
+        no_task -> no_task;
         Split -> {ok, Split}
     end.
 
@@ -968,8 +1062,7 @@ get_split(JobId) ->
 get_map(JobId) ->
     MapTask = find_task_in_table(map_free, JobId),
     case MapTask of
-        no_task ->
-            no_task;
+        no_task -> no_task;
         Map -> {ok, Map}
     end.
 
@@ -995,7 +1088,14 @@ get_reduce(JobId) ->
                     MapAssigned = find_task_in_table(map_assigned, JobId),
                     case MapAssigned of
                         no_task ->
-                            {ok, Reduce};
+                            ReduceAssigned =
+                                find_task_in_table(reduce_assigned, JobId),
+                            case ReduceAssigned of
+                                no_task ->
+                                    {ok, Reduce, find_nodes_to_kill(JobId, reduce)};
+                                _ ->
+                                    {ok, Reduce, []}
+                            end;
                         _ ->
                             wait
                     end;
@@ -1024,7 +1124,14 @@ get_finalize(JobId) ->
             ReduceAssigned = find_task_in_table(reduce_assigned, JobId),
             case ReduceAssigned of
                 no_task ->
-                    {ok, Finalize};
+                    FinalizeAssigned =
+                        find_task_in_table(finalize_assigned, JobId),
+                    case FinalizeAssigned of
+                        no_task ->
+                            {ok, Finalize, find_nodes_to_kill(JobId, finalize)};
+                        _ ->
+                            {ok, Finalize, []}
+                    end;
                 _ ->
                     no_task
             end
@@ -1041,8 +1148,8 @@ get_finalize(JobId) ->
 %%--------------------------------------------------------------------
 add(TableName, Record) ->
     F = fun() ->
-            mnesia:write(TableName, Record, write)
-    end,
+                mnesia:write(TableName, Record, write)
+        end,
     case mnesia:transaction(F) of
         {atomic, _} -> ok;
         {aborted, Reason} -> {error, Reason}
@@ -1059,8 +1166,8 @@ add(TableName, Record) ->
 %%--------------------------------------------------------------------
 remove(TableName, Key) ->
     F = fun() ->
-            mnesia:delete(TableName, Key, write)
-    end,
+                mnesia:delete(TableName, Key, write)
+        end,
     case mnesia:transaction(F) of
         {atomic, _} -> ok;
         {aborted, Reason} -> {error, Reason}
@@ -1077,8 +1184,8 @@ remove(TableName, Key) ->
 %%--------------------------------------------------------------------
 read(TableName, Key) ->
     F = fun() ->
-            mnesia:read(TableName, Key)
-    end,
+                mnesia:read(TableName, Key)
+        end,
     case mnesia:transaction(F) of
         {atomic, [Result]} -> Result;
         {atomic, []} -> {error, key_not_in_table};
@@ -1096,17 +1203,50 @@ read(TableName, Key) ->
 %% @end
 %%--------------------------------------------------------------------
 fetch_job(_Algorithm) ->
-    F = fun() ->
-            MatchHead = #job{job_id = '$1',
-                state = '$2',
-                _ = '_'},
-            Guard = {'==', free, '$2'},
-            Result = '$1',
-            mnesia:select(job, [{MatchHead, [Guard], [Result]}], 1, read)
-    end,
-    Result = mnesia:transaction(F),
+    FindJob =
+        fun() ->
+                MatchHead =
+                    #job{job_id = '$1', state = '$2', is_bg = '$3', _ = '_'},
+                FreeGuard = {'==', free, '$2'},
+                BgGuard = {'==', false, '$3'},
+                Result = '$1',
+                mnesia:select(job,
+                              [{MatchHead, [FreeGuard, BgGuard], [Result]}],
+                              1, read)
+        end,
 
-    case Result of
+    case mnesia:transaction(FindJob) of
+        {atomic, {[First], _Cont}} ->
+            First;
+        {atomic, '$end_of_table'} ->
+            no_job
+    end.
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Finds the next background job to run. _Algorithm is used in case of
+%% future implementations using different prioritizing algorithms to
+%% choose from.
+%%
+%% @spec fetch_bg_job(_Algorithm) -> JobId::integer() | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+fetch_bg_job(_Algorithm) ->
+    FindJob =
+        fun() ->
+                MatchHead =
+                    #job{job_id = '$1', state = '$2', is_bg = '$3', _ = '_'},
+                FreeGuard = {'==', free, '$2'},
+                BgGuard = {'==', true, '$3'},
+                Result = '$1',
+                mnesia:select(job,
+                              [{MatchHead, [FreeGuard, BgGuard], [Result]}],
+                              1, read)
+        end,
+
+    case mnesia:transaction(FindJob) of
         {atomic, {[First], _Cont}} ->
             First;
         {atomic, '$end_of_table'} ->
@@ -1127,14 +1267,14 @@ fetch_job(_Algorithm) ->
 %%--------------------------------------------------------------------
 find_task_in_table(TableName, JobId) ->
     F = fun() ->
-            MatchHead = #task{task_id = '$1',
-                job_id = '$2',
-                _ = '_'},
-            Guard = {'==', '$2', JobId},
-            Result = '$1',
-            mnesia:select(TableName,
-                [{MatchHead, [Guard], [Result]}], 1, read)
-    end,
+                MatchHead = #task{task_id = '$1',
+                                  job_id = '$2',
+                                  _ = '_'},
+                Guard = {'==', '$2', JobId},
+                Result = '$1',
+                mnesia:select(TableName,
+                              [{MatchHead, [Guard], [Result]}], 1, read)
+        end,
 
     Result = mnesia:transaction(F),
     case Result of
@@ -1173,17 +1313,17 @@ set_task_state(TaskId, NewState) ->
         done ->
             JobId = Task#task.job_id,
             FreeTasks = [find_task_in_table(split_free, JobId),
-                find_task_in_table(map_free, JobId),
-                find_task_in_table(reduce_free, JobId),
-                find_task_in_table(finalize_free, JobId)],
+                         find_task_in_table(map_free, JobId),
+                         find_task_in_table(reduce_free, JobId),
+                         find_task_in_table(finalize_free, JobId)],
             F = fun(H) ->
-                    case H of
-                        no_task ->
-                            false;
-                        _ ->
-                            true
-                    end
-            end,
+                        case H of
+                            no_task ->
+                                false;
+                            _ ->
+                                true
+                        end
+                end,
 
             ExistsTask = lists:any(F, FreeTasks),
             Job = read(job, JobId),
@@ -1226,13 +1366,13 @@ set_job_state_internal(JobId, NewState) ->
 %%--------------------------------------------------------------------
 list_job_tasks(JobId) ->
     F = fun() ->
-            MatchHead = #task_relations{task_id = '$1',
-                job_id = '$2',
-                _ = '_'},
-            Result = '$1',
-            Guard = {'==', '$2', JobId},
-            mnesia:select(task_relations, [{MatchHead, [Guard], [Result]}])
-    end,
+                MatchHead = #task_relations{task_id = '$1',
+                                            job_id = '$2',
+                                            _ = '_'},
+                Result = '$1',
+                Guard = {'==', '$2', JobId},
+                mnesia:select(task_relations, [{MatchHead, [Guard], [Result]}])
+        end,
     {atomic, Result} = mnesia:transaction(F),
     Result.
 
@@ -1249,10 +1389,10 @@ list_job_tasks(JobId) ->
 %%--------------------------------------------------------------------
 exists_path(TableName, JobId, Path) ->
     F = fun() ->
-            mnesia:match_object(TableName,
-                #task{job_id = JobId, path = Path, _ = '_'},
-                read)
-    end,
+                mnesia:match_object(TableName,
+                                    #task{job_id = JobId, path = Path, _ = '_'},
+                                    read)
+        end,
     {atomic, Result} = mnesia:transaction(F),
     case Result of
         [] ->
@@ -1260,3 +1400,87 @@ exists_path(TableName, JobId, Path) ->
         List ->
             List
     end.
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Returns a list with one node to be killed if there is some assigned
+%% task in a bg job on it.
+%%
+%% @todo Assumes no node is called 'not_killed'
+%%
+%% @spec kill_one() -> NodesToKill::list()
+%% @end
+%%--------------------------------------------------------------------
+kill_one() ->
+    take_bg_nodes(1).
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Returns a list with nodes assigned to any task in JobId.
+%%
+%% @spec find_nodes_to_kill(JobId, Tasktype) -> NodesToKill::list()
+%% @end
+%%--------------------------------------------------------------------
+find_nodes_to_kill(JobId, TaskType) ->
+    NumFreeTasks = count_free_tasks(JobId, TaskType),
+    _NodesToKill = take_bg_nodes(NumFreeTasks).
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Returns the number of free tasks of TaskType in the job JobId
+%%
+%% @spec count_free_tasks(JobId, Tasktype) -> NumFreeTasks::integer()
+%% @end
+%%--------------------------------------------------------------------
+count_free_tasks(JobId, TaskType) ->
+    FreeTable = list_to_atom(lists:concat([TaskType, "_free"])),
+    FindTasks =
+        fun() ->
+                MatchHead =
+                    #task{job_id = '$1', task_id = '$2',  _ = '_'},
+                Guard = {'==', '$1', JobId},
+                Result = '$2',
+                mnesia:select(FreeTable, [{MatchHead, [Guard], [Result]}])
+        end,
+    {atomic, TaskIds} = mnesia:transaction(FindTasks),
+    length(TaskIds).
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Return a list of nodes assigned to any task in any background jobs.
+%% The list has at most NeededNodes elements
+%%
+%% @spec take_bg_nodes(NeededNodes) -> BgTaskNodes::list()
+%% @end
+%%--------------------------------------------------------------------
+take_bg_nodes(NeededNodes) ->
+    ListBgJobs =
+        fun () ->
+                MatchHead =
+                    #job{job_id = '$1', is_bg = true,  _ = '_'},
+                Result = '$1',
+                mnesia:select(job, [{MatchHead, [], [Result]}])
+        end,
+    {atomic, JobIds} = mnesia:transaction(ListBgJobs),
+    CollectWithIds =
+        fun (#assigned_tasks{node_id = NodeId, job_id = JobId},
+             Acc) ->
+                case lists:member(JobId, JobIds) of
+                    true -> [NodeId | Acc];
+                    _    -> Acc
+                end
+        end,
+    AssignedNodes =
+        case mnesia:transaction(fun () -> mnesia:foldr(CollectWithIds, [], assigned_tasks) end) of
+            {atomic, Nodes} -> Nodes;
+            _ -> []
+        end,
+    lists:sublist(AssignedNodes, 1, NeededNodes).

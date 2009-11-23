@@ -3,11 +3,11 @@
 %%% @author Vasilij Savin <vasilij.savin@gmail.com>
 %%% @copyright (C) 2009, Axel Andren
 %%% @doc
-%%% 
+%%%
 %%% Interfaces with the database. Can take requests for tasks, marking
 %%% a task as done, adding tasks or jobs, and free tasks assigned to
 %%% nodes (by un-assigning them).
-%%% 
+%%%
 %%% @end
 %%% Created : 30 Sep 2009 by Axel Andren
 %%%-------------------------------------------------------------------
@@ -19,11 +19,12 @@
 %% API
 -export([start_link/0,
          add_job/1,
+         add_bg_job/1,
          add_task/1,
          stop_job/1,
          cancel_job/1,
          fetch_task/2,
-         report_task_done/2, 
+         report_task_done/2,
          report_task_done/1,
          free_tasks/1,
 	 task_failed/2,
@@ -32,7 +33,7 @@
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-         terminate/2, code_change/3, find_task/2]). 
+         terminate/2, code_change/3, find_task/2]).
 
 %%%===================================================================
 %%% API
@@ -108,7 +109,7 @@ cancel_job(JobId) ->
 %% Adds specified job to the database job list.
 %% <pre>
 %% JobSpec is a tuple:
-%% {   
+%% {
 %%      ProgramName,
 %%      ProblemType (map reduce only accepted now)
 %%      Owner
@@ -120,6 +121,24 @@ cancel_job(JobId) ->
 %%--------------------------------------------------------------------
 add_job(JobSpec) ->
     gen_server:call({global, ?MODULE}, {add_job, JobSpec}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Adds specified background job to the database job list.
+%% <pre>
+%% JobSpec is a tuple:
+%% {
+%%      ProgramName,
+%%      ProblemType (map reduce only accepted now)
+%%      Owner
+%%      Priority - not implemented at the moment
+%% }
+%% </pre>
+%% @spec add_bg_job(JobSpec) -> JobID
+%% @end
+%%--------------------------------------------------------------------
+add_bg_job(JobSpec) ->
+    gen_server:call({global, ?MODULE}, {add_bg_job, JobSpec}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -135,8 +154,8 @@ fetch_task(NodeId, PID) ->
 %%--------------------------------------------------------------------
 %% @doc
 %% Marks the task as being completely done. The results should be
-%% posted on storage before calling this method. 
-%% 
+%% posted on storage before calling this method.
+%%
 %% @spec report_task_done(TaskID) -> ok
 %% @end
 %%--------------------------------------------------------------------
@@ -186,7 +205,7 @@ get_split_amount() ->
 %% @doc
 %% Initiates the server. Currently no special setup is needed.
 %%
-%% @spec init(Args) -> {ok, State} 
+%% @spec init(Args) -> {ok, State}
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
@@ -215,7 +234,7 @@ handle_cast({task_request, NodeId, From}, State) ->
 %%--------------------------------------------------------------------
 handle_cast({free_tasks, NodeId}, State) ->
     Jobs = db:free_tasks(NodeId),
-    chronicler:debug("Node ~p" "freed the tasks: ~p", [NodeId, Jobs]),
+    chronicler:debug("Node ~p freed the tasks: ~p", [NodeId, Jobs]),
     examiner:report_free(Jobs),
     {noreply, State};
 %%--------------------------------------------------------------------
@@ -237,7 +256,7 @@ handle_cast(Msg, State) ->
 %% Marks a specified task as done in the database.
 %%
 %% @spec handle_call({task_done, TaskId, no_task}, From, State) ->
-%%                                   {reply, ok, State} 
+%%                                   {reply, ok, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_call({task_done, TaskId, no_task}, _From, State) ->
@@ -249,7 +268,7 @@ handle_call({task_done, TaskId, no_task}, _From, State) ->
 %% (different) specified task to the database
 %%
 %% @spec handle_call({task_done, TaskId, TaskSpec}, From, State) ->
-%%                                   {reply, NewTaskId, State} 
+%%                                   {reply, NewTaskId, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_call({task_done, TaskId, TaskSpec}, _From, State) ->
@@ -262,7 +281,7 @@ handle_call({task_done, TaskId, TaskSpec}, _From, State) ->
 %% Adds a specified task to the database
 %%
 %% @spec handle_call({create_task, TaskSpec}, From, State) ->
-%%                                   {reply, NewTaskID, State} 
+%%                                   {reply, NewTaskID, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_call({add_task, TaskSpec}, _From, State) ->
@@ -274,7 +293,7 @@ handle_call({add_task, TaskSpec}, _From, State) ->
 %% Stops a job.
 %%
 %% @spec handle_call({stop_job, JobId}, From, State) ->
-%%                                   {reply, ok, State} 
+%%                                   {reply, ok, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_call({stop_job, JobId}, _From, State) ->
@@ -289,7 +308,7 @@ handle_call({stop_job, JobId}, _From, State) ->
 %% Cancels a job.
 %%
 %% @spec handle_call({cancel_job, JobId}, From, State) ->
-%%                                   {reply, ok, State} 
+%%                                   {reply, ok, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_call({cancel_job, JobId}, _From, State) ->
@@ -303,12 +322,25 @@ handle_call({cancel_job, JobId}, _From, State) ->
 %% @doc
 %% Adds a specified job to the database
 %%
-%% @spec handle_call({create_job, JobSpec}, From, State) ->
-%%                                   {reply, NewJobID, State} 
+%% @spec handle_call({add_job, JobSpec}, From, State) ->
+%%                                   {reply, NewJobID, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_call({add_job, JobSpec}, _From, State) ->
     NewJobId = db:add_job(JobSpec),
+    examiner:insert(NewJobId),
+    {reply, NewJobId, State};
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Adds a specified background job to the database
+%%
+%% @spec handle_call({add_bg_job, JobSpec}, From, State) ->
+%%                                   {reply, NewJobID, State}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({add_bg_job, JobSpec}, _From, State) ->
+    NewJobId = db:add_bg_job(JobSpec),
     examiner:insert(NewJobId),
     {reply, NewJobId, State};
 
@@ -324,8 +356,9 @@ handle_call({add_job, JobSpec}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({task_failed, JobId, Node, TaskType}, _From, State) ->
     Result = db:increment_task_restarts(JobId),
-    {ok, Max_Restarts} = configparser:read_config("/etc/clusterbusters.conf",
-						  max_restarts),
+    {ok, Max_Restarts} =
+        configparser:read_config("/etc/clusterbusters.conf",
+                                 max_restarts),
     if
 	Result < Max_Restarts ->
 	    db:free_tasks(Node),
@@ -386,7 +419,8 @@ find_task(RequesterPID, NodeId) ->
             chronicler:debug("~p: Found no tasks.~n",[?MODULE]),
             RequesterPID ! {task_response, no_task},
             ok;
-        Task ->
+        {Task, NodesToKill} ->
+            stop_nodes(NodesToKill),
             chronicler:debug("~p: Found task ~p.~n",
                              [?MODULE, Task#task.task_id]),
             RequesterPID ! {task_response, Task},
@@ -407,19 +441,27 @@ create_task(TaskSpec) ->
     chronicler:debug("TaskSpec: ~p", [TaskSpec]),
     case db:add_task(TaskSpec) of
         task_not_added ->
-            chronicler:debug
-                ("Duplicate task was not created", []);
-        NewTaskId ->
+            chronicler:debug("Duplicate task was not created", []);
+        {NewTaskId, NodesToKill} ->
             Task = db:get_task(NewTaskId),
             examiner:report_created(Task#task.job_id, Task#task.type),
+            stop_nodes(NodesToKill),
             NewTaskId
     end.
 
-%% Make this nice nice nice nice nice
-stop_nodes([]) -> ok;
-stop_nodes([H|T]) -> 
-    global:send(H, stop),
-    stop_nodes(T).
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Globally sends stop to all nodes in NodeList
+%%
+%% @spec stop_nodes(NodeList) -> ok
+%% @end
+%%--------------------------------------------------------------------
+stop_nodes(NodeList) ->
+    chronicler:debug("~w: Killing nodes ~p", [?MODULE, NodeList]),
+    lists:foreach(fun (Node) -> global:send(Node, stop) end, NodeList).
+
 
 %%%===================================================================
 %%% Not implemented stuff
@@ -437,7 +479,7 @@ stop_nodes([H|T]) ->
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(Reason, _State) -> 
+terminate(Reason, _State) ->
     chronicler:debug("~w:Received terminate call.~n"
                      "Reason: ~p~n",
                      [?MODULE, Reason]),
@@ -452,7 +494,7 @@ terminate(Reason, _State) ->
 %% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% @end
 %%--------------------------------------------------------------------
-code_change(OldVsn, State, Extra) -> 
+code_change(OldVsn, State, Extra) ->
     chronicler:debug("~w:Received code_change call.~n"
                      "Old version: ~p~n"
                      "Extra: ~p~n",
@@ -464,10 +506,10 @@ code_change(OldVsn, State, Extra) ->
 %% @doc
 %% Logs and discards unexpected messages.
 %%
-%% @spec handle_info(Info, State) -> {noreply, State} 
+%% @spec handle_info(Info, State) -> {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(Info, State) -> 
+handle_info(Info, State) ->
     chronicler:warning("~w:Received unexpected handle_info call.~n"
                        "Info: ~p~n",
                        [?MODULE, Info]),

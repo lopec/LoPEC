@@ -35,7 +35,7 @@ get_promising_job() ->
 
 %% @doc
 %% Returns the current information about all tasks created by given JobId.
-%% 
+%%
 %% @spec get_progress(JobId) ->
 %%           {job_stats, JobId,
 %%            {FreeSplits, AssignedSplits, DoneSplits},
@@ -172,7 +172,6 @@ handle_cast({remove_entry, JobId}, State) ->
 
 handle_cast({update_entry, JobId, TaskType, NewTaskState}, State) ->
     [Item] = ets:lookup(job_status, JobId),
-    % @todo fix race condition, what if we are swapped out here?
     case update_job(Item, TaskType, NewTaskState) of
         #job_stats{split = {0,0,_},
                    map = {0,0,_},
@@ -243,7 +242,7 @@ code_change(OldVsn, State, Extra) ->
 %%          nothing otherwise
 %% NewFree, NewAssigned and NewDone are updated according to the NewState,
 %% which is created, assigned, done, or free.
-%% 
+%%
 %% @spec update_task({Free, Assigned, Done}, NewState) ->
 %%           {Event, {NewFree, NewAssigned, NewDone}}
 %% @end
@@ -308,7 +307,7 @@ get_progress_percentage(Job) ->
     end.
 
 %% @doc
-%% Returns JobStats with the tast state of TaskType updated
+%% Returns JobStats with the task state of TaskType updated
 %% according to NewTaskState. The user is notified if it's the first assigned,
 %% or last done TaskType. The user, db, and statistician are notified if the
 %% job is done.

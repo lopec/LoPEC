@@ -33,8 +33,6 @@ end_per_suite(_Config) ->
 
 % optional, can do function level setup for all functions,
 % or for individual functions by matching on TestCase.
-init_per_testcase(unittest, Config) ->
-    Config;
 init_per_testcase(_TestCase, Config) ->
     application:start(common),
     application:start(chronicler),
@@ -43,13 +41,12 @@ init_per_testcase(_TestCase, Config) ->
 
 % optional, can do function level tear down for all functions,
 % or for individual functions by matching on TestCase.
-end_per_testcase(unittest, Config) ->
-    Config;
 end_per_testcase(_TestCase, [{filePointer, File}]) -> % do custom per suite cleanup here
-    application:stop(chronicler),
     file:close(File),
     ok;
 end_per_testcase(_TestCase, _Config) ->
+    application:stop(chronicler),
+    application:stop(common),
     ok.
 
 %%%%%%%%%%%%%%%%

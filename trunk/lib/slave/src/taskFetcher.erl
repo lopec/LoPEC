@@ -205,6 +205,8 @@ handle_cast(Msg, State) ->
 handle_info(poll, {State = #state{work_state = no_task}, NetLoad}) ->
     request_task(),
     {noreply, {State, NetLoad}};
+handle_info({task_response, no_task}, {State, NetLoad}) ->
+    {noreply, {State, NetLoad}};
 handle_info({task_response, Task}, {State, NetLoad}) ->
     start_task(Task),
     timer:cancel(State#state.timer),

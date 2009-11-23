@@ -301,10 +301,12 @@ init([slave]) ->
         "Darwin" ->
 	    ok;
 	"Linux" ->
-	    application:start(sasl),
-	    application:start(os_mon),
+	    %application:start(sasl),
+        %gen_event:delete_handler(alarm_handler, sasl_report_tty_h),
+	    %application:start(os_mon),
     
-	    diskMemHandler:start({olol,ololigen});
+	    %diskMemHandler:start({olol,ololigen});
+        ok;
 	_ ->
 	    chronicler:debug("~w : statistican init called on unsupported OS~n"),
 	    ok

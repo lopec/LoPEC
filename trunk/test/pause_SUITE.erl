@@ -10,6 +10,8 @@ all() ->
     [pause_resume_test].
 
 init_per_suite(Config) ->
+    error_logger:tty(false),
+
     % Args argument dosent seem to work :(
     {ok, Hostname} = inet:gethostname(),
 
@@ -111,6 +113,15 @@ pause_resume_test(Config) ->
                     code:add_path("../../lib/slave/ebin"),
                     ok = application:start(slave),
 
+                    chronicler:set_logging_level([user_info, error]),
+                    From ! {reply, ok},
+                    F(F);
+                {request, {stop, From}} ->
+                    chronicler:set_logging_level([]),
+                    ok = application:stop(slave),
+                    ok = application:stop(chronicler),
+                    ok = application:stop(common),
+
                     From ! {reply, ok},
                     F(F)
             end
@@ -174,6 +185,12 @@ pause_resume_test(Config) ->
     [] = os:cmd(DiffCmd),
 
     M ! {request, {stop, self()}},
+    receive
+        {reply, ok} ->
+                ok
+    end,
+
+    S ! {request, {stop, self()}},
     receive
         {reply, ok} ->
                 ok

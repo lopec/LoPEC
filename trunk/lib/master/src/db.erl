@@ -88,9 +88,9 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 stop() ->
-    gen_server:cast(?SERVER, stop),
     chronicler:info("~w:Database stopped.~n",
-                    [?MODULE]).
+                    [?MODULE]),
+    gen_server:cast(?SERVER, stop).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -109,9 +109,9 @@ stop() ->
 %% @end
 %%--------------------------------------------------------------------
 create_tables(StorageType) ->
-    gen_server:call(?SERVER, {create_tables, StorageType}),
     chronicler:info("~w:Tables created.~nType:~p~n",
-                    [?MODULE, StorageType]).
+                    [?MODULE, StorageType]),
+    gen_server:call(?SERVER, {create_tables, StorageType}).
 
 
 %%====================================================================
@@ -225,7 +225,8 @@ add_task({JobId, ProgramName, Type, Path})
     call_add(TableName, JobId, ProgramName, Type, Path);
 add_task({_JobId, _ProgramName, Type, _Path}) ->
     chronicler:error("~w:add_task failed:~n"
-                     "Incorrect input type: ~p~n", [?MODULE, Type]).
+                     "Incorrect input type: ~p~n", [?MODULE, Type]),
+    {error, incorrect_input_type}.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -320,9 +321,9 @@ set_job_path(JobId, NewPath) ->
 %% @end
 %%--------------------------------------------------------------------
 mark_done(TaskId) ->
-    gen_server:call(?SERVER, {set_task_state, TaskId, done}),
     chronicler:debug("~w:Marked task as done.~nTaskId:~p~n",
-                     [?MODULE, TaskId]).
+                     [?MODULE, TaskId]),
+    gen_server:call(?SERVER, {set_task_state, TaskId, done}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -334,9 +335,9 @@ mark_done(TaskId) ->
 %% @end
 %%--------------------------------------------------------------------
 pause_job(JobId) ->
-    set_job_state(JobId, paused),
     chronicler:info("~w:Paused job.~nJobId:~p~n",
-                    [?MODULE, JobId]).
+                    [?MODULE, JobId]),
+    set_job_state(JobId, paused).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -399,9 +400,9 @@ cancel_job(JobId) ->
 %% @end
 %%--------------------------------------------------------------------
 resume_job(JobId) ->
-    set_job_state(JobId, free),
     chronicler:info("~w:Resumed job.~nJobId:~p~n",
-                    [?MODULE, JobId]).
+                    [?MODULE, JobId]),
+    set_job_state(JobId, free).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -721,29 +722,37 @@ handle_call({add_task, TableName, Task}, _From, State) ->
                         job_id     = Task#task.job_id,
                         table_name = TableName},
     add(task_relations, TaskRelation),
-    Job = read(job, Task#task.job_id),
-
-    case Job#job.state of
-        no_tasks ->
-            set_job_state_internal(Task#task.job_id, free);
-        _ ->
-            ok
-    end,
-
-    NodesToKill =
-        case Task#task.type of
-            Type when Type == split ; Type == map ->
-                case Job#job.is_bg of
-                    true  -> [];
-                    false -> kill_one()
-                end;
-            _ ->
-                []
+    Reply =
+        case read(job, Task#task.job_id) of
+            {error, _} ->
+                {error, job_not_found};
+            Job ->
+                case Job#job.state of
+                    no_tasks ->
+                        set_job_state_internal(Task#task.job_id, free);
+                    _ ->
+                        ok
+                end,
+                
+                NodesToKill =
+                    case Task#task.type of
+                        Type when Type == split ; Type == map ->
+                            case Job#job.is_bg of
+                                true  -> [];
+                                false -> kill_one()
+                            end;
+                        _ ->
+                            []
+                    end,
+                
+                chronicler:debug("~w:Added task.~nTaskId:~p~n"
+                                 "JobId:~p~nType:~p~n",
+                                 [?MODULE, TaskId, Task#task.job_id,
+                                  Task#task.type]),
+                {TaskId, NodesToKill}
         end,
-
-    chronicler:debug("~w:Added task.~nTaskId:~p~nJobId:~p~nType:~p~n",
-                     [?MODULE, TaskId, Task#task.job_id, Task#task.type]),
-    {reply, {TaskId, NodesToKill}, State};
+                
+    {reply, Reply, State};
 
 
 %%--------------------------------------------------------------------
@@ -1295,48 +1304,52 @@ find_task_in_table(TableName, JobId) ->
 %% @end
 %%--------------------------------------------------------------------
 set_task_state(TaskId, NewState) ->
-    TaskRelation = read(task_relations, TaskId),
-    TableName = TaskRelation#task_relations.table_name,
-    Task = read(TableName, TaskId),
+    case read(task_relations, TaskId) of
+        {error, _} -> {error, task_not_found};
+        TaskRelation ->
+            TableName = TaskRelation#task_relations.table_name,
+            case read(TableName, TaskId) of
+                {error, _} -> {error, task_not_found};
+                Task -> 
+                    remove(TableName, TaskId),
+                    remove(task_relations, TaskId),
+                    remove(assigned_tasks, TaskId),
 
-    remove(TableName, TaskId),
-    remove(task_relations, TaskId),
-    remove(assigned_tasks, TaskId),
+                    NewTask = Task#task{state = NewState},
+                    NewTableName =
+                        list_to_atom(lists:concat([Task#task.type,
+                                                   '_', NewState])),
+                    add(NewTableName, NewTask),
+                    add(task_relations,
+                        TaskRelation#task_relations{table_name
+                                                    = NewTableName}),
+                    case NewState of
+                        free ->
+                            set_job_state_internal(Task#task.job_id,
+                                                   NewState);
+                        done ->
+                            JobId = Task#task.job_id,
+                            FreeTasks =
+                                [find_task_in_table(split_free, JobId),
+                                 find_task_in_table(map_free, JobId),
+                                 find_task_in_table(reduce_free, JobId),
+                                 find_task_in_table(finalize_free, JobId)],
+                            F = fun(H) -> H /= no_task end,
 
-    NewTask = Task#task{state = NewState},
-    NewTableName = list_to_atom(lists:concat([Task#task.type, '_', NewState])),
-    add(NewTableName, NewTask),
-    add(task_relations, TaskRelation#task_relations{table_name = NewTableName}),
-    case NewState of
-        free ->
-            set_job_state_internal(Task#task.job_id, NewState);
-        done ->
-            JobId = Task#task.job_id,
-            FreeTasks = [find_task_in_table(split_free, JobId),
-                         find_task_in_table(map_free, JobId),
-                         find_task_in_table(reduce_free, JobId),
-                         find_task_in_table(finalize_free, JobId)],
-            F = fun(H) ->
-                        case H of
-                            no_task ->
-                                false;
-                            _ ->
-                                true
-                        end
-                end,
-
-            ExistsTask = lists:any(F, FreeTasks),
-            Job = read(job, JobId),
-            case ExistsTask andalso (Job#job.state == no_tasks) of
-                true ->
-                    set_job_state_internal(JobId, free);
-                _ ->
-                    ok
-            end;
-        _ ->
-            ok
-    end,
-    ok.
+                            ExistsTask = lists:any(F, FreeTasks),
+                            Job = read(job, JobId),
+                            case ExistsTask
+                                andalso (Job#job.state == no_tasks) of
+                                true ->
+                                    set_job_state_internal(JobId, free);
+                                _ ->
+                                    ok
+                            end;
+                        _ ->
+                            ok
+                    end
+            end
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -1484,3 +1497,18 @@ take_bg_nodes(NeededNodes) ->
             _ -> []
         end,
     lists:sublist(AssignedNodes, 1, NeededNodes).
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Returns true iff JobID is in the job table
+%%
+%% @spec job_exists(JobID) -> bool()
+%% @end
+%%--------------------------------------------------------------------
+job_exists(JobID) ->
+    case read(job, JobID) of
+        {error, _} -> false;
+        _          -> true
+    end.

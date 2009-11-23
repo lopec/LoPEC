@@ -134,8 +134,11 @@ handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType, _Progname}},
     Diff = timer:now_diff(now(), Time) / 1000000,
     Power = power_check:get_watt_per_task(Diff),
     {NewUp, NewDown} = netMonitor:get_net_stats(),
+    Disk = statistician:get_node_disk_usage(raw),
+    Mem = statistician:get_node_mem_usage(raw),
     statistician:update({{node(), JobId, list_to_atom(TaskType)},
-                         Power, Diff, NewUp - OldUp, NewDown - OldDown, 1, 0}),
+                         Power, Diff, NewUp - OldUp, NewDown - OldDown, 1, 0,
+			 Disk, Mem}),
     
     %% Kill and remove computingProcess spec from dynamic supervisor
     supervisor:terminate_child(?DYNSUP, ?WORKER),

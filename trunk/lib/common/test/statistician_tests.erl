@@ -26,16 +26,19 @@ statistician_slave_test_() ->
                %off doing it manually (and instantly)
                ?_assertEqual(flush, Pid ! flush), %flush when empty...
                ?_assertEqual(ok, statistician:update({{Node1, JobId, map},
-                                                      1.0, 1.0, 1, 1, 1, 1})),
+                                                      1.0, 1.0, 1, 1, 1, 1,
+						     {1,1},{1,1}})),
                ?_assertEqual([1.0, 1.0, 1, 1, 1, 1],
                              statistician:get_job_stats(JobId, raw)),
                ?_assertEqual(flush, Pid ! flush), %flush with 1 element...
                ?_assertEqual({error, no_such_stats_found},
                              statistician:get_job_stats(JobId, raw)),
                ?_assertEqual(ok, statistician:update({{Node2 ,JobId, reduce},
-                                                      2.0, 2.0, 2, 2, 2, 2})),
+                                                      2.0, 2.0, 2, 2, 2, 2,
+						      {1,1},{1,1}})),
                ?_assertEqual(ok, statistician:update({{Node1, JobId, map},
-                                                      1.0, 1.0, 1, 1, 1, 1})),
+                                                      1.0, 1.0, 1, 1, 1, 1,
+						      {1,1},{1,1}})),
                ?_assertEqual([3.0, 3.0, 3, 3, 3, 3],
                              statistician:get_job_stats(JobId, raw)),
                ?_assertEqual(flush, Pid ! flush), %flush with multiple elements
@@ -49,10 +52,11 @@ statistician_master_test_() ->
     {setup,
      fun start_master/0,
      fun stop_master/1,
-     fun ({Pid, {JobId1, JobId2, JobId3}, {Node1, Node2, Node3, Node4}}) ->
+     fun ({Pid, MasterDisk, MasterMem,
+	   {JobId1, JobId2, JobId3}, {Node1, Node2, Node3, Node4}}) ->
              {inorder,
               [
-               ?_assertEqual({[], [],0.0,0.0,0,0,0,0},
+               ?_assertEqual({[], [],0.0,0.0,0,0,0,0,MasterDisk,MasterMem},
                              statistician:get_cluster_stats(raw)),
                ?_assertEqual({error, no_such_stats_found},
                              statistician:get_job_stats(JobId1, string)),
@@ -62,14 +66,16 @@ statistician_master_test_() ->
                              statistician:get_node_job_stats(Node1, JobId1,
                                                              string)),
                ?_assertEqual(ok, statistician:update({{Node1, JobId1, split},
-                                                      0.0, 0.0, 0, 0, 0, 0})),
+                                                      0.0, 0.0, 0, 0, 0, 0,
+						      {0,0},{0,0}})),
                ?_assertEqual([0.0, 0.0, 0, 0, 0, 0],
                            statistician:get_job_stats(JobId1, raw)),
-               ?_assertNot({[], [], 0.0,0.0,0,0,0,0} ==
+               ?_assertNot({[], [], 0.0,0.0,0,0,0,0,MasterDisk,MasterMem} ==
                            statistician:get_cluster_stats(string)),
-               ?_assertEqual({[Node1], [JobId1], 0.0,0.0,0,0,0,0},
+               ?_assertEqual({[Node1], [JobId1], 0.0,0.0,0,0,0,0,
+			      MasterDisk,MasterMem},
                            statistician:get_cluster_stats(raw)),
-               ?_assertEqual({{Node1}, [JobId1], 0.0,0.0,0,0,0,0},
+               ?_assertEqual({{Node1}, [JobId1], 0.0,0.0,0,0,0,0,{0,0},{0,0}},
                            statistician:get_node_stats(Node1, raw)),
                ?_assertEqual([0.0, 0.0, 0, 0, 0, 0],
                            statistician:get_node_job_stats(Node1, JobId1, raw)),
@@ -83,22 +89,28 @@ statistician_master_test_() ->
                              statistician:get_job_stats(JobId1, raw)),
                %the stats table is cleared of the job, but the global stats
                %should remain unchanged
-               ?_assertEqual({[Node1], [JobId1], 0.0,0.0,0,0,0,0},
+               ?_assertEqual({[Node1], [JobId1], 0.0,0.0,0,0,0,0,
+			      MasterDisk,MasterMem},
                            statistician:get_cluster_stats( raw)),
-               ?_assertEqual({{Node1}, [JobId1], 0.0,0.0,0,0,0,0},
+               ?_assertEqual({{Node1}, [JobId1], 0.0,0.0,0,0,0,0,{0,0},{0,0}},
                            statistician:get_node_stats(Node1, raw)),
                ?_assertEqual(ok, statistician:update({{Node1, JobId3, split},
-                                                      1.0, 1.0, 1, 1, 1, 1})),
+                                                      1.0, 1.0, 1, 1, 1, 1,
+						     {1,1},{1,1}})),
                ?_assertEqual(ok, statistician:update({{Node2, JobId2, map},
-                                                      2.0, 2.0, 2, 2, 2, 2})),
+                                                      2.0, 2.0, 2, 2, 2, 2,
+						     {2,2},{2,2}})),
                ?_assertEqual(ok, statistician:update({{Node3, JobId3, reduce},
-                                                      3.0, 3.0, 3, 3, 3, 3})),
+                                                      3.0, 3.0, 3, 3, 3, 3,
+						     {3,3},{3,3}})),
                ?_assertEqual(ok, statistician:update({{Node4, JobId1, finalize},
-                                                      2.0, 2.0, 2, 2, 2, 2})),
+                                                      2.0, 2.0, 2, 2, 2, 2,
+						     {2,2},{2,2}})),
                %Should update existing entry and add together, for a resulting
-               %table entry of {{_,JobId1,finalize},4.0,4.0,4,4,4}
+               %table entry of {{_,JobId1,finalize},4.0,4.0,4,4,4,{4,4},{4,4}}
                ?_assertEqual(ok, statistician:update({{Node4, JobId1, finalize},
-                                                      2.0, 2.0, 2, 2, 2, 2})),
+                                                      2.0, 2.0, 2, 2, 2, 2,
+						     {4,4},{4,4}})),
                ?_assertEqual([4.0, 4.0, 4, 4, 4, 4],
                              statistician:get_job_stats(JobId1, raw)),
                ?_assertEqual([2.0, 2.0, 2, 2, 2, 2],
@@ -146,8 +158,9 @@ statistician_master_test_() ->
                              statistician:get_job_stats(JobId3, raw)),
                ?_assertEqual({error, no_such_stats_found}, 
                              statistician:get_node_job_stats(Node1,JobId3,raw)),
-               %Jobs are finished and removed, but node should remain...
-               ?_assertEqual({{Node1}, [JobId3, JobId1], 1.0, 1.0, 1, 1, 1, 1},
+               %Jobs are finished and removed, but node stats should remain...
+               ?_assertEqual({{Node1}, [JobId3, JobId1], 1.0, 1.0, 1, 1, 1, 1,
+			    {1,1},{1,1} },
                              statistician:get_node_stats(Node1, raw)),
                ?_assertNot({error, no_such_node_in_stats} ==
                            statistician:get_node_stats(Node1, string)),
@@ -159,6 +172,10 @@ statistician_master_test_() ->
                              statistician:get_node_job_stats(Node1,JobId3,raw)),
                %GARBAGE TESTS
                %for 100% coverage, feel free to remove
+               ?_assertNot({error} ==
+                           statistician:get_node_disk_usage(string)),
+               ?_assertNot({error} ==
+                           statistician:get_node_mem_usage(string)),
                ?_assertEqual(please_wait_a_few_seconds,
                              statistician:job_finished(JobId3)),
                ?_assertEqual({noreply, []},
@@ -182,23 +199,25 @@ statistician_master_test_() ->
 start_master() ->
     application:start(chronicler),
     application:start(common),
+    {ok, Pid} = statistician:start_link(master),
+    MasterDisk = statistician:get_node_disk_usage(raw),
+    MasterMem = statistician:get_node_mem_usage(raw),
     Node1 = node(),
     Node2 = 'fakenode@10.10.10.10',
     Node3 = 'notrealnode@20.20.20.20',
     Node4 = 'mongo@10.20.30.40',
-    {ok, Pid} = statistician:start_link(master),
     {Mega, Sec, Micro} = now(),
     JobId1 = list_to_integer(lists:concat([Mega, Sec, Micro])),
     JobId2 = JobId1 + 23124,
     JobId3 = JobId1 - 14155,
-    {Pid, {JobId1, JobId2, JobId3}, {Node1, Node2, Node3, Node4}}.
+    {Pid, MasterDisk, MasterMem,
+     {JobId1, JobId2, JobId3}, {Node1, Node2, Node3, Node4}}.
 
-stop_master({_Pid, {_JobId1, _JobId2, _JobId3}, {_Node1, _Node2, _Node3, _Node4}}) ->
+stop_master({_Pid, _MasterDisk, _MasterMem,
+	     {_JobId1, _JobId2, _JobId3}, {_Node1, _Node2, _Node3, _Node4}}) ->
     application:stop(chronicler),
     application:stop(common),
-    statistician:stop(),
-    db:stop(),
-    ok.
+    statistician:stop().
 
 start_slave() ->
     application:start(chronicler),

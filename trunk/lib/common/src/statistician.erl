@@ -280,6 +280,22 @@ remove_node(NodeId) ->
 %%--------------------------------------------------------------------
 init([master]) ->
     global:register_name(?MODULE, self()),
+    
+    case os:cmd("uname") -- "\n" of
+	"Darwin" ->
+	    ok;
+ 	"Linux" ->
+	    application:start(sasl),
+	    %%gen_event:delete_handler(error_logger, sasl_report_tty_h, []),
+	    
+ 	    application:start(os_mon),
+	    diskMemHandler:start({olol, ololigen});
+	
+ 	_ ->
+ 	    chronicler:debug("~w : statistican init called on unsupported OS~n"),
+ 	    ok
+    end,
+    
     ets:new(job_stats_table,
             [set, private, named_table,
              {keypos, 1}, {heir, none},
@@ -298,20 +314,20 @@ init([slave]) ->
 
     % Setting up disk/mem alarm handler
     case os:cmd("uname") -- "\n" of
-        "Darwin" ->
+	"Darwin" ->
 	    ok;
-	"Linux" ->
-	    %application:start(sasl),
-        %gen_event:delete_handler(alarm_handler, sasl_report_tty_h),
-	    %application:start(os_mon),
-    
-	    %diskMemHandler:start({olol,ololigen});
-        ok;
-	_ ->
-	    chronicler:debug("~w : statistican init called on unsupported OS~n"),
-	    ok
-    end,
+ 	"Linux" ->
 
+	    application:start(sasl),
+	    gen_event:delete_handler(error_logger, sasl_report_tty_h, []),
+	    
+ 	    application:start(os_mon),
+	    
+ 	    diskMemHandler:start({olol,ololigen});
+ 	_ ->
+ 	    chronicler:debug("~w : statistican init called on unsupported OS~n"),
+ 	    ok
+     end,
     {ok, []}.
 
 %%--------------------------------------------------------------------
@@ -353,29 +369,7 @@ handle_call({get_cluster_stats, Flag}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({get_node_disk_usage, Flag}, _From, State) ->
-    F = fun() ->
-		case os:cmd("uname") -- "\n" of
-		    "Darwin" ->
-			chronicler:debug("~w : disk_usage on mac unsupported~n"),
-			_Stats = {0,0};
-		    "Linux" ->
-			{_Dir, Total, Percentage} = hd(disksup:get_disk_data()),
-			_Stats = {Total, Percentage};
-		    _ ->
-			chronicler:debug("~w : disk_usage call on unsupported OS~n"),
-			_Stats = {0,0}
-		end
-	end,
-    {Total, Percentage} = F(),
-
-    case Flag of
-	raw ->
-	    Reply = {Total, Percentage};
-	string ->
-	    Reply = lists:concat(["~nTotal disk size (Kb): ", Total,
-				  "~nPercentage used: ", Percentage, "%~n"])
-    end,
-      
+    Reply = gather_node_disk_usage(Flag),
     {reply, Reply, State};
 
 %%--------------------------------------------------------------------
@@ -389,29 +383,7 @@ handle_call({get_node_disk_usage, Flag}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({get_node_mem_usage, Flag}, _From, State) ->
-    F = fun() ->
-		case os:cmd("uname") -- "\n" of
-		    "Darwin" ->
-			chronicler:debug("~w : mem_usage on mac unsupported~n"),
-			_Stats = {0,0};
-		    "Linux" ->
-			{Total, Alloc, _Lol} = memsup:get_memory_data(),
-			Percentage = trunc((Alloc / Total) * 100),
-			_Stats = {Total, Percentage};
-		    _ ->
-			chronicler:debug("~w : mem_usage call on unsupported OS~n"),
-			_Stats = {0,0}
-		end
-	end,
-    {Total, Percentage} = F(),
-
-    case Flag of
-	raw ->
-	    Reply = {Total, Percentage};
-	string ->
-	    Reply = lists:concat(["~nTotal memory size (Bytes): ", Total,
-				  "~nPercentage used: ", Percentage, "%~n"])
-    end,
+    Reply = gather_node_mem_usage(Flag),
       
     {reply, Reply, State};
 
@@ -480,14 +452,14 @@ handle_call(Msg, From, State) ->
 %%--------------------------------------------------------------------
 handle_cast({update, Stats}, State) ->
     {{NodeId, JobId, TaskType}, 
-     Power, Time, Upload, Download, NumTasks, Restarts} = Stats,
+     Power, Time, Upload, Download, NumTasks, Restarts, Disk, Mem} = Stats,
 
     case ets:lookup(job_stats_table, {NodeId, JobId, TaskType}) of
         [] ->
             ets:insert(job_stats_table, Stats);
         [OldStats] ->
             {{_,_,_}, OldPower, OldTime, OldUpload,
-             OldDownload, OldNumTasks, OldRestarts} = OldStats,
+             OldDownload, OldNumTasks, OldRestarts, _, _} = OldStats,
             
             ets:insert(job_stats_table, {{NodeId, JobId, TaskType},
                                          Power    + OldPower,
@@ -495,7 +467,10 @@ handle_cast({update, Stats}, State) ->
                                          Upload   + OldUpload,
                                          Download + OldDownload,
                                          NumTasks + OldNumTasks,
-                                         Restarts + OldRestarts})
+                                         Restarts + OldRestarts,
+					 Disk,
+					 Mem})
+					 
     end,
     
     case ets:info(node_stats_table) of
@@ -508,10 +483,11 @@ handle_cast({update, Stats}, State) ->
                     ets:insert(node_stats_table, {{NodeId}, 
                                                   [JobId], Power, Time,
                                                   Upload, Download,
-                                                  NumTasks, Restarts});
+                                                  NumTasks, Restarts,
+						  Disk, Mem});
                 [OldNodeStats] ->
                     {{_}, OldNodeJobs, OldNodePower, OldNodeTime, OldNodeUpload,
-                     OldNodeDownload, OldNodeNumTasks, OldNodeRestarts}
+                     OldNodeDownload, OldNodeNumTasks, OldNodeRestarts, _, _}
                         = OldNodeStats,
                     
                     ets:insert(node_stats_table, {{NodeId},
@@ -521,7 +497,9 @@ handle_cast({update, Stats}, State) ->
                                                   Upload   + OldNodeUpload,
                                                   Download + OldNodeDownload,
                                                   NumTasks + OldNodeNumTasks,
-                                                  Restarts + OldNodeRestarts})
+                                                  Restarts + OldNodeRestarts,
+						  Disk,
+						  Mem})
             end
     end,
     {noreply, State};
@@ -575,7 +553,8 @@ handle_cast({job_finished, JobId}, State) ->
     case ?DELETE_TABLE() of
 	delete ->
 	    ets:match_delete(job_stats_table,
-                             {{'_', JobId, '_'},'_','_','_','_','_','_'});
+                             {{'_', JobId, '_'},'_','_','_','_','_','_',
+			      '_','_'});
 	_Dont ->
 	    ok
     end,
@@ -599,7 +578,8 @@ handle_cast({job_finished, JobId}, State) ->
 handle_cast({remove_node, NodeId}, State) ->
     NodeStats = gather_node_stats(NodeId, string),
     ets:match_delete(node_stats_table, 
-                     {{NodeId},'_','_','_','_','_','_','_'}),
+                     {{NodeId},'_','_','_','_','_','_','_',
+			      '_','_'}),
     {ok, Root} =
         configparser:read_config(?CONFIGFILE, cluster_root),
     file:write_file(Root ++ "results/node_" ++
@@ -676,6 +656,8 @@ handle_info(Info, State) ->
 %%--------------------------------------------------------------------
 terminate(normal, _State) -> 
     chronicler:debug("~w:Received normal terminate call.~n"),
+    application:stop(os_mon),
+    application:stop(sasl),
     ok;
 %%--------------------------------------------------------------------
 %% @private
@@ -751,6 +733,75 @@ time_since_job_added(JobId) ->
 
 %%--------------------------------------------------------------------
 %% @doc
+%% Returns the disk usage stats
+%% Flag = raw | string
+%%
+%% @spec gather_node_disk_usage(Flag) -> String
+%% 
+%% @end
+%%--------------------------------------------------------------------
+gather_node_disk_usage(Flag) ->
+     F = fun() ->
+		case os:cmd("uname") -- "\n" of
+		    "Darwin" ->
+			chronicler:debug("~w : disk_usage on mac unsupported~n"),
+			_Stats = {0,0};
+		    "Linux" ->
+			{_Dir, Total, Percentage} = hd(disksup:get_disk_data()),
+			_Stats = {Total, Percentage};
+		    _ ->
+			chronicler:debug("~w : disk_usage call on unsupported OS~n"),
+			_Stats = {0,0}
+		end
+	end,
+    {Total, Percentage} = F(),
+
+    case Flag of
+	raw ->
+	    Reply = {Total, Percentage};
+	string ->
+	    Reply = lists:concat(["~nTotal disk size (Kb): ", Total,
+				  "~nPercentage used: ", Percentage, "%~n"])
+    end,
+    Reply.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns the disk usage stats
+%% Flag = raw | string
+%%
+%% @spec gather_node_mem_usage(Flag) -> String
+%% 
+%% @end
+%%--------------------------------------------------------------------
+gather_node_mem_usage(Flag) ->
+    F = fun() ->
+		case os:cmd("uname") -- "\n" of
+		    "Darwin" ->
+			chronicler:debug("~w : mem_usage on mac unsupported~n"),
+			_Stats = {0,0};
+		    "Linux" ->
+			{Total, Alloc, _Lol} = memsup:get_memory_data(),
+			Percentage = trunc((Alloc / Total) * 100),
+			_Stats = {Total, Percentage};
+		    _ ->
+			chronicler:debug("~w : mem_usage call on unsupported OS~n"),
+			_Stats = {0,0}
+		end
+	end,
+    {Total, Percentage} = F(),
+
+    case Flag of
+	raw ->
+	    Reply = {Total, Percentage};
+	string ->
+	    Reply = lists:concat(["~nTotal memory size (Bytes): ", Total,
+				  "~nPercentage used: ", Percentage, "%~n"])
+    end,
+    Reply.
+
+%%--------------------------------------------------------------------
+%% @doc
 %% Extracts stats that NodeId has on JobId and returns a formatted
 %% string showing these. get_job_stats/1 does not want stats on a
 %% specific node, and so passes the atom '_' as NodeId, resulting
@@ -764,22 +815,23 @@ time_since_job_added(JobId) ->
 gather_node_job_stats(NodeId, JobId, Flag) ->
     T = job_stats_table,
     % TODO: ets:match is a potential bottleneck
-    case ets:match(T, {{NodeId, JobId, '_'}, '$1', '_', '_', '_', '_', '_'}) of
+    case ets:match(T, {{NodeId, JobId, '_'}, '$1', '_', '_', '_', '_', '_',
+		       '_', '_'}) of
         [] ->
             {error, no_such_stats_found};
         _Other ->
             Split    = ets:match(T, {{NodeId, JobId, split},
-                                     '$1', '$2', '$3', '$4', '$5', '$6'}),
+                                     '$1', '$2', '$3', '$4', '$5', '$6', '_', '_'}),
             Map      = ets:match(T, {{NodeId, JobId, map},
-                                     '$1', '$2', '$3', '$4', '$5', '$6'}),
+                                     '$1', '$2', '$3', '$4', '$5', '$6', '_', '_'}),
             Reduce   = ets:match(T, {{NodeId, JobId, reduce},
-                                     '$1', '$2', '$3', '$4', '$5', '$6'}),
+                                     '$1', '$2', '$3', '$4', '$5', '$6', '_', '_'}),
             Finalize = ets:match(T, {{NodeId, JobId, finalize},
-                                     '$1', '$2', '$3', '$4', '$5', '$6'}),
+                                     '$1', '$2', '$3', '$4', '$5', '$6', '_', '_'}),
             Nodes = case NodeId of
                         '_' -> lists:umerge(
                                  ets:match(T, {{'$1', JobId, '_'},
-                                               '_','_','_','_','_','_'}));
+                                               '_','_','_','_','_','_','_','_'}));
                         _NodeId -> NodeId
                     end,
             
@@ -832,6 +884,7 @@ gather_node_stats(NodeId, Flag) ->
             end
     end.
 
+    
 %%--------------------------------------------------------------------
 %% @doc
 %% Extracts statistics about the entire cluster and returns it as a
@@ -844,22 +897,31 @@ gather_node_stats(NodeId, Flag) ->
 %%--------------------------------------------------------------------
 gather_cluster_stats(Flag) ->
     CollectStuff =
-        fun ({{Node}, Jobs, Power, Time, Upload, Download, NumTasks, Restarts},
+        fun ({{Node}, Jobs, Power, Time, Upload, Download, NumTasks, Restarts,
+	     _Disklol, _Memlol},
              {Nodes, JobsAcc, PowerAcc, TimeAcc,
-	      UpAcc, DownAcc, TasksAcc, RestartsAcc}) ->
+	      UpAcc, DownAcc, TasksAcc, RestartsAcc, Disk, Mem}) ->
                   {[Node | Nodes], Jobs ++ JobsAcc,
                   PowerAcc + Power,
                   TimeAcc + Time,
                   UpAcc + Upload,
                   DownAcc + Download,
                   TasksAcc + NumTasks,
-                  RestartsAcc + Restarts}
+                  RestartsAcc + Restarts,
+		  Disk,
+		  Mem}
         end,
     
-    {Nodes, Jobs, Power, Time, Upload, Download, NumTasks, Restarts} =
-        ets:foldl(CollectStuff, {[], [], 0.0, 0.0, 0,0,0,0}, node_stats_table),
+    MasterDisk = gather_node_disk_usage(raw),
+    MasterMem = gather_node_mem_usage(raw),
+    
+    {Nodes, Jobs, Power, Time, Upload, Download, NumTasks, Restarts,
+     _Disk, _Mem} =
+        ets:foldl(CollectStuff, {[], [], 0.0, 0.0, 0,0,0,0,{0,0},{0,0}},
+		  node_stats_table),
     Data = {lists:usort(Nodes), lists:usort(Jobs), 
-             Power, Time, Upload, Download, NumTasks, Restarts},
+             Power, Time, Upload, Download, NumTasks, Restarts,
+	   MasterDisk, MasterMem},
     
     case Flag of
         raw ->
@@ -877,7 +939,9 @@ gather_cluster_stats(Flag) ->
 %% @end
 %%--------------------------------------------------------------------
 format_cluster_stats(
-  {Nodes, Jobs, Power, Time, Upload, Download, Numtasks, Restarts}) ->
+  {Nodes, Jobs, Power, Time, Upload, Download, Numtasks, Restarts,
+   {DiskTotal, DiskPercentage},
+   {MemTotal, MemPercentage}}) ->
       io_lib:format(
         "The cluster currently has these stats stored:~n"
         "------------------------------------------------------------~n"
@@ -888,9 +952,14 @@ format_cluster_stats(
         "Upload: ~p bytes~n"
         "Download: ~p bytes~n"
         "Number of tasks total: ~p~n"
-        "Number of task restarts:~p~n",
+        "Number of task restarts:~p~n"
+	"Master Disk size: ~p~n"
+	"Master Disk used: ~p%~n"
+	"Master Primary memory size: ~p~n"
+	"Master Primary memory used: ~p%~n",
         [Nodes, Jobs, Power / 3600, Time, Upload,
-	 Download, Numtasks, Restarts]).
+	 Download, Numtasks, Restarts,
+	 DiskTotal, DiskPercentage, MemTotal, MemPercentage]).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -901,7 +970,9 @@ format_cluster_stats(
 %% @end
 %%--------------------------------------------------------------------
 format_node_stats({{NodeId},
-                  Jobs, Power, Time, Upload, Download, Numtasks, Restarts}) ->
+		   Jobs, Power, Time, Upload, Download, Numtasks, Restarts,
+		   {DiskTotal, DiskPercentage},
+		   {MemTotal, MemPercentage}}) ->
     io_lib:format(
       "Stats for node: ~p~n"
       "------------------------------------------------------------~n"
@@ -911,8 +982,13 @@ format_node_stats({{NodeId},
       "Upload: ~p bytes~n"
       "Download: ~p bytes~n"
       "Number of tasks: ~p~n"
-      "Number of task restarts:~p~n",
-      [NodeId, Jobs, Power / 3600, Time, Upload, Download, Numtasks, Restarts]).
+      "Number of task restarts:~p~n"
+      "Disk size: ~p~n"
+      "Disk used: ~p%~n"
+      "Primary memory size: ~p~n"
+      "Primary memory used: ~p%~n",
+      [NodeId, Jobs, Power / 3600, Time, Upload, Download, Numtasks, Restarts,
+      DiskTotal, DiskPercentage, MemTotal, MemPercentage]).
 
 %%--------------------------------------------------------------------
 %% @doc

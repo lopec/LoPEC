@@ -35,14 +35,16 @@ listener_test_() ->
     }.
 
 tests_init() ->
-    application:start(ecg),
-    application:start(common),
-    application:start(chronicler),
+    ok = application:start(common),
+    ok = application:start(chronicler),
+    ok = application:start(ecg),
+    ok = application:start(master),
     chronicler:set_logging_level(all),
-    db:start_link(test),
-    examiner:start_link(),
-    listener:start_link(),
-    dispatcher:start_link(),
+
+    db:create_tables(ram_copies),
+    %examiner:start_link(),
+    %listener:start_link(),
+    %dispatcher:start_link(),
     {ok, Root} = configparser:read_config("/etc/clusterbusters.conf",
                                           cluster_root),
     {ok, JobId} = listener:add_job(raytracer, mapreduce, owner, 0,
@@ -52,9 +54,10 @@ tests_init() ->
     {JobId, JobId2}.
 
 tests_stop(_) ->
-    application:stop(ecg),
-    application:stop(common),
-    application:stop(chronicler),
-    examiner:stop(),
+    ok = application:stop(master),
+    ok = application:stop(ecg),
+    ok = application:stop(chronicler),
+    ok = application:stop(common),
+    %examiner:stop(),
     db:stop(),
     timer:sleep(10). %fuck you erlang we shouldnt have to wait for db to stop 

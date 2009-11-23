@@ -17,7 +17,8 @@ all() ->
         task_allocation,
         timeout_test,
         task_completed,
-        free_tasks
+        free_tasks,
+        assigned_test
     ].
 
 init_per_suite(Config) ->
@@ -141,25 +142,48 @@ free_tasks(Config) ->
     end,
     ok.
 
-%%TODO fix this test below.
+assigned_test(Config) ->
+    {job, JobId} = lists:keyfind(job, 1, Config),
+    %TaskId = dispatcher:add_task({JobId, raytracer, split, "/input/data.dat"}),
+    %ok = dispatcher:fetch_task(node(), self()),
+    receive
+        {task_response, Task} ->
+            MapTask1 = {JobId, raytracer, map, "input data1"},
+            TaskId = dispatcher:add_task(MapTask1),
 
-            %is this a separate test?
-%            MapTask1 = {JobId, raytracer, map, "input data1"},
-%            TaskId = dispatcher:add_task(MapTask1),
+            %Expecting to get added tasks back,
+            %If the matches below fails the database was not clean
+            NewTask = db:fetch_task(node()),
 
-            %Expecting to get added tasks back
-%            NewTask = db:fetch_task(node()),
+            TaskId  = NewTask#task.task_id,
+            JobId  = NewTask#task.job_id,
+            raytracer  = NewTask#task.program_name,
+            map  = NewTask#task.type,
+            "input data1"  = NewTask#task.path,
+            free  = NewTask#task.state,
 
- %           TaskId  = NewTask#task.task_id,
-  %          JobId  = NewTask#task.job_id,
-    %        raytracer  = NewTask#task.program_name,
-   %         map  = NewTask#task.type,
-     %       "input data1"  = NewTask#task.path,
-      %      free  = NewTask#task.state,
+            examiner:report_assigned(NewTask#task.job_id, NewTask#task.type),
 
-       %     examiner:report_assigned(NewTask#task.job_id, NewTask#task.type),
+            AssignedTask = db:fetch_task(node()),
 
-            %Task2 = db:fetch_task(node()),
-            %examiner:report_assigned(Task2#task.job_id, Task2#task.type),
-            %no_task /= Task1,
-            %no_task /= Task2,
+            TaskId  = AssignedTask#task.task_id,
+            JobId  = AssignedTask#task.job_id,
+            raytracer  = AssignedTask#task.program_name,
+            map  = AssignedTask#task.type,
+            "input data1"  = AssignedTask#task.path,
+            free  = AssignedTask#task.state,
+
+            examiner:report_assigned(AssignedTask#task.job_id, AssignedTask#task.type),
+
+            %clean up
+            ok = dispatcher:report_task_done(AssignedTask#task.task_id),
+            ok = dispatcher:free_tasks(node()),
+
+            % We need to wait for cast to be processed.
+            timer:sleep(100),
+            [] = db:list(map_assigned)
+    after 1000 ->
+            ct:fail(timeout)
+    end,
+    ok.
+

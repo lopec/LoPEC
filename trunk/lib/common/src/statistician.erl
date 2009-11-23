@@ -757,13 +757,12 @@ gather_node_disk_usage(Flag) ->
     {Total, Percentage} = F(),
 
     case Flag of
-	raw ->
-	    Reply = {Total, Percentage};
-	string ->
-	    Reply = lists:concat(["~nTotal disk size (Kb): ", Total,
-				  "~nPercentage used: ", Percentage, "%~n"])
-    end,
-    Reply.
+        raw ->
+            {Total, Percentage};
+        string ->
+            lists:concat(["~nTotal disk size (Kb): ", Total,
+                          "~nPercentage used: ", Percentage, "%~n"])
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -792,16 +791,15 @@ gather_node_mem_usage(Flag) ->
     {Total, Percentage, Worst} = F(),
 
     case Flag of
-	raw ->
-	    Reply = {Total, Percentage, Worst};
-	string ->
-	    {Pid, Size} = Worst,
-	    Reply = lists:concat(["~nTotal memory size (Bytes): ", Total,
-				  "~nPercentage used: ", Percentage, "%",
-				  "~nErlang process ", Pid,
-				  " using most memory, ", Size, " bytes"])
-    end,
-    Reply.
+        raw ->
+            {Total, Percentage, Worst};
+        string ->
+            {Pid, Size} = Worst,
+            lists:concat(["~nTotal memory size (Bytes): ", Total,
+                          "~nPercentage used: ", Percentage, "%",
+                          "~nErlang process ", Pid,
+                          " using most memory, ", Size, " bytes"])
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc

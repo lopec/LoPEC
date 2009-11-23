@@ -11,19 +11,22 @@
 init_per_suite(Config) ->
     ok = application:start(common),
     ok = application:start(chronicler),
+    ok = application:start(ecg),
+    ok = application:start(master),
     Config.
 
 end_per_suite(_Config) ->
-    application:stop(chronicler),
-    application:stop(common),
+    ok = application:stop(master),
+    ok = application:stop(ecg),
+    ok = application:stop(chronicler),
+    ok = application:stop(common),
     ok.
 
 init_per_testcase(_TestCase, Config) ->
-    db:start_link(test),
     Config.
 
 end_per_testcase(_TestCase, _Config) ->
-    db:stop().
+    ok.
 
 all() ->
     [db_test].

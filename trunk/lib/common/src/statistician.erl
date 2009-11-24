@@ -22,7 +22,8 @@
 -export([start_link/1, update/1, job_finished/1, remove_node/1, stop/0,
          get_cluster_stats/1, get_job_stats/2,
          get_node_stats/2, get_node_job_stats/3,
-	 get_node_disk_usage/1, get_node_mem_usage/1]).
+	 get_node_disk_usage/1, get_node_mem_usage/1,
+	 get_cluster_disk_usage/1, get_cluster_mem_usage/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -66,6 +67,42 @@ start_link(Type) ->
 %%--------------------------------------------------------------------
 stop() ->
     gen_server:cast(?MODULE, stop).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns average disk usage over all nodes
+%% <pre>
+%% Flag:
+%%  raw - gives internal representation (Tuples, lists, whatnot)
+%%  string - gives nicely formatted string
+%% </pre>
+%% @spec get_cluster_disk_usage(Flag) -> String
+%%                                 | {Total::Integer, Percentage::Integer}
+%% @end
+%%--------------------------------------------------------------------
+get_cluster_disk_usage(raw) ->
+    gen_server:call(?MODULE,{get_cluster_disk_usage, raw});
+get_cluster_disk_usage(string) ->
+    Return = gen_server:call(?MODULE,{get_cluster_disk_usage, string}),
+    io:format(Return).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns average primary memory usage over all nodes
+%% <pre>
+%% Flag:
+%%  raw - gives internal representation (Tuples, lists, whatnot)
+%%  string - gives nicely formatted string
+%% </pre>
+%% @spec get_cluster_mem_usage(Flag) -> String
+%%                                 | {Total::Integer, Percentage::Integer}
+%% @end
+%%--------------------------------------------------------------------
+get_cluster_mem_usage(raw) ->
+    gen_server:call(?MODULE,{get_cluster_mem_usage, raw});
+get_cluster_mem_usage(string) ->
+    Return = gen_server:call(?MODULE,{get_cluster_mem_usage, string}),
+    io:format(Return).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -329,6 +366,137 @@ init([slave]) ->
  	    ok
      end,
     {ok, []}.
+
+%%--------------------------------------------------------------------
+%% private
+%% doc
+%% Flag = raw | string
+%% see node_stats/1
+%%
+%% spec handle_call({get_cluster_disk_usage, Flag}, From, State) ->
+%%                          {reply, Reply, State} 
+%% end
+%%--------------------------------------------------------------------
+handle_call({get_cluster_disk_usage, Flag}, _From, State) ->
+    ListOfNodes = nodes(),
+    F = fun(H) ->
+		{{_NodeId},
+		 _Jobs, _Power, _Time, _Upload, _Download, _Numtasks,
+		 _Restarts,
+		 {DiskTotal, DiskPercentage},
+		 {_MemTotal, _MemPercentage, {_WorstPid, _WorstSize}}}
+		    = gather_node_stats(H, raw),
+		
+		{DiskTotal, DiskPercentage}
+	end,
+    
+    E1 = fun(H) ->
+		{First, _Second} = H,
+		 First
+	 end,
+    
+    E2 = fun(H) ->
+		 {_First, Second} = H,
+		 Second
+	 end,
+
+    DiskUsed = fun(H) ->
+		       {DiskTotal, DiskPercentage} = H,
+		       _Result = DiskPercentage*0.01*DiskTotal
+	       end,
+    
+    ListOfStats = lists:map(F, ListOfNodes),
+    
+    TotalSize = lists:sum(lists:map(E1, ListOfStats)),
+    SumPercentage = lists:sum(lists:map(E2, ListOfStats)),
+    TotalUsed = lists:sum(lists:map(DiskUsed, ListOfStats)),
+    Length = length(ListOfStats),
+    
+    AveragePercentage = SumPercentage / Length,
+    AverageSize = TotalSize / Length,
+    TotalPercentage = (TotalUsed / TotalSize) * 100,
+
+    ResultList= [TotalSize, TotalUsed, AverageSize,
+		 TotalPercentage,AveragePercentage],
+
+    case Flag of
+	raw ->
+	    Reply = ResultList;
+	string ->
+	    Reply =  io_lib:format("Total disk size of nodes: ~p Kb~n"
+				   "Total disk used on nodes: ~p Kb~n"
+				   "Average disk size on nodes: ~p Kb~n"
+				   "Total disk used in cluster: ~p%~n"
+				   "Average disk used on nodes: ~p%~n",
+				   [trunc(X) || X <- ResultList])
+    end,			   
+    {reply, Reply, State};
+
+
+%%--------------------------------------------------------------------
+%% private
+%% doc
+%% Flag = raw | string
+%% see node_stats/1
+%%
+%% spec handle_call({get_cluster_mem_usage, Flag}, From, State) ->
+%%                          {reply, Reply, State} 
+%% end
+%%--------------------------------------------------------------------
+handle_call({get_cluster_mem_usage, Flag}, _From, State) ->
+    ListOfNodes = nodes(),
+    F = fun(H) ->
+		{{_NodeId},
+		 _Jobs, _Power, _Time, _Upload, _Download, _Numtasks,
+		 _Restarts,
+		 {_DiskTotal, _DiskPercentage},
+		 {MemTotal, MemPercentage, {WorstPid, WorstSize}}}
+		    = gather_node_stats(H, raw),
+		
+		{MemTotal, MemPercentage, {WorstPid, WorstSize}}
+	end,
+    
+    E1 = fun(H) ->
+		{First, _Second, _Third} = H,
+		 First
+	 end,
+    
+    E2 = fun(H) ->
+		 {_First, Second, _Third} = H,
+		 Second
+	 end,
+
+    MemUsed = fun(H) ->
+		       {MemTotal, MemPercentage, _Worst} = H,
+		       _Result = MemPercentage*0.01*MemTotal
+	       end,
+    
+    ListOfStats = lists:map(F, ListOfNodes),
+    TotalSize = lists:sum(lists:map(E1, ListOfStats)),
+    SumPercentage = lists:sum(lists:map(E2, ListOfStats)),
+    TotalUsed = lists:sum(lists:map(MemUsed, ListOfStats)),
+    Length = length(ListOfStats),
+    
+    AveragePercentage = SumPercentage / Length,
+    AverageSize = TotalSize / Length,
+    TotalPercentage = (TotalUsed / TotalSize) * 100,
+
+    ResultList= [TotalSize, TotalUsed, AverageSize,
+		 TotalPercentage,AveragePercentage],
+
+    case Flag of
+	raw ->
+	    Reply = ResultList;
+	string ->
+	    Reply =  io_lib:format(
+		       "Total primary memory size of nodes: ~p b~n"
+		       "Total primary memory used on nodes: ~p b~n"
+		       "Average primary memory size on nodes: ~p b~n"
+		       "Total primary memory used in cluster: ~p%~n"
+		       "Average primary memory used on nodes: ~p%~n",
+		       [trunc(X) || X <- ResultList])
+    end,			   
+    {reply, Reply, State};
 
 %%--------------------------------------------------------------------
 %% @private

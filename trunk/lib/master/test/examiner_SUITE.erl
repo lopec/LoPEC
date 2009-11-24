@@ -23,7 +23,8 @@ end_per_suite(_Config) ->
 
 init_per_testcase(_TestCase, Config) ->
     {ok, _Pid} = db:start_link(test),
-    examiner:start_link(),
+    {ok, _Pid2} = examiner:start_link(),
+    {ok, _Pid3} = listener:start_link(),
     Config.
 
 end_per_testcase(_TestCase, _Config) ->

@@ -81,10 +81,8 @@ stop() ->
 %%                                 | {Total::Integer, Percentage::Integer}
 %% @end
 %%--------------------------------------------------------------------
-get_cluster_disk_usage(raw) ->
-    gen_server:call(?MODULE,{get_cluster_disk_usage, raw});
-get_cluster_disk_usage(string) ->
-    gen_server:call(?MODULE,{get_cluster_disk_usage, string}).
+get_cluster_disk_usage(Flag) ->
+    gen_server:call(?MODULE,{get_cluster_disk_usage, Flag}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -98,10 +96,8 @@ get_cluster_disk_usage(string) ->
 %%                                 | {Total::Integer, Percentage::Integer}
 %% @end
 %%--------------------------------------------------------------------
-get_cluster_mem_usage(raw) ->
-    gen_server:call(?MODULE,{get_cluster_mem_usage, raw});
-get_cluster_mem_usage(string) ->
-    gen_server:call(?MODULE,{get_cluster_mem_usage, string}).
+get_cluster_mem_usage(Flag) ->
+    gen_server:call(?MODULE,{get_cluster_mem_usage, Flag}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -115,10 +111,8 @@ get_cluster_mem_usage(string) ->
 %%                                 | {Total::Integer, Percentage::Integer}
 %% @end
 %%--------------------------------------------------------------------
-get_node_disk_usage(raw) ->
-    gen_server:call(?MODULE,{get_node_disk_usage, raw});
-get_node_disk_usage(string) ->
-    gen_server:call(?MODULE,{get_node_disk_usage, string}).
+get_node_disk_usage(Flag) ->
+    gen_server:call(?MODULE,{get_node_disk_usage, Flag}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -132,10 +126,8 @@ get_node_disk_usage(string) ->
 %% Percentage::Integer}
 %% @end
 %%--------------------------------------------------------------------
-get_node_mem_usage(raw) ->
-    gen_server:call(?MODULE,{get_node_mem_usage, raw});
-get_node_mem_usage(string) ->
-    gen_server:call(?MODULE,{get_node_mem_usage, string}).
+get_node_mem_usage(Flag) ->
+    gen_server:call(?MODULE,{get_node_mem_usage, Flag}).
     
 %%--------------------------------------------------------------------
 %% @doc
@@ -148,29 +140,8 @@ get_node_mem_usage(string) ->
 %% @spec get_cluster_stats(Flag) -> String
 %% @end
 %%--------------------------------------------------------------------
-get_cluster_stats(raw) ->
-    gen_server:call(?MODULE,{get_cluster_stats, raw});
-get_cluster_stats(string) ->
-    gen_server:call(?MODULE,{get_cluster_stats, string}).
-
-%%--------------------------------------------------------------------
-%% doc
-%% Returns disk usage for the entire cluster.
-%% <pre>
-%% Flag:
-%%  raw - gives internal representation (Tuples, lists, whatnot)
-%%  string - gives nicely formatted string
-%% </pre>
-%% spec get_cluster_disk_usage(Flag) -> String
-%% end
-%%--------------------------------------------------------------------
-
-
-%%get_cluster_disk_usage(raw) ->
-%%  gen_server:call(?MODULE,{get_cluster_disk_usage, raw});
-%%get_cluster_disk_usage(string) ->
-%%    Return = gen_server:call(?MODULE,{get_cluster_disk_usage, string}),
-%%   io:format(Return).
+get_cluster_stats(Flag) ->
+    gen_server:call(?MODULE,{get_cluster_stats, Flag}).
 
 %%--------------------------------------------------------------------
 %% doc
@@ -374,15 +345,19 @@ init([slave]) ->
 %% end
 %%--------------------------------------------------------------------
 handle_call({get_cluster_disk_usage, Flag}, _From, State) ->
-    ListOfNodes = nodes(),
+    Nodes = [node()|nodes()],
+    NodesStats = [gather_node_stats(X, raw)||
+			       X <- Nodes],
+    CorrectNodesStats = [X || X <- NodesStats,
+			      X /= {error, no_such_node_in_stats}],
+
     F = fun(H) ->
 		{{_NodeId},
 		 _Jobs, _Power, _Time, _Upload, _Download, _Numtasks,
 		 _Restarts,
 		 {DiskTotal, DiskPercentage},
 		 {_MemTotal, _MemPercentage, {_WorstPid, _WorstSize}}}
-		    = gather_node_stats(H, raw),
-		
+		    = gather_node_stats(H, raw), 
 		{DiskTotal, DiskPercentage}
 	end,
     
@@ -400,21 +375,28 @@ handle_call({get_cluster_disk_usage, Flag}, _From, State) ->
 		       {DiskTotal, DiskPercentage} = H,
 		       _Result = DiskPercentage*0.01*DiskTotal
 	       end,
-    
-    ListOfStats = lists:map(F, ListOfNodes),
-    
-    TotalSize = lists:sum(lists:map(E1, ListOfStats)),
-    SumPercentage = lists:sum(lists:map(E2, ListOfStats)),
-    TotalUsed = lists:sum(lists:map(DiskUsed, ListOfStats)),
-    Length = length(ListOfStats),
-    
-    AveragePercentage = SumPercentage / Length,
-    AverageSize = TotalSize / Length,
-    TotalPercentage = (TotalUsed / TotalSize) * 100,
 
-    ResultList= [TotalSize, TotalUsed, AverageSize,
-		 TotalPercentage,AveragePercentage],
 
+
+    
+    ListOfStats = lists:map(F, CorrectNodesStats),
+
+    case length(ListOfStats) of
+	0 ->
+	    ResultList = [0,0,0,0,0];
+	Length ->
+	    TotalSize = lists:sum(lists:map(E1, ListOfStats)),
+	    SumPercentage = lists:sum(lists:map(E2, ListOfStats)),
+	    TotalUsed = lists:sum(lists:map(DiskUsed, ListOfStats)),
+	    
+	    AveragePercentage = SumPercentage / Length,
+	    AverageSize = TotalSize / Length,
+	    TotalPercentage = (TotalUsed / TotalSize) * 100,
+	    
+	    ResultList= [TotalSize, TotalUsed, AverageSize,
+			 TotalPercentage,AveragePercentage]
+    end,
+    
     case Flag of
 	raw ->
 	    Reply = ResultList;
@@ -440,7 +422,11 @@ handle_call({get_cluster_disk_usage, Flag}, _From, State) ->
 %% end
 %%--------------------------------------------------------------------
 handle_call({get_cluster_mem_usage, Flag}, _From, State) ->
-    ListOfNodes = nodes(),
+    Nodes = [node()|nodes()],
+    NodesStats = [gather_node_stats(X, raw)||
+		     X <- Nodes],
+    CorrectNodesStats = [X || X <- NodesStats,
+			      X /= {error, no_such_node_in_stats}],
     F = fun(H) ->
 		{{_NodeId},
 		 _Jobs, _Power, _Time, _Upload, _Download, _Numtasks,
@@ -467,20 +453,25 @@ handle_call({get_cluster_mem_usage, Flag}, _From, State) ->
 		       _Result = MemPercentage*0.01*MemTotal
 	       end,
     
-    ListOfStats = lists:map(F, ListOfNodes),
-    TotalSize = lists:sum(lists:map(E1, ListOfStats)),
-    SumPercentage = lists:sum(lists:map(E2, ListOfStats)),
-    TotalUsed = lists:sum(lists:map(MemUsed, ListOfStats)),
-    Length = length(ListOfStats),
-    
-    AveragePercentage = SumPercentage / Length,
-    AverageSize = TotalSize / Length,
-    TotalPercentage = (TotalUsed / TotalSize) * 100,
+    ListOfStats = lists:map(F, CorrectNodesStats),
 
-    ResultList= [TotalSize, TotalUsed, AverageSize,
-		 TotalPercentage,AveragePercentage],
-
-    case Flag of
+    case length(ListOfStats) of
+	0 ->
+	    ResultList = [0,0,0,0,0];
+	Length ->    
+	    TotalSize = lists:sum(lists:map(E1, ListOfStats)),
+	    SumPercentage = lists:sum(lists:map(E2, ListOfStats)),
+	    TotalUsed = lists:sum(lists:map(MemUsed, ListOfStats)),    
+	    
+	    AveragePercentage = SumPercentage / Length,
+	    AverageSize = TotalSize / Length,
+	    TotalPercentage = (TotalUsed / TotalSize) * 100,
+	    
+	    ResultList= [TotalSize, TotalUsed, AverageSize,
+			 TotalPercentage,AveragePercentage]
+    end,
+	    
+	    case Flag of
 	raw ->
 	    Reply = ResultList;
 	string ->

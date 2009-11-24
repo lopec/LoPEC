@@ -171,6 +171,7 @@ handle_cast({remove_entry, JobId}, State) ->
     {noreply, State};
 
 handle_cast({update_entry, JobId, TaskType, NewTaskState}, State) ->
+    ets:safe_fixtable(job_status,true),
     [Item] = ets:lookup(job_status, JobId),
     case update_job(Item, TaskType, NewTaskState) of
         #job_stats{split = {0,0,_},
@@ -181,6 +182,8 @@ handle_cast({update_entry, JobId, TaskType, NewTaskState}, State) ->
         UpdatedJob ->
             ets:insert(job_status, UpdatedJob)
     end,
+    ets:safe_fixtable(job_status,false),
+
     {noreply, State};
 
 handle_cast({free_entries, Tasks}, State) ->

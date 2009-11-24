@@ -79,9 +79,9 @@ end_per_testcase(_TestCase, _Config) ->
 
 
 ets_exists(Config) ->
-    ets:info(job_stats_table) =/= undefined,
+    true = ets:info(job_stats_table) =/= undefined,
     Config.
-   
+
 mem_and_disk(Config) ->
     statistician:get_node_mem_usage(raw),
     statistician:get_node_mem_usage(string),
@@ -94,20 +94,20 @@ checkempty([{_Pid, MasterDisk, MasterMem,
              {JobId1, _JobId2, _JobId3}, {Node1, _Node2, _Node3, _Node4}}
             | Config]) ->
     %Stats tables should be empty.
-    {[], [],0.0,0.0,0,0,0,0,MasterDisk,MasterMem} ==
+    {[], [],0.0,0.0,0,0,0,0,MasterDisk,MasterMem} =
         statistician:get_cluster_stats(raw),
-    {error, no_such_stats_found} ==
+    {error, no_such_stats_found} =
         statistician:get_job_stats(JobId1, string),
-    {error, no_such_node_in_stats} ==
+    {error, no_such_node_in_stats} =
         statistician:get_node_stats(Node1, raw),
-    {error, no_such_stats_found} ==
+    {error, no_such_stats_found} =
         statistician:get_node_job_stats(Node1, JobId1, string),
     Config.
 
 update_and_getters([{_Pid, MasterDisk, MasterMem,
                      {JobId1, JobId2, JobId3}, {Node1, Node2, Node3, Node4}}
                     | Config]) ->
-    
+
     %Lets add some fake info!
     statistician:update({{Node1, JobId1, split}, 0.0, 0.0, 0, 0, 0, 0,
                          {0,0},{0,0,{self(),0}}}),
@@ -123,26 +123,27 @@ update_and_getters([{_Pid, MasterDisk, MasterMem,
     %table entry of {{_,JobId1,finalize},4.0,4.0,4,4,4,{4,4},{4,4}}
     statistician:update({{Node4, JobId1, finalize}, 2.0, 2.0, 2, 2, 2, 2,
                          {4,4},{4,4,{self(),4}}}),
-    
+
     %Check if the update went as expected
-    [4.0, 4.0, 4, 4, 4, 4] ==
+    [4.0, 4.0, 4, 4, 4, 4] =
         statistician:get_job_stats(JobId1, raw),
     %Can't check string results automatically...
-    [4.0, 4.0, 4, 4, 4, 4] =/=
+    true = [4.0, 4.0, 4, 4, 4, 4] =/=
         statistician:get_job_stats(JobId1, string),
-    [0.0, 0.0, 0, 0, 0, 0] ==
+    [0.0, 0.0, 0, 0, 0, 0] =
         statistician:get_node_job_stats(Node1, JobId1, raw),
-    [0.0, 0.0, 0, 0, 0, 0] =/=
+    true = [0.0, 0.0, 0, 0, 0, 0] =/=
         statistician:get_node_job_stats(Node1, JobId1, string),
-    
-    {{Node1}, [JobId1], 1.0,1.0,1,1,1,1,{1,1},{1,1,{self(),1}}} ==
+
+    Self = self(),
+    {{Node1}, [JobId3, JobId1], 1.0,1.0,1,1,1,1,{1,1},{1,1,{Self,1}}} =
         statistician:get_node_stats(Node1, raw),
-    {{Node1}, [JobId1], 1.0,1.0,1,1,1,1,{1,1},{1,1,{self(),1}}} =/=
+    true = {{Node1}, [JobId3, JobId1], 1.0,1.0,1,1,1,1,{1,1},{1,1,{Self,1}}} =/=
         statistician:get_node_stats(Node1, string),
-    {[Node1], [JobId1], 10.0,10.0,10,10,10,10,MasterDisk,MasterMem} ==
+    {Nodes, JobIds, 10.0,10.0,10,10,10,10,MasterDisk,MasterMem} =
         statistician:get_cluster_stats(raw),
-    {[Node1], [JobId1], 10.0,10.0,10,10,10,10,MasterDisk,MasterMem} =/=
-        statistician:get_cluster_stats(string),
+    [] = JobIds -- [JobId1, JobId2, JobId3] ++ Nodes -- [Node1, Node2, Node3, Node4],
+    true = is_list(statistician:get_cluster_stats(string)),
     Config.
 
 job_finished([{Pid, MasterDisk, MasterMem,
@@ -155,17 +156,18 @@ job_finished([{Pid, MasterDisk, MasterMem,
 
     %And then remove it.
     Pid ! {job_finished, JobId1},
-    
+
     %Lets make sure it's  gone...
-    [1.0, 1.0, 1, 1, 1, 1] =/=
+    {error, no_such_stats_found} =
         statistician:get_job_stats(JobId1, raw),
-    [1.0, 1.0, 1, 1, 1, 1] =/=
+    {error, no_such_stats_found} =
         statistician:get_node_job_stats(Node1, JobId1, raw),
-    
+
     %But not from the node stats!
-    {{Node1}, [JobId1], 1.0, 1.0, 1, 1, 1, 1,{1,1},{1,1,{self(),1}}} ==
+    Self = self(),
+    {{Node1}, [JobId1], 1.0, 1.0, 1, 1, 1, 1,{1,1},{1,1,{Self,1}}} =
         statistician:get_node_stats(Node1, raw),
-    {[Node1], [JobId1], 1.0, 1.0, 1, 1, 1, 1,MasterDisk,MasterMem} ==
+    {[Node1], [JobId1], 1.0, 1.0, 1, 1, 1, 1,MasterDisk,MasterMem} =
         statistician:get_cluster_stats(raw),
     Config.
 

@@ -110,7 +110,7 @@ stop() ->
 %%--------------------------------------------------------------------
 create_tables(StorageType) ->
     chronicler:info("~w:Tables created.~nType:~p~n",
-                    [?MODULE, StorageType]),
+        [?MODULE, StorageType]),
     gen_server:call(?SERVER, {create_tables, StorageType}).
 
 
@@ -513,40 +513,46 @@ handle_call({create_tables, StorageType}, _From, State) ->
     Opts = [{type, set}, {StorageType, [node()]}],
 
     % Create the job tables
-    {atomic, ok} =
-        mnesia:create_table(job,
-                            [{attributes, record_info(fields, job)}|Opts]),
-    {atomic, ok} =
-        mnesia:create_table(bg_job,
-                            [{attributes, record_info(fields, bg_job)}|Opts]),
+    case mnesia:create_table(job,
+            [{attributes, record_info(fields, job)}|Opts]) of
+        {atomic, ok} ->
+            {atomic, ok} =
+            mnesia:create_table(bg_job,
+                [{attributes, record_info(fields, bg_job)}|Opts]),
 
-    % Create all the task tables
-    TaskTableNames =
-        [list_to_atom(lists:concat([TaskType, '_', TaskState]))
-         || TaskType <- [split, map, reduce, finalize],
-            TaskState <- [free, assigned, done]],
-    [{atomic, ok} = mnesia:create_table(TableName,
-                                        [{record_name, task},
-                                         {attributes,
-                                          record_info(fields, task)}|Opts])
-     || TableName <- TaskTableNames],
-    {atomic, ok} =
-        mnesia:create_table(assigned_tasks,
-                            [{record_name, assigned_tasks},
-                             {attributes,
-                              record_info(fields, assigned_tasks)}|Opts]),
-    {atomic, ok} =
-        mnesia:create_table(task_relations,
-                            [{record_name, task_relations},
-                             {attributes,
-                              record_info(fields, task_relations)}|Opts]),
+            % Create all the task tables
+            TaskTableNames =
+            [list_to_atom(lists:concat([TaskType, '_', TaskState]))
+                || TaskType <- [split, map, reduce, finalize],
+                TaskState <- [free, assigned, done]],
+            [{atomic, ok} = mnesia:create_table(TableName,
+                    [{record_name, task},
+                        {attributes,
+                            record_info(fields, task)}|Opts])
+                || TableName <- TaskTableNames],
+            {atomic, ok} =
+            mnesia:create_table(assigned_tasks,
+                [{record_name, assigned_tasks},
+                    {attributes,
+                        record_info(fields, assigned_tasks)}|Opts]),
+            {atomic, ok} =
+            mnesia:create_table(task_relations,
+                [{record_name, task_relations},
+                    {attributes,
+                        record_info(fields, task_relations)}|Opts]),
 
-    % Add secondary keys to some of the tables
-    mnesia:add_table_index(assigned_task, job_id),
-    mnesia:add_table_index(assigned_task, node_id),
-    [mnesia:add_table_index(TableName, job_id)
-     || TableName <- TaskTableNames],
-    {reply, tables_created, State};
+            % Add secondary keys to some of the tables
+            mnesia:add_table_index(assigned_task, job_id),
+            mnesia:add_table_index(assigned_task, node_id),
+            [mnesia:add_table_index(TableName, job_id)
+                || TableName <- TaskTableNames],
+            {reply, tables_created, State};
+        ERROR ->
+            chronicler:debug("?MODULE: Table had already been created "
+                             "ERROR: ~w", [ERROR]),
+            {reply, {error, tables_exsisted}, State}
+    end;
+
 
 %%--------------------------------------------------------------------
 %% @private

@@ -376,8 +376,6 @@ handle_call({get_cluster_disk_usage, Flag}, _From, State) ->
 		       _Result = DiskPercentage*0.01*DiskTotal
 	       end,
 
-
-
     
     ListOfStats = lists:map(F, CorrectNodesStats),
 
@@ -732,6 +730,9 @@ handle_cast({job_finished, JobId}, State) ->
 %%--------------------------------------------------------------------
 handle_cast({remove_node, NodeId}, State) ->
     NodeStats = gather_node_stats(NodeId, string),
+    %note that we do not check if the node exists (or rather, if
+    %gather_node_stats returns {error, no_such_stats_found})
+    %...because Erlang advocates No Defensive Coding
     ets:match_delete(node_stats_table, 
                      {{NodeId},'_','_','_','_','_','_','_',
 			      '_','_'}),

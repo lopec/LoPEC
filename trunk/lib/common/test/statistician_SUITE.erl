@@ -33,27 +33,25 @@ all() ->
 init_per_suite(Config) ->
     % do custom per suite setup here
     error_logger:tty(false),
+    ok = application:start(common),
+    ok = application:start(chronicler),
     Config.
 
 % required, but can just return Config. this is a suite level tear down function.
 end_per_suite(_Config) ->
+    ok = application:stop(common),
+    ok = application:stop(chronicler),
     ok.
 
 % optional, can do function level setup for all functions,
 % or for individual functions by matching on TestCase.
 init_per_testcase(ets_exists, Config) ->
-    application:start(chronicler),
-    application:start(common),
-    statistician:start_link(master),
+    {ok, _Pid} = statistician:start_link(master),
     Config;
 init_per_testcase(mem_and_disk, Config) ->
-    application:start(chronicler),
-    application:start(common),
-    statistician:start_link(master),
+    {ok, _Pid} = statistician:start_link(master),
     Config;
 init_per_testcase(_TestCase, Config) ->
-    application:start(chronicler),
-    application:start(common),
     {ok, Pid} = statistician:start_link(master),
     MasterDisk = statistician:get_node_disk_usage(raw),
     MasterMem = statistician:get_node_mem_usage(raw),
@@ -72,8 +70,6 @@ init_per_testcase(_TestCase, Config) ->
 % optional, can do function level tear down for all functions,
 % or for individual functions by matching on TestCase.
 end_per_testcase(_TestCase, _Config) ->
-    application:stop(chronicler),
-    application:stop(common),
     statistician:stop(),
     ok.
 
@@ -93,28 +89,28 @@ mem_and_disk(Config) ->
         statistician:get_cluster_disk_usage(raw),
     
     %Values cannot be known beforehand, so we just check that they are in bounds.
-    true = (NMTotalSize > 0),
+    true = (NMTotalSize >= 0),
     true = (NMTotalPercentage >= 0),
     true = (NMTotalPercentage =< 100),
     true = (NMWorstSize >= 0),
     
-    true = (NDTotalSize > 0),
+    true = (NDTotalSize >= 0),
     true = (NDTotalPercentage >= 0),
     true = (NDTotalPercentage =< 100),
     
-    true = (CMTotalSize > 0),
-    true = (CMTotalUsed > 0),
+    true = (CMTotalSize >= 0),
+    true = (CMTotalUsed >= 0),
     true = (CMTotalPercentage >= 0),
     true = (CMTotalPercentage =< 100),
-    true = (CMAverageSize > 0),
+    true = (CMAverageSize >= 0),
     true = (CMAveragePercentage >= 0),
     true = (CMAveragePercentage =< 100),
 
-    true = (CDTotalSize > 0),
-    true = (CDTotalUsed > 0),
+    true = (CDTotalSize >= 0),
+    true = (CDTotalUsed >= 0),
     true = (CDTotalPercentage >= 0),
     true = (CDTotalPercentage =< 100),
-    true = (CDAverageSize > 0),
+    true = (CDAverageSize >= 0),
     true = (CDAveragePercentage >= 0),
     true = (CDAveragePercentage =< 100),
 

@@ -36,6 +36,7 @@ all() ->
         db_cancel_job,
         db_no_job,
         db_fetch_task,
+        db_incorrect_input_type,
         bg_job_test_split,
         bg_job_test_map,
         bg_job_test_reduce,
@@ -64,13 +65,16 @@ db_cancel_job(_Config) ->
     JobC = {wordcount, mapreduce, skatasbort, 30},
     JobCId = db:add_job(JobC),
     %TODO Matcha!
-    db:add_task({JobCId, raytracer, split, '/pr/stuff'}),
-    db:fetch_task(skadellas),
+    {_TaskID, []} = db:add_task({JobCId, raytracer, split, '/pr/stuff'}),
+    {_TaskIS2, []} = db:fetch_task(skadellas),
     [skadellas] = db:cancel_job(JobCId).
 
 db_no_job(_Config) ->
     TaskWithoutJob = {1, raytracer, split, 'ystads-nisse/pron'},
-    {error, job_not_in_db} = db:add_task(TaskWithoutJob).
+    {error, job_not_in_db} = db:add_task(TaskWithoutJob),
+
+    TaskWithoutJob2 = {1, raytracer, reduce, 'ystads-nisse/pron'},
+    job_not_in_db = db:add_task(TaskWithoutJob2).
 
 db_fetch_task(_Config) ->
     Job = {raytracer, mapreduce, ystadsnisse, 15},
@@ -100,6 +104,11 @@ db_fetch_task(_Config) ->
     % Try to fetch another task, should receive no_task
     Task2Fetch = db:fetch_task(mongomongo),
     no_task = Task2Fetch.
+
+db_incorrect_input_type(_Config) ->
+    Job = {raytracer, mapreduce, ystadsnisse, 15},
+    TaskWithErrorType = {Job, raytracer, this_is_errornous, 'ystads-nisse/pron'},
+    {error, incorrect_input_type} = db:add_task(TaskWithErrorType).
 
 db_test() ->
     [{doc, "Test the WHOOOLE database."}].

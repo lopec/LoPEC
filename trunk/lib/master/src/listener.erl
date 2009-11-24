@@ -89,12 +89,15 @@ add_job(ProgramType, ProblemType, Owner, Priority, InputData) ->
 add_bg_job(ProgramType, ProblemType, Owner, Priority, InputData, Name) ->
     chronicler:debug("~w: called new_bg_job with a name=~w~n",
                     [?MODULE, Name]),
-    case configparser:read_config(allow_bg_jobs, "/etc/clusterbusters.conf") of
-        yes ->
+    case configparser:read_config("/etc/clusterbusters.conf", allow_bg_jobs) of
+        {ok, yes} ->
             gen_server:call(?MODULE,
                             {new_job, ProgramType, ProblemType, Owner,
                              Priority, InputData, Name, bg});
-        _->
+        _ ->
+            chronicler:user_info("Background jobs has not been enabled in "
+                "configuration file, add {allow_bg_jobs, yes} to "
+                "configuration file to allow the use of background jobs.", []),
             {error, bg_jobs_not_allowed}
     end.
 

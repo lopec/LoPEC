@@ -134,7 +134,13 @@ init([Progname, Path, Op, LoadPath, SavePath, JobId, TaskId]) ->
 %%--------------------------------------------------------------------
 handle_call({stop_job}, _From,
             {JobId, TaskId, Time, TaskType, Progname, StartedPids}) ->
+    {ok, Root} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
+    PidPath = Root ++ "/" ++ integer_to_list(JobId) ++ "/tmp/*.pid",
     Result = kill_all_procs(StartedPids),
+    PidFiles = os:cmd("cat " ++ PidPath),
+    Tokens = string:tokens(PidFiles, "\n"),
+    kill_all_procs(StartedPids),
+    lists:foreach(fun(X) -> file:delete(X) end, filelib:wildcard(PidPath)), 
     %taskfetcher:reset_state(),
     {noreply, {JobId, TaskId, Time, TaskType, Progname, Result}};
 

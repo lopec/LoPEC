@@ -83,8 +83,7 @@ stop() ->
 get_cluster_disk_usage(raw) ->
     gen_server:call(?MODULE,{get_cluster_disk_usage, raw});
 get_cluster_disk_usage(string) ->
-    Return = gen_server:call(?MODULE,{get_cluster_disk_usage, string}),
-    io:format(Return).
+    gen_server:call(?MODULE,{get_cluster_disk_usage, string}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -101,8 +100,7 @@ get_cluster_disk_usage(string) ->
 get_cluster_mem_usage(raw) ->
     gen_server:call(?MODULE,{get_cluster_mem_usage, raw});
 get_cluster_mem_usage(string) ->
-    Return = gen_server:call(?MODULE,{get_cluster_mem_usage, string}),
-    io:format(Return).
+    gen_server:call(?MODULE,{get_cluster_mem_usage, string}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -119,8 +117,7 @@ get_cluster_mem_usage(string) ->
 get_node_disk_usage(raw) ->
     gen_server:call(?MODULE,{get_node_disk_usage, raw});
 get_node_disk_usage(string) ->
-    Return = gen_server:call(?MODULE,{get_node_disk_usage, string}),
-    io:format(Return).
+    gen_server:call(?MODULE,{get_node_disk_usage, string}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -137,8 +134,7 @@ get_node_disk_usage(string) ->
 get_node_mem_usage(raw) ->
     gen_server:call(?MODULE,{get_node_mem_usage, raw});
 get_node_mem_usage(string) ->
-    Return = gen_server:call(?MODULE,{get_node_mem_usage, string}),
-    io:format(Return).
+    gen_server:call(?MODULE,{get_node_mem_usage, string}).
     
 %%--------------------------------------------------------------------
 %% @doc
@@ -154,8 +150,7 @@ get_node_mem_usage(string) ->
 get_cluster_stats(raw) ->
     gen_server:call(?MODULE,{get_cluster_stats, raw});
 get_cluster_stats(string) ->
-    Return = gen_server:call(?MODULE,{get_cluster_stats, string}),
-    io:format(Return).
+    gen_server:call(?MODULE,{get_cluster_stats, string}).
 
 %%--------------------------------------------------------------------
 %% doc
@@ -195,7 +190,7 @@ get_job_stats(JobId, string) ->
 	{error, no_such_stats_found} ->
 	    {error, no_such_stats_found};
 	_Result ->
-	    io:format(Return)
+	    Return 
     end.
 
 %%--------------------------------------------------------------------
@@ -226,7 +221,7 @@ get_node_stats(NodeId, string) ->
 	{error, no_such_node_in_stats} ->
 	    {error, no_such_node_in_stats};
 	_Result ->
-	    io:format(Return)
+	    Return
     end.
 
 
@@ -250,7 +245,7 @@ get_node_job_stats(NodeId, JobId, string) ->
 	{error, no_such_stats_found} ->
 	    {error, no_such_stats_found};
 	_Result ->
-	    io:format(Return)
+	    Return
     end.
 
 
@@ -1134,7 +1129,8 @@ format_cluster_stats(
         "Erlang process ~p using most memory, ~p bytes~n",
         [Nodes, Jobs, Power / 3600, Time, Upload,
 	 Download, Numtasks, Restarts,
-	 DiskTotal, DiskPercentage, MemTotal, MemPercentage, WorstPid, WorstSize]).
+	 DiskTotal, DiskPercentage, MemTotal,
+         MemPercentage, WorstPid, WorstSize]).
 
 %%--------------------------------------------------------------------
 %% @doc

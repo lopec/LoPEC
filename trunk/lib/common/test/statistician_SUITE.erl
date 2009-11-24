@@ -146,7 +146,7 @@ update_and_getters([{_Pid, MasterDisk, MasterMem,
     true = is_list(statistician:get_cluster_stats(string)),
     Config.
 
-job_finished([{Pid, MasterDisk, MasterMem,
+job_finished([{_Pid, MasterDisk, MasterMem,
                {JobId1, _JobId2, _JobId3}, {Node1, _Node2, _Node3, _Node4}}
               | Config]) ->
 
@@ -154,8 +154,10 @@ job_finished([{Pid, MasterDisk, MasterMem,
     statistician:update({{Node1, JobId1, split}, 1.0, 1.0, 1, 1, 1, 1,
                          {1,1},{1,1,{self(),1}}}),
 
-    %And then remove it.
-    Pid ! {job_finished, JobId1},
+    %And then remove it. Normally done by calling the API function
+    %job_finished/1, but that involves a 2+-second wait, which we do not want
+    %to do in a testing environment.
+    statistician:handle_info({job_finished, JobId1}, []),
 
     %Lets make sure it's  gone...
     {error, no_such_stats_found} =

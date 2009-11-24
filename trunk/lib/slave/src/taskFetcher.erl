@@ -167,8 +167,11 @@ handle_cast({_Pid, error,  {JobId, _TaskId, Time, TaskType, _Progname}},
     Diff = timer:now_diff(now(), Time) / 1000000,
     Power = power_check:get_watt_per_task(Diff),
     {NewUp, NewDown} = netMonitor:get_net_stats(),
+    Disk = statistician:get_node_disk_usage(raw),
+    Mem = statistician:get_node_mem_usage(raw),
     statistician:update({{node(), JobId, list_to_atom(TaskType)},
-                         Power, Diff, NewUp - OldUp, NewDown - OldDown, 0, 1}),
+                         Power, Diff, NewUp - OldUp, NewDown - OldDown, 0, 1,
+                         Disk, Mem}),
     
     %% Free task that has been given to node
     dispatcher:task_failed(JobId, list_to_atom(TaskType)),

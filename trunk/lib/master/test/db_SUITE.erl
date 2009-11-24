@@ -31,22 +31,18 @@ end_per_testcase(_TestCase, _Config) ->
     ok.
 
 all() ->
-    [db_test, bg_job_test_split, bg_job_test_map, bg_job_test_reduce,
-     bg_job_test_finalize].
+    [
+        db_user_fetch,
+        db_cancel_job,
+        db_no_job,
+        db_fetch_task,
+        bg_job_test_split,
+        bg_job_test_map,
+        bg_job_test_reduce,
+        bg_job_test_finalize
+    ].
 
-db_test() ->
-    [{doc, "Test the WHOOOLE database."}].
-db_test(_Config) ->
-    % chronicler:set_logging_level(all),
-    % Check to see that the database doesn't blow up
-    % just because there are no jobs and stuff
-    no_task = db:fetch_task(node()),
-    JobC = {wordcount, mapreduce, skatasbort, 30},
-    JobCId = db:add_job(JobC),
-    db:add_task({JobCId, raytracer, split, '/pr/stuff'}),
-    db:fetch_task(skadellas),
-    [skadellas] = db:cancel_job(JobCId),
-
+db_user_fetch(_Config) ->
     % Two jobs.
     JobA = {raytracer, mapreduce, ystadsnisse, 15},
     JobB = {wordcount, mapreduce, grillbritt, 30},
@@ -55,13 +51,36 @@ db_test(_Config) ->
     JobAId = db:add_job(JobA),
     JobBId = db:add_job(JobB),
 
-    ListOfUserJobs = db:get_user_jobs(grillbritt),
-    [JobBId] = ListOfUserJobs,
+    ListOfUserJobsB = db:get_user_jobs(grillbritt),
+    [JobBId] = ListOfUserJobsB,
 
-    % Add one task, then fetch it
-    Task1 = {JobAId, raytracer, split, 'ystads-nisse/pron'},
-    Task1Id = db:add_task(Task1),
-    true = is_integer(Task1Id),
+    ListOfUserJobsA = db:get_user_jobs(ystadsnisse),
+    [JobAId] = ListOfUserJobsA.
+
+db_no_task(_Config) ->
+    no_task = db:fetch_task(node()).
+
+db_cancel_job(_Config) ->
+    JobC = {wordcount, mapreduce, skatasbort, 30},
+    JobCId = db:add_job(JobC),
+    %TODO Matcha!
+    db:add_task({JobCId, raytracer, split, '/pr/stuff'}),
+    db:fetch_task(skadellas),
+    [skadellas] = db:cancel_job(JobCId).
+
+db_no_job(_Config) ->
+    TaskWithoutJob = {1, raytracer, split, 'ystads-nisse/pron'},
+    {error, job_not_in_db} = db:add_task(TaskWithoutJob).
+
+db_fetch_task(_Config) ->
+    Job = {raytracer, mapreduce, ystadsnisse, 15},
+    JobId = db:add_job(Job),
+
+    Task = {JobId, raytracer, split, 'ystads-nisse/pron'},
+    {TaskId, []} = db:add_task(Task),
+    true = is_integer(TaskId),
+
+    %Fetch the task
     FetchLoop =
         fun
             (F, 0) ->
@@ -69,17 +88,25 @@ db_test(_Config) ->
             (F, N) ->
                 case db:fetch_task(bongobongo) of
                     no_task -> F(F, N - 1);
-                    Task = #task{} -> Task
+                    Return -> Return
                 end
         end,
-    Task1Fetch = FetchLoop(FetchLoop, 1000),
-    #task{} = Task1Fetch,
-    Task1Id = Task1Fetch#task.task_id,
+    {TaskFetch, []} = FetchLoop(FetchLoop, 1000),
+    #task{} = TaskFetch,
+
+    %See that we got back the same task
+    TaskId = TaskFetch#task.task_id,
 
     % Try to fetch another task, should receive no_task
     Task2Fetch = db:fetch_task(mongomongo),
-    no_task = Task2Fetch,
+    no_task = Task2Fetch.
 
+db_test() ->
+    [{doc, "Test the WHOOOLE database."}].
+db_test(_Config) ->
+    JobAId = 1,
+    JobBId = 2,
+    Task1Id = 1,
     % Make sure that JobA has its state set to
     % no_tasks, since bongobongo has been assigned
     % the only task.

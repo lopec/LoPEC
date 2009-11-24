@@ -1,10 +1,11 @@
 %%%-------------------------------------------------------------------
-%%% @author Vasilij Savin <>
+%%% @author Vasilij Savin <vasilij.savin@gmail.cmo>
+%%% @author Axel Andrén <axelandren@gmail.com>
 %%% @copyright (C) 2009, Vasilij Savin
 %%% @doc
 %%% 
 %%% @end
-%%% Created : Oct 22, 2009 by Vasilij Savin <>
+%%% Created : Oct 22, 2009 by Vasilij Savin <vasilij.savin@gmail.cmo>
 %%%-------------------------------------------------------------------
 
 -module(examiner_SUITE).
@@ -15,10 +16,12 @@
 init_per_suite(Config) ->
     ok = application:start(common),
     ok = application:start(chronicler),
+    ok = application:start(ecg),    
     Config.
 
 end_per_suite(_Config) ->
     ok = application:stop(chronicler),
+    ok = application:stop(ecg),
     ok = application:stop(common).
 
 init_per_testcase(_TestCase, Config) ->

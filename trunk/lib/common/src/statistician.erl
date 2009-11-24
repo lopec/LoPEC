@@ -32,10 +32,11 @@
 % Milliseconds
 -define(UPDATE_INTERVAL, 1000).
 
--ifndef(debug).
--define(DELETE_TABLE(), delete).
+% Do we want to delete jobs from our tables once finished
+-ifdef(no_delete_tables).
+-define(DELETE_TABLE, dont).
 -else.
--define(DELETE_TABLE(), dont).
+-define(DELETE_TABLE, delete).
 -endif.
 
 
@@ -713,11 +714,11 @@ handle_cast({update_with_list, List}, State) ->
 %%--------------------------------------------------------------------
 handle_cast({job_finished, JobId}, State) ->
     JobStats = gather_node_job_stats('_', JobId, string),
-    case ?DELETE_TABLE() of
+    case ?DELETE_TABLE of
 	delete ->
 	    ets:match_delete(job_stats_table,
-                             {{'_', JobId, '_'},'_','_','_','_','_','_',
-			      '_','_'});
+                             {{'_', JobId, '_'},
+                              '_','_','_', '_','_','_', '_','_'});
 	_Dont ->
 	    ok
     end,

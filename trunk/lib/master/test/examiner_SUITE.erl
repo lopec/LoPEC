@@ -22,14 +22,11 @@ end_per_suite(_Config) ->
     ok = application:stop(common).
 
 init_per_testcase(_TestCase, Config) ->
-    {ok, _Pid} = db:start_link(test),
-    {ok, _Pid2} = examiner:start_link(),
-    {ok, _Pid3} = listener:start_link(),
+    ok = application:start(master),
     Config.
 
 end_per_testcase(_TestCase, _Config) ->
-    examiner:stop(),
-    db:stop().
+    ok = application:stop(master).
 
 all() ->
     [report_test, out_of_bounds_test].

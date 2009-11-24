@@ -24,41 +24,38 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() ->
-    [listener_test,
-        input_error,
-        pause_resume_test].
+    [
+     listener_test,
+     input_error,
+     pause_resume_test
+    ].
 
 init_per_suite(Config) ->
     % do custom per suite setup here
+    ok = application:start(common),
+    ok = application:start(chronicler),
+    ok = application:start(ecg),
+    ok = application:start(master),
     error_logger:tty(false),
     Config.
 
 % required, but can just return Config. this is a suite level tear down function.
 end_per_suite(_Config) ->
-    ok.
+    ok = application:stop(ecg),
+    ok = application:stop(common),
+    ok = application:stop(chronicler),
+    ok = application:stop(master).
 
 % optional, can do function level setup for all functions,
 % or for individual functions by matching on TestCase.
-init_per_testcase(pause_resume_test, _Config) ->
-    db:start_link(test),
-    listener:start_link(),
+init_per_testcase(pause_resume_test, Config) ->
     {ok, JobId} = listener:add_job(wordcount, mapreduce, kalle, 5, "/storage/test/lol.txt"),
-    [{pause_id, JobId}];
+    [{pause_id, JobId} | Config];
 init_per_testcase(_TestCase, Config) ->
     Config.
 
 % optional, can do function level tear down for all functions,
 % or for individual functions by matching on TestCase.
-end_per_testcase(pause_resume_test, {pause_id, _JobId}) ->
-    db:stop(),
-    examiner:stop(),
-    listener:stop(),
-    dispatcher:stop(),
-    timer:sleep(2000),
-
-    %TODO remove job when that functionality has been added.
-    %listener:remove_job(JobId).
-    ok;
 end_per_testcase(_TestCase, _Config) ->
     ok.
 
@@ -66,15 +63,16 @@ end_per_testcase(_TestCase, _Config) ->
 %% test cases %%
 %%%%%%%%%%%%%%%%
 
-input_error(_Config) ->
-    {error, inputdata_dont_exist} = listener:add_job(wordcount, mapreduce,
-        kalle, 5,
-        "This_File_Should_Never_Exist_Because_The_World_Will_Fall_If_It_Does").
+input_error(Config) ->
+    {error, inputdata_dont_exist} =
+        listener:add_job(wordcount, mapreduce, kalle, 5,
+        "This_File_Should_Never_Exist_Because_The_World_Will_Fall_If_It_Does"),
+    Config.
 
-pause_resume_test([{pause_id, JobId}]) ->
+pause_resume_test([{pause_id, JobId} | Config]) ->
     ok = listener:pause_job(JobId),
     ok = listener:resume_job(JobId),
-    ok.
+    Config.
 
-listener_test(_Config) ->
-    ok.
+listener_test(Config) ->
+    Config.

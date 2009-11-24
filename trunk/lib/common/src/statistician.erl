@@ -760,8 +760,11 @@ gather_node_disk_usage(Flag) ->
         raw ->
             {Total, Percentage};
         string ->
-            lists:concat(["~nTotal disk size (Kb): ", Total,
-                          "~nPercentage used: ", Percentage, "%~n"])
+            io_lib:format("Disk stats for this node:~n"
+                          "-------------------------~n"
+                          "Total disk size (Kb): ~p~n"
+                          "Percentage used: ~p%~n", [Total, Percentage])
+            
     end.
 
 %%--------------------------------------------------------------------
@@ -795,10 +798,12 @@ gather_node_mem_usage(Flag) ->
             {Total, Percentage, Worst};
         string ->
             {Pid, Size} = Worst,
-            lists:concat(["~nTotal memory size (Bytes): ", Total,
-                          "~nPercentage used: ", Percentage, "%",
-                          "~nErlang process ", Pid,
-                          " using most memory, ", Size, " bytes"])
+            io_lib:format("Memory stats for this node:~n"
+                          "---------------------------~n"
+                          "Total memory size (Bytes): ~p~n"
+                          "Percentage used: ~p%~n"
+                          "Erlang process ~p using most memory, ~p bytes~n",
+                          [Total, Percentage, Pid, Size])
     end.
 
 %%--------------------------------------------------------------------
@@ -918,11 +923,11 @@ gather_cluster_stats(Flag) ->
     
     {Nodes, Jobs, Power, Time, Upload, Download, NumTasks, Restarts,
      _Disk, _Mem} =
-        ets:foldl(CollectStuff, {[], [], 0.0, 0.0, 0,0,0,0,{0,0},{0,0}},
+        ets:foldl(CollectStuff, {[], [], 0.0, 0.0, 0,0,0,0,{0,0},{0,0,{0,0}}},
 		  node_stats_table),
     Data = {lists:usort(Nodes), lists:usort(Jobs), 
-             Power, Time, Upload, Download, NumTasks, Restarts,
-	   MasterDisk, MasterMem},
+            Power, Time, Upload, Download, NumTasks, Restarts,
+            MasterDisk, MasterMem},
     
     case Flag of
         raw ->
@@ -942,7 +947,7 @@ gather_cluster_stats(Flag) ->
 format_cluster_stats(
   {Nodes, Jobs, Power, Time, Upload, Download, Numtasks, Restarts,
    {DiskTotal, DiskPercentage},
-   {MemTotal, MemPercentage}}) ->
+   {MemTotal, MemPercentage, {WorstPid, WorstSize}}}) ->
       io_lib:format(
         "The cluster currently has these stats stored:~n"
         "------------------------------------------------------------~n"
@@ -954,13 +959,14 @@ format_cluster_stats(
         "Download: ~p bytes~n"
         "Number of tasks total: ~p~n"
         "Number of task restarts:~p~n"
-	"Master Disk size: ~p~n"
+	"Master Disk size: ~p bytes~n"
 	"Master Disk used: ~p%~n"
-	"Master Primary memory size: ~p~n"
-	"Master Primary memory used: ~p%~n",
+	"Master Primary memory size: ~p bytes~n"
+	"Master Primary memory used: ~p%~n"
+        "Erlang process ~p using most memory, ~p bytes~n",
         [Nodes, Jobs, Power / 3600, Time, Upload,
 	 Download, Numtasks, Restarts,
-	 DiskTotal, DiskPercentage, MemTotal, MemPercentage]).
+	 DiskTotal, DiskPercentage, MemTotal, MemPercentage, WorstPid, WorstSize]).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -988,8 +994,7 @@ format_node_stats({{NodeId},
       "Disk used: ~p%~n"
       "Primary memory size: ~p~n"
       "Primary memory used: ~p%~n"
-      "Erlang process ~p "
-      "using most memory, ~p bytes~n",
+      "Erlang process ~p using most memory, ~p bytes~n",
       [NodeId, Jobs, Power / 3600, Time, Upload, Download, Numtasks, Restarts,
       DiskTotal, DiskPercentage, MemTotal, MemPercentage, WorstPid, WorstSize]).
 

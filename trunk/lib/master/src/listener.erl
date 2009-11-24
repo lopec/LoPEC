@@ -87,11 +87,16 @@ add_job(ProgramType, ProblemType, Owner, Priority, InputData) ->
 %% @end
 %%------------------------------------------------------------------------------
 add_bg_job(ProgramType, ProblemType, Owner, Priority, InputData, Name) ->
-    chronicler:info("~w: called new_bg_job with a name=~w~n",
+    chronicler:debug("~w: called new_bg_job with a name=~w~n",
                     [?MODULE, Name]),
-    gen_server:call(?MODULE,
-                    {new_job, ProgramType, ProblemType, Owner, Priority,
-                     InputData, Name, bg}).
+    case configparser:read_config(allow_bg_jobs, "/etc/clusterbusters.conf") of
+        yes ->
+            gen_server:call(?MODULE,
+                            {new_job, ProgramType, ProblemType, Owner,
+                             Priority, InputData, Name, bg});
+        _->
+            {error, bg_jobs_not_allowed}
+    end.
 
 %%------------------------------------------------------------------------------
 %% @doc
@@ -101,9 +106,8 @@ add_bg_job(ProgramType, ProblemType, Owner, Priority, InputData, Name) ->
 %% @end
 %%------------------------------------------------------------------------------
 add_bg_job(ProgramType, ProblemType, Owner, Priority, InputData) ->
-    chronicler:info("~w: called new_bg_job~n", [?MODULE]),
+    chronicler:debug("~w: called new_bg_job~n", [?MODULE]),
     add_bg_job(ProgramType, ProblemType, Owner, Priority, InputData, no_name).
-
 
 %%------------------------------------------------------------------------------
 %% @doc

@@ -54,14 +54,10 @@ stop_resume_test(Config) ->
                     From ! {reply, self()},
                     F(F);
                 {request, {start, From}} ->
-                    code:add_path("../../lib/common/ebin"),
-                    ok = application:start(common),
-                    code:add_path("../../lib/chronicler/ebin"),
-                    ok = application:start(chronicler),
-                    code:add_path("../../lib/ecg/ebin"),
-                    ok = application:start(ecg),
-                    code:add_path("../../lib/master/ebin"),
-                    ok = application:start(master),
+                    code:add_paths(filelib:wildcard("../../lib/*/ebin")),
+                    [ok, ok, ok, ok] =
+                        [application:start(App)
+                         || App <- [common, chronicler, ecg, master]],
 
                     %% We hate database
                     %%db:create_tables(ram_copies),
@@ -104,13 +100,11 @@ stop_resume_test(Config) ->
                     From ! {reply, self()},
                     F(F);
                 {request, {start, From}} ->
-                    code:add_path("../../lib/common/ebin"),
-                    ok = application:start(common),
-                    code:add_path("../../lib/chronicler/ebin"),
-                    ok = application:start(chronicler),
+                    code:add_paths(filelib:wildcard("../../lib/*/ebin")),
+                    [ok, ok, ok] =
+                        [application:start(App)
+                         || App <- [common, chronicler, slave]],
                     chronicler:set_logging_level([]),
-                    code:add_path("../../lib/slave/ebin"),
-                    ok = application:start(slave),
 
                     From ! {reply, ok},
                     F(F)
@@ -145,12 +139,13 @@ stop_resume_test(Config) ->
     end,
 
     M ! {request, {add_jobs, self()}},
-    receive
-        {reply, {JobId1, JobId2}} ->
-                {JobId1, JobId2}
-    end,
+    {JobId1, JobId2} =
+        receive
+            {reply, JobIds} ->
+                JobIds
+        end,
 
-    %Job1 shold now have started, lets pause it.
+    %Job1 shold now have started, lets stop it.
     M ! {request, {stop_job, JobId1, self()}},
     receive
         {reply, ok} ->
@@ -169,15 +164,16 @@ stop_resume_test(Config) ->
     timer:sleep(10000),
 
     %lets diff the outcome and be happy if diff returns []
-    DiffCmd = lists:concat(["diff "
-        "/storage/test/results/", JobId1, "/word_count "
-        "/storage/test/results/", JobId2, "/word_count"]),
+    DiffCmd =
+        lists:concat(["diff "
+                      "/storage/test/results/", JobId1, "/word_count "
+                      "/storage/test/results/", JobId2, "/word_count"]),
     [] = os:cmd(DiffCmd),
 
     M ! {request, {stop, self()}},
     receive
         {reply, ok} ->
-                ok
+            ok
     end,
 
     ok.

@@ -22,8 +22,8 @@ statistician_slave_test_() ->
                ?_assertNot(undefined == ets:info(job_stats_table)), 
                ?_assertEqual({error, no_such_stats_found},
                              statistician:get_job_stats(JobId, raw)),
-               %Normally we'd wait for the flush, but in tests we're better
-               %off doing it manually (and instantly)
+               %Normally we wait for flushes, but in tests we'll have to
+               %do it manually (and instantly)
                ?_assertEqual(flush, Pid ! flush), %flush when empty...
                ?_assertEqual(ok, statistician:update({{Node1, JobId, map},
                                                       1.0, 1.0, 1, 1, 1, 1,

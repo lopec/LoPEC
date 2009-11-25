@@ -7,7 +7,7 @@
              "lib/slave/test",
              "lib/ecg/test"
             ]}.
-{excl_files, ["lib/common/src/utils.erl"]}.
+{excl_mods, [utils]}.
 
 %{export, "log/coverage"}.
 %{import, "log/coverage"}.

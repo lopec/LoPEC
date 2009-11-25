@@ -28,6 +28,10 @@ kill_all_procs([]) ->
 kill_all_procs([{pid, Pid}|T]) ->
     chronicler:info("~w : Killing PID = ~w~n", [?MODULE, Pid]),
     os:cmd("kill -9 " ++ Pid),
+    kill_all_procs(T);
+kill_all_procs([H|T]) ->
+    chronicler:info("~w : Killing PID (thru pid-file) = ~w~n", [?MODULE, H]),
+    os:cmd("kill -9 " ++ H),
     kill_all_procs(T).
 
 %%%===================================================================
@@ -132,15 +136,16 @@ init([Progname, Path, Op, LoadPath, SavePath, JobId, TaskId]) ->
 %% @spec handle_call(Msg, From, State) ->  {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
+%% HERE IS THE EVUL PRÅBLEM
 handle_call({stop_job}, _From,
             {JobId, TaskId, Time, TaskType, Progname, StartedPids}) ->
     {ok, Root} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
-    PidPath = Root ++ "/" ++ integer_to_list(JobId) ++ "/tmp/*.pid",
+    PidPath = Root ++ "/tmp/" ++ integer_to_list(JobId) ++ "/*.pid",
     Result = kill_all_procs(StartedPids),
-    PidFiles = os:cmd("cat " ++ PidPath),
+    PidFiles = os:cmd("for pidFile in `ls " ++ PidPath ++ "` ; do cat $pidFile; echo \"\n\"; done"),
     Tokens = string:tokens(PidFiles, "\n"),
-    kill_all_procs(StartedPids),
-    lists:foreach(fun(X) -> file:delete(X) end, filelib:wildcard(PidPath)), 
+    kill_all_procs(Tokens),
+    
     %taskfetcher:reset_state(),
     {noreply, {JobId, TaskId, Time, TaskType, Progname, Result}};
 

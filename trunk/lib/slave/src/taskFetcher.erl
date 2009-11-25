@@ -219,6 +219,7 @@ handle_info({task_response, Task}, {State, NetLoad}) ->
     {noreply, {State#state{work_state = task}, NetLoad}};
 handle_info(stop_job, {State, NetLoad}) ->
     chronicler:debug("~w : Stopping job~n", [?MODULE]),
+    computingProcess:stop_job(),
     computingProcess:stop(),
     {NewUp, NewDown} = netMonitor:get_net_stats(),
     {ok, Timer} = timer:send_interval(?TASK_FETCH_INTERVAL, poll),

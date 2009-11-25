@@ -370,32 +370,33 @@ handle_call({get_cluster_disk_usage, Flag}, _From, State) ->
 
     ListOfStats = lists:map(F, CorrectNodesStats),
 
-    case length(ListOfStats) of
-	0 ->
-	    ResultList = [0,0,0,0,0];
-	Length ->
-	    TotalSize = lists:sum(lists:map(E1, ListOfStats)),
-	    SumPercentage = lists:sum(lists:map(E2, ListOfStats)),
-	    TotalUsed = lists:sum(lists:map(DiskUsed, ListOfStats)),
+    ResultList =
+        case length(ListOfStats) of
+            0 ->
+                [0,0,0,0,0];
+            Length ->
+                TotalSize = lists:sum(lists:map(E1, ListOfStats)),
+                SumPercentage = lists:sum(lists:map(E2, ListOfStats)),
+                TotalUsed = lists:sum(lists:map(DiskUsed, ListOfStats)),
 
-	    AveragePercentage = SumPercentage / Length,
-	    AverageSize = TotalSize / Length,
-	    TotalPercentage = (TotalUsed / TotalSize) * 100,
+                AveragePercentage = SumPercentage / Length,
+                AverageSize = TotalSize / Length,
+                TotalPercentage = (TotalUsed / TotalSize) * 100,
 
-	    ResultList= [TotalSize, TotalUsed, AverageSize,
-			 TotalPercentage,AveragePercentage]
+                [TotalSize, TotalUsed, AverageSize, TotalPercentage,AveragePercentage]
     end,
 
-    case Flag of
-        raw ->
-            Reply = ResultList;
-        string ->
-            Reply =  io_lib:format("Total disk size of nodes: ~p Kb~n"
-                                   "Total disk used on nodes: ~p Kb~n"
-                                   "Average disk size on nodes: ~p Kb~n"
-                                   "Total disk used in cluster: ~p%~n"
-                                   "Average disk used on nodes: ~p%~n",
-                                   [trunc(X) || X <- ResultList])
+    Reply =
+        case Flag of
+            raw ->
+                [{per_node, CorrectNodesStats}, {collected, ResultList}];
+            string ->
+            io_lib:format("Total disk size of nodes: ~p Kb~n"
+                          "Total disk used on nodes: ~p Kb~n"
+                          "Average disk size on nodes: ~p Kb~n"
+                          "Total disk used in cluster: ~p%~n"
+                          "Average disk used on nodes: ~p%~n",
+                          [trunc(X) || X <- ResultList])
     end,
     {reply, Reply, State};
 
@@ -444,26 +445,26 @@ handle_call({get_cluster_mem_usage, Flag}, _From, State) ->
 
     ListOfStats = lists:map(F, CorrectNodesStats),
 
-    case length(ListOfStats) of
-	0 ->
-	    ResultList = [0,0,0,0,0];
-	Length ->
-	    TotalSize = lists:sum(lists:map(E1, ListOfStats)),
-	    SumPercentage = lists:sum(lists:map(E2, ListOfStats)),
-	    TotalUsed = lists:sum(lists:map(MemUsed, ListOfStats)),
+    ResultList =
+        case length(ListOfStats) of
+            0 ->
+                [0,0,0,0,0];
+            Length ->
+                TotalSize = lists:sum(lists:map(E1, ListOfStats)),
+                SumPercentage = lists:sum(lists:map(E2, ListOfStats)),
+                TotalUsed = lists:sum(lists:map(MemUsed, ListOfStats)),
 
-	    AveragePercentage = SumPercentage / Length,
-	    AverageSize = TotalSize / Length,
-	    TotalPercentage = (TotalUsed / TotalSize) * 100,
+                AveragePercentage = SumPercentage / Length,
+                AverageSize = TotalSize / Length,
+                TotalPercentage = (TotalUsed / TotalSize) * 100,
 
-	    ResultList= [TotalSize, TotalUsed, AverageSize,
-			 TotalPercentage,AveragePercentage]
+                [TotalSize, TotalUsed, AverageSize, TotalPercentage,AveragePercentage]
     end,
 
     Reply =
         case Flag of
             raw ->
-                ResultList;
+                [{per_node, CorrectNodesStats}, {collected, ResultList}];
             string ->
                 io_lib:format("Total primary memory size of nodes: ~p b~n"
                               "Total primary memory used on nodes: ~p b~n"

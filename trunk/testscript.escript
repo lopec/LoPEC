@@ -28,21 +28,25 @@ analyse_all([], {TotalCovered, TotalLines}) ->
 analyse_all([M | Tail], {CoveredAck, LinesAck}) ->
     cover:analyse_to_file(M, lists:concat(["test/", M, "_coverage.html"]),
                           [html]),
-    {ok, Ans} = cover:analyse(M, coverage),
-
-    CoverageResult =
-        [[Fun, Arity, trunc(100 * Covered/(Covered + NotCovered))]
-         || {{_, Fun, Arity}, {Covered, NotCovered}} <- Ans, NotCovered /= 0],
-
-    Statistics =
-        [{Covered, Covered + NotCovered} || {_, {Covered, NotCovered}} <- Ans],
-
     {TotalCovered, TotalLines} =
-        lists:foldr(fun({Cov, Lin}, {CovSum, LinSum}) ->
-                            {Cov + CovSum, Lin + LinSum}
-                    end,
-                    {CoveredAck, LinesAck} , Statistics),
+        case cover:analyse(M, coverage) of
+            {ok, Ans} ->
+                CoverageResult =
+                    [[Fun, Arity, trunc(100 * Covered/(Covered + NotCovered))]
+                     || {{_, Fun, Arity}, {Covered, NotCovered}} <- Ans, NotCovered /= 0],
 
-    io:format("Test coverage of ~p:~n", [M]),
-    [io:format("  ~p/~B : ~B%~n", X) || X <- CoverageResult],
+                Statistics =
+                    [{Covered, Covered + NotCovered} || {_, {Covered, NotCovered}} <- Ans],
+
+                io:format("Test coverage of ~p:~n", [M]),
+                [io:format("    ~p/~B : ~B%~n", X) || X <- CoverageResult],
+
+                lists:foldr(fun({Cov, Lin}, {CovSum, LinSum}) ->
+                                    {Cov + CovSum, Lin + LinSum}
+                            end,
+                            {CoveredAck, LinesAck} , Statistics);
+            _ ->
+                io:format("No coverage data on ~p.~n", [M]),
+                {CoveredAck, LinesAck}
+        end,
     analyse_all(Tail, {TotalCovered, TotalLines}).

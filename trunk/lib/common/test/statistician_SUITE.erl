@@ -83,21 +83,21 @@ mem_and_disk(Config) ->
         statistician:get_node_mem_usage(raw),
     {NDTotalSize, NDTotalPercentage} =
         statistician:get_node_disk_usage(raw),
-    [CMTotalSize, CMTotalUsed, CMAverageSize, CMTotalPercentage, CMAveragePercentage] =
+    [{per_node, _}, {collected, [CMTotalSize, CMTotalUsed, CMAverageSize, CMTotalPercentage, CMAveragePercentage]}] =
         statistician:get_cluster_mem_usage(raw),
-    [CDTotalSize, CDTotalUsed, CDAverageSize, CDTotalPercentage, CDAveragePercentage] =
+    [{per_node, _}, {collected, [CDTotalSize, CDTotalUsed, CDAverageSize, CDTotalPercentage, CDAveragePercentage]}] =
         statistician:get_cluster_disk_usage(raw),
-    
+
     %Values cannot be known beforehand, so we just check that they are in bounds.
     true = (NMTotalSize >= 0),
     true = (NMTotalPercentage >= 0),
     true = (NMTotalPercentage =< 100),
     true = (NMWorstSize >= 0),
-    
+
     true = (NDTotalSize >= 0),
     true = (NDTotalPercentage >= 0),
     true = (NDTotalPercentage =< 100),
-    
+
     true = (CMTotalSize >= 0),
     true = (CMTotalUsed >= 0),
     true = (CMTotalPercentage >= 0),
@@ -206,4 +206,3 @@ job_finished([{_Pid, MasterDisk, MasterMem,
     {[Node1], [JobId1], 1.0, 1.0, 1, 1, 1, 1,MasterDisk,MasterMem} =
         statistician:get_cluster_stats(raw),
     Config.
-

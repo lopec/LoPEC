@@ -44,7 +44,8 @@
 
 %% APIs for information
 -export([get_job/1,
-         get_task/1]).
+         get_task/1,
+	 get_user_from_job/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -280,6 +281,18 @@ get_user_jobs(User) ->
                        end
                end,
     _Return = lists:filter(UserJobs, ListOfJobs).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Returns the user of the given JobId.
+%%
+%% @spec get_user_from_job(JobId::integer()) -> User::atom() | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+get_user_from_job(JobId) ->
+    Job = get_job(JobId),
+    _User = Job#job.owner.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -550,7 +563,7 @@ handle_call({create_tables, StorageType}, _From, State) ->
         ERROR ->
             chronicler:debug("?MODULE: Table had already been created "
                              "ERROR: ~w", [ERROR]),
-            {reply, {error, tables_exsisted}, State}
+            {reply, {error, tables_existed}, State}
     end;
 
 

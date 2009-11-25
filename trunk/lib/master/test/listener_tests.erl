@@ -39,7 +39,7 @@ tests_init() ->
     ok = application:start(chronicler),
     ok = application:start(ecg),
     ok = application:start(master),
-    chronicler:set_logging_level(all),
+    chronicler:set_logging_level([all]),
 
     %db:create_tables(ram_copies),
     %examiner:start_link(),

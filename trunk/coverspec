@@ -2,11 +2,12 @@
 
 {incl_dirs_r, ["lib/"]}.
 {excl_dirs, ["lib/common/test",
-               "lib/chronicler/test",
-               "lib/master/test",
-               "lib/slave/test",
-               "lib/ecg/test"
-                ]}.
+             "lib/chronicler/test",
+             "lib/master/test",
+             "lib/slave/test",
+             "lib/ecg/test"
+            ]}.
+{excl_files, ["lib/common/src/utils.erl"]}.
 
 %{export, "log/coverage"}.
 %{import, "log/coverage"}.

@@ -27,8 +27,8 @@ stop() ->
 
 %% init/1 is called when a event is being installed to an event manager
 %% using gen_event:add_[sup_]handler/3 function
-init({_Options, OldAlarms}) ->
-    {ok, OldAlarms}.
+init(no_args) ->
+    {ok, []}.
 
 handle_event({Type, Alarm}, Alarms) when Type == set_alarm; Type == clear_alarm ->
     log_alarm(Type, Alarm),

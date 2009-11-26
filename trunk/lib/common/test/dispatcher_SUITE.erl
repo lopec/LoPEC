@@ -182,8 +182,8 @@ assigned_test([{job, JobId} | Config]) ->
             ct:fail("fetch_task returned no_task!");
         {task_response, AssignedTask} ->
             RetrievedTask = db:get_task(TaskId),
-            AssignedTask#task.task_id == RetrievedTask#task.task_id,
-            AssignedTask#task.job_id  == RetrievedTask#task.job_id,
+            true = AssignedTask#task.task_id == RetrievedTask#task.task_id,
+            true = AssignedTask#task.job_id  == RetrievedTask#task.job_id,
             assigned = RetrievedTask#task.state,
 
             examiner:report_assigned(AssignedTask#task.job_id, AssignedTask#task.type)

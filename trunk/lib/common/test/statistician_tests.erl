@@ -25,7 +25,7 @@ statistician_slave_test_() ->
                %Normally we wait for flushes, but in tests we'll have to
                %do it manually (and instantly)
                ?_assertEqual(flush, Pid ! flush), %flush when empty...
-               ?_assertEqual(ok, statistician:update({{Node1, JobId, map},
+               ?_assertEqual(ok, statistician:update({{Node1, JobId, map, usr},
                                                       1.0, 1.0, 1, 1, 1, 1,
 						     {1,1},{1,1}})),
                ?_assertEqual([1.0, 1.0, 1, 1, 1, 1],
@@ -33,10 +33,10 @@ statistician_slave_test_() ->
                ?_assertEqual(flush, Pid ! flush), %flush with 1 element...
                ?_assertEqual({error, no_such_stats_found},
                              statistician:get_job_stats(JobId, raw)),
-               ?_assertEqual(ok, statistician:update({{Node2 ,JobId, reduce},
+               ?_assertEqual(ok, statistician:update({{Node2 ,JobId, reduce, usr},
                                                       2.0, 2.0, 2, 2, 2, 2,
 						      {1,1},{1,1}})),
-               ?_assertEqual(ok, statistician:update({{Node1, JobId, map},
+               ?_assertEqual(ok, statistician:update({{Node1, JobId, map, usr},
                                                       1.0, 1.0, 1, 1, 1, 1,
 						      {1,1},{1,1}})),
                ?_assertEqual([3.0, 3.0, 3, 3, 3, 3],
@@ -65,7 +65,7 @@ statistician_master_test_() ->
                ?_assertEqual({error, no_such_stats_found},
                              statistician:get_node_job_stats(Node1, JobId1,
                                                              string)),
-               ?_assertEqual(ok, statistician:update({{Node1, JobId1, split},
+               ?_assertEqual(ok, statistician:update({{Node1, JobId1, split, usr},
                                                       0.0, 0.0, 0, 0, 0, 0,
 						      {0,0},{0,0,{self(), 0}}})),
                ?_assertEqual([0.0, 0.0, 0, 0, 0, 0],
@@ -94,21 +94,21 @@ statistician_master_test_() ->
                            statistician:get_cluster_stats( raw)),
                ?_assertEqual({{Node1}, [JobId1], 0.0,0.0,0,0,0,0,{0,0},{0,0,{self(), 0}}},
                            statistician:get_node_stats(Node1, raw)),
-               ?_assertEqual(ok, statistician:update({{Node1, JobId3, split},
+               ?_assertEqual(ok, statistician:update({{Node1, JobId3, split, usr},
                                                       1.0, 1.0, 1, 1, 1, 1,
 						     {1,1},{1,1,{self(), 1}}})),
-               ?_assertEqual(ok, statistician:update({{Node2, JobId2, map},
+               ?_assertEqual(ok, statistician:update({{Node2, JobId2, map, usr},
                                                       2.0, 2.0, 2, 2, 2, 2,
 						     {2,2},{2,2,{self(), 2}}})),
-               ?_assertEqual(ok, statistician:update({{Node3, JobId3, reduce},
+               ?_assertEqual(ok, statistician:update({{Node3, JobId3, reduce, usr},
                                                       3.0, 3.0, 3, 3, 3, 3,
 						     {3,3},{3,3,{self(), 3}}})),
-               ?_assertEqual(ok, statistician:update({{Node4, JobId1, finalize},
+               ?_assertEqual(ok, statistician:update({{Node4, JobId1, finalize, usr},
                                                       2.0, 2.0, 2, 2, 2, 2,
 						     {2,2},{2,2,{self(), 2}}})),
                %Should update existing entry and add together, for a resulting
-               %table entry of {{_,JobId1,finalize},4.0,4.0,4,4,4,{4,4},{4,4}}
-               ?_assertEqual(ok, statistician:update({{Node4, JobId1, finalize},
+               %table entry of {{_,JobId1,finalize, usr},4.0,4.0,4,4,4,{4,4},{4,4}}
+               ?_assertEqual(ok, statistician:update({{Node4, JobId1, finalize, usr},
                                                       2.0, 2.0, 2, 2, 2, 2,
 						     {4,4},{4,4,{self(), 4}}})),
                ?_assertEqual([4.0, 4.0, 4, 4, 4, 4],

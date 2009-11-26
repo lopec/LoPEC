@@ -43,6 +43,8 @@ init_per_testcase(_TestCase, Config) ->
 % or for individual functions by matching on TestCase.
 end_per_testcase(_TestCase, [{filePointer, File}]) -> % do custom per suite cleanup here
     file:close(File),
+    application:stop(chronicler),
+    application:stop(common),
     ok;
 end_per_testcase(_TestCase, _Config) ->
     application:stop(chronicler),

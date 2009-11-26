@@ -181,17 +181,10 @@ assigned_test([{job, JobId} | Config]) ->
         {task_response, no_task} ->
             ct:fail("fetch_task returned no_task!");
         {task_response, AssignedTask} ->
-            TaskId        = AssignedTask#task.task_id,
-            JobId         = AssignedTask#task.job_id,
-            raytracer     = AssignedTask#task.program_name,
-            map           = AssignedTask#task.type,
-            "input data1" = AssignedTask#task.path,
-            %% Not testing task state as it depends on implementation
-            %% Client does not really care about state
-            %% as long as we do not get task that was done before
-            %must check that the return value is true to use comparison
-            %operator x /= y
-            true = done  /= AssignedTask#task.state,
+            RetrievedTask = db:get_task(TaskId),
+            AssignedTask#task.task_id == RetrievedTask#task.task_id,
+            AssignedTask#task.job_id  == RetrievedTask#task.job_id,
+            assigned = RetrievedTask#task.state,
 
             examiner:report_assigned(AssignedTask#task.job_id, AssignedTask#task.type)
     after 1000 ->

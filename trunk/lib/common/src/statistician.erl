@@ -239,7 +239,7 @@ get_user_stats(User, string) ->
         {error, no_such_user} ->
             {error, no_such_user};
         _Result ->
-            io:format(Return)
+            Return
     end.
 
 %%--------------------------------------------------------------------

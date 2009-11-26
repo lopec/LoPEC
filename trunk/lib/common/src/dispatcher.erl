@@ -461,7 +461,7 @@ find_task(RequesterPID, NodeId) ->
 
 mark_done(TaskId) ->
     db:mark_done(TaskId),
-    Task = db:get_task(TaskId).
+    db:get_task(TaskId).
     %chronicler:debug("Examiner in mark_done: ~p",
     %                 [examiner:get_progress(Task#task.job_id)]),
     %examiner:report_done(Task#task.job_id, Task#task.type).

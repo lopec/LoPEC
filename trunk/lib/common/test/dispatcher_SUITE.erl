@@ -189,7 +189,9 @@ assigned_test([{job, JobId} | Config]) ->
             %% Not testing task state as it depends on implementation
             %% Client does not really care about state
             %% as long as we do not get task that was done before
-            done          /= AssignedTask#task.state,
+            %must check that the return value is true to use comparison
+            %operator x /= y
+            true = done  /= AssignedTask#task.state,
 
             examiner:report_assigned(AssignedTask#task.job_id, AssignedTask#task.type)
     after 1000 ->

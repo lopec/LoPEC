@@ -1089,7 +1089,7 @@ gather_node_stats(NodeId, Flag) ->
 %% Extracts statistics about User and returns it as a formatted string.
 %% Flag = raw | string
 %%
-%% @spec gather_node_stats(NodeId, Flag) -> String
+%% @spec gather_user_stats(NodeId, Flag) -> String
 %% 
 %% @end
 %%--------------------------------------------------------------------

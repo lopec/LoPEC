@@ -201,7 +201,7 @@ get_split_amount() ->
 %% @doc
 %% Returns the user associated with the job
 %%
-%% @spec get_split_amount(JobId) -> User
+%% @spec get_user_from_job(JobId) -> User
 %% @end
 %%--------------------------------------------------------------------
 get_user_from_job(JobId) ->

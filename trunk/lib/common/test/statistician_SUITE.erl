@@ -27,6 +27,7 @@ all() ->
      mem_and_disk,
      checkempty,
      update_and_getters,
+     slavetests,
      job_finished
     ].
 
@@ -51,6 +52,13 @@ init_per_testcase(ets_exists, Config) ->
 init_per_testcase(mem_and_disk, Config) ->
     {ok, _Pid} = statistician:start_link(master),
     Config;
+init_per_testcase(slavetests, Config) ->
+    {ok, Pid} = statistician:start_link(slave),
+    Node1 = node(),
+    {Mega, Sec, Micro} = now(),
+    JobId1 = list_to_integer(lists:concat([Mega, Sec, Micro])),
+    [{Pid, JobId1, Node1}
+     | Config];
 init_per_testcase(_TestCase, Config) ->
     {ok, Pid} = statistician:start_link(master),
     MasterDisk = statistician:get_node_disk_usage(raw),
@@ -143,19 +151,19 @@ update_and_getters([{_Pid, MasterDisk, MasterMem,
                     | Config]) ->
 
     %Lets add some fake info!
-    statistician:update({{Node1, JobId1, split}, 0.0, 0.0, 0, 0, 0, 0,
+    statistician:update({{Node1, JobId1, split, usr}, 0.0, 0.0, 0, 0, 0, 0,
                          {0,0},{0,0,{self(),0}}}),
-    statistician:update({{Node1, JobId3, split}, 1.0, 1.0, 1, 1, 1, 1,
+    statistician:update({{Node1, JobId3, split, usr}, 1.0, 1.0, 1, 1, 1, 1,
                          {1,1},{1,1,{self(),1}}}),
-    statistician:update({{Node2, JobId2, map}, 2.0, 2.0, 2, 2, 2, 2,
+    statistician:update({{Node2, JobId2, map, usr}, 2.0, 2.0, 2, 2, 2, 2,
                          {2,2},{2,2,{self(),2}}}),
-    statistician:update({{Node3, JobId3, reduce}, 3.0, 3.0, 3, 3, 3, 3,
+    statistician:update({{Node3, JobId3, reduce, usr}, 3.0, 3.0, 3, 3, 3, 3,
                          {3,3},{3,3,{self(),3}}}),
-    statistician:update({{Node4, JobId1, finalize}, 2.0, 2.0, 2, 2, 2, 2,
+    statistician:update({{Node4, JobId1, finalize, usr}, 2.0, 2.0, 2, 2, 2, 2,
                          {2,2},{2,2,{self(),2}}}),
     %Should update existing entry and add together, for a resulting
-    %table entry of {{_,JobId1,finalize},4.0,4.0,4,4,4,{4,4},{4,4}}
-    statistician:update({{Node4, JobId1, finalize}, 2.0, 2.0, 2, 2, 2, 2,
+    %table entry of {{_,JobId1,finalize, usr},4.0,4.0,4,4,4,{4,4},{4,4}}
+    statistician:update({{Node4, JobId1, finalize, usr}, 2.0, 2.0, 2, 2, 2, 2,
                          {4,4},{4,4,{self(),4}}}),
 
     %Check if the update went as expected
@@ -170,22 +178,65 @@ update_and_getters([{_Pid, MasterDisk, MasterMem,
         statistician:get_node_job_stats(Node1, JobId1, string),
 
     Self = self(),
+
     {{Node1}, [JobId3, JobId1], 1.0,1.0,1,1,1,1,{1,1},{1,1,{Self,1}}} =
         statistician:get_node_stats(Node1, raw),
-    true = {{Node1}, [JobId3, JobId1], 1.0,1.0,1,1,1,1,{1,1},{1,1,{Self,1}}} =/=
-        statistician:get_node_stats(Node1, string),
+    true = is_list( statistician:get_node_stats(Node1, string)),
+    
     {Nodes, JobIds, 10.0,10.0,10,10,10,10,MasterDisk,MasterMem} =
         statistician:get_cluster_stats(raw),
-    [] = JobIds -- [JobId1, JobId2, JobId3] ++ Nodes -- [Node1, Node2, Node3, Node4],
+    [] = JobIds -- [JobId1, JobId2, JobId3] 
+        ++Nodes -- [Node1, Node2, Node3, Node4],
     true = is_list(statistician:get_cluster_stats(string)),
     Config.
+
+
+slavetests([{_Pid, JobId, Node}
+            | Config]) ->
+    %must be empty initially
+    {error, no_such_stats_found} =
+        statistician:get_job_stats(JobId, raw),
+    %flush when empty
+    statistician:handle_info({flush, JobId}, []),
+
+    %Lets add some fake info!
+    statistician:update({{Node, JobId, split, usr}, 1.0, 1.0, 1, 1, 1, 1,
+                         {1,1},{1,1,{self(),1}}}),
+    %Was it added properly?
+    [1.0, 1.0, 1, 1, 1, 1] =
+        statistician:get_job_stats(JobId, raw),
+    
+    %Flush now should remove it. Though normally there'd be a wait and a msg
+    %sent automatically rather than a call to to handle_info
+    statistician:handle_info({flush, JobId}, []),
+    %make sure it was removed
+    {error, no_such_stats_found} =
+        statistician:get_job_stats(JobId, raw),
+    
+    statistician:update({{Node, JobId, split, usr}, 1.0, 1.0, 1, 1, 1, 1,
+                         {1,1},{1,1,{self(),1}}}),
+    statistician:update({{Node, JobId, split, usr}, 1.0, 1.0, 1, 1, 1, 1,
+                         {1,1},{1,1,{self(),1}}}),
+    JobId2 = JobId + 12345,
+    statistician:update({{Node, JobId2, map, usr}, 3.0, 3.0, 3, 3, 3, 3,
+                         {3,3},{3,3,{self(),3}}}),
+
+    %should add up the two updates
+    [2.0, 2.0, 2, 2, 2, 2] =
+        statistician:get_job_stats(JobId, raw),
+    %flush with multiple elements
+    statistician:handle_info({flush, JobId}, []),
+    {error, no_such_stats_found} =
+        statistician:get_job_stats(JobId, raw),
+    Config.
+
 
 job_finished([{_Pid, MasterDisk, MasterMem,
                {JobId1, _JobId2, _JobId3}, {Node1, _Node2, _Node3, _Node4}}
               | Config]) ->
 
     %Lets add some fake info!
-    statistician:update({{Node1, JobId1, split}, 1.0, 1.0, 1, 1, 1, 1,
+    statistician:update({{Node1, JobId1, split, usr}, 1.0, 1.0, 1, 1, 1, 1,
                          {1,1},{1,1,{self(),1}}}),
 
     %And then remove it. Normally done by calling the API function

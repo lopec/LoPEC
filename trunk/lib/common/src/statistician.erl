@@ -288,6 +288,7 @@ init([master]) ->
     case os:cmd("uname") -- "\n" of
         "Linux" ->
             application:start(sasl),
+            gen_event:delete_handler(error_logger, sasl_report_tty_h, []),
             application:start(os_mon),
             diskMemHandler:start();
         Name ->

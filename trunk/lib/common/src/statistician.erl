@@ -634,12 +634,12 @@ handle_cast({update, Stats}, State) ->
     {{NodeId, JobId, TaskType, Usr}, 
      Power, Time, Upload, Download, NumTasks, Restarts, Disk, Mem} = Stats,
 
-    case Usr of
-        no_user ->
-            User = dispatcher:get_user_from_job(JobId);
-        _Whatevah ->
-            User = Usr
-    end,
+    User = case Usr of
+               no_user ->
+                   dispatcher:get_user_from_job(JobId);
+               _Whatevah ->
+                   Usr
+           end,
 
     case ets:lookup(job_stats_table, {NodeId, JobId, TaskType, User}) of
         [] ->
@@ -647,7 +647,7 @@ handle_cast({update, Stats}, State) ->
                                          Power, Time, Upload, Download,
                                          NumTasks, Restarts, Disk, Mem});
         [OldStats] ->
-            {{_,OldJobs,_,_}, OldPower, OldTime, OldUpload,
+            {{_,JobId,_,_}, OldPower, OldTime, OldUpload,
              OldDownload, OldNumTasks, OldRestarts, _, _} = OldStats,
 
             ets:insert(job_stats_table, {{NodeId,

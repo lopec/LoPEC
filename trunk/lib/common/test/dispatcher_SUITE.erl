@@ -41,7 +41,8 @@ init_per_testcase(_TestCase, Config) ->
     JobId = dispatcher:add_job({raytracer, mapreduce, chabbrik, 0}),
     [{job, JobId} | Config].
 
-end_per_testcase(_TestCase, [{job, JobId} | Config]) ->
+end_per_testcase(_TestCase, Config) ->
+    {job, JobId} = lists:keyfind(job, 1, Config),
     db:free_tasks(node()),
     db:remove_job(JobId),
     Config.
@@ -158,22 +159,13 @@ free_tasks([{job, JobId} | Config]) ->
     Config.
 
 assigned_test([{job, JobId} | Config]) ->
-    dispatcher:fetch_task(node(), self()),
-    receive
-        {task_response, no_task} ->
-            ok;
-        {task_response, _Task} ->
-            ct:fail("fetch_task returned a task when expecting no_task!")
-    after 1000 ->
-            ct:fail(timeout)
-    end,
-    
     MapTask1 = {JobId, raytracer, map, "input data1"},
     TaskId = dispatcher:add_task(MapTask1),
 
     %Expecting to get added tasks back,
     %If the matches below fails the database was not clean
-    {NewTask, _NodesToKill} = db:fetch_task(node()),
+    %Expected state - free
+    NewTask = db:get_task(TaskId),
 
     TaskId        = NewTask#task.task_id,
     JobId         = NewTask#task.job_id,
@@ -182,28 +174,25 @@ assigned_test([{job, JobId} | Config]) ->
     "input data1" = NewTask#task.path,
     free          = NewTask#task.state,
 
-    examiner:report_assigned(NewTask#task.job_id, NewTask#task.type),
+    examiner:report_created(NewTask#task.job_id, NewTask#task.type),
 
-    %Need to see Vasilij about this. Probably fetch_task returned assigned
-    %tasks previously, but now it doesn't. And we only add one task so we
-    %can't fetch another.
-%%     {AssignedTask, _NodesToKill2} = db:fetch_task(node()),
+    ok = dispatcher:fetch_task(node(), self()),
+    receive
+        {task_response, no_task} ->
+            ct:fail("fetch_task returned no_task!");
+        {task_response, AssignedTask} ->
+            TaskId        = AssignedTask#task.task_id,
+            JobId         = AssignedTask#task.job_id,
+            raytracer     = AssignedTask#task.program_name,
+            map           = AssignedTask#task.type,
+            "input data1" = AssignedTask#task.path,
+            %% Not testing task state as it depends on implementation
+            %% Client does not really care about state
+            %% as long as we do not get task that was done before
+            done          /= AssignedTask#task.state,
 
-%%     TaskId        = AssignedTask#task.task_id,
-%%     JobId         = AssignedTask#task.job_id,
-%%     raytracer     = AssignedTask#task.program_name,
-%%     map           = AssignedTask#task.type,
-%%     "input data1" = AssignedTask#task.path,
-%%     free          = AssignedTask#task.state,
-
-%%     examiner:report_assigned(AssignedTask#task.job_id, AssignedTask#task.type),
-
-%%     %clean up
-%%     ok = dispatcher:report_task_done(AssignedTask#task.task_id),
-    ok = dispatcher:free_tasks(node()),
-
-    % We need to wait for cast to be processed.
-    timer:sleep(100),
-    [] = db:list(map_assigned),
+            examiner:report_assigned(AssignedTask#task.job_id, AssignedTask#task.type)
+    after 1000 ->
+            ct:fail(timeout)
+    end,
     Config.
-

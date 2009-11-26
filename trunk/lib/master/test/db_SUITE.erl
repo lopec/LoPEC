@@ -36,27 +36,35 @@ all() ->
         db_cancel_job,
         db_no_job,
         db_fetch_task,
-        db_incorrect_input_type,
-        bg_job_test_split,
-        bg_job_test_map,
-        bg_job_test_reduce,
-        bg_job_test_finalize
+        db_incorrect_input_type
     ].
 
 db_user_fetch(_Config) ->
     % Two jobs.
-    JobA = {raytracer, mapreduce, ystadsnisse, 15},
-    JobB = {wordcount, mapreduce, grillbritt, 30},
+    JobA1 = {raytracer, mapreduce, ystadsnisse, 15},
+    JobA2 = {wordcount, mapreduce, ystadsnisse, 30},
+    JobB1 = {raytracer, mapreduce, grillbritt, 30},
+    JobB2 = {wordcount, mapreduce, grillbritt, 30},
 
     % Let's add them
-    JobAId = db:add_job(JobA),
-    JobBId = db:add_job(JobB),
+    JobAId1 = db:add_job(JobA1),
+    JobAId2 = db:add_job(JobA2),
+    JobBId1 = db:add_job(JobB1),
+    JobBId2 = db:add_job(JobB2),
 
-    ListOfUserJobsB = db:get_user_jobs(grillbritt),
-    [JobBId] = ListOfUserJobsB,
-
-    ListOfUserJobsA = db:get_user_jobs(ystadsnisse),
-    [JobAId] = ListOfUserJobsA.
+    case db:get_user_jobs(grillbritt) of
+        [JobBId1, JobBId2] ->
+            ok;
+        [JobBId2, JobBId1] ->
+            ok
+    end,
+    
+    case db:get_user_jobs(ystadsnisse) of
+        [JobAId1, JobAId2] ->
+            ok;
+        [JobAId2, JobAId1] ->
+            ok
+    end.
 
 db_no_task(_Config) ->
     no_task = db:fetch_task(node()).
@@ -225,72 +233,3 @@ db_test(_Config) ->
 				     db:list(job)]),
     [] = MotherOfAllLists.
 
-bg_job_test_split() ->
-    [{doc, "Test the handling of adding split when there are"
-      "background jobs."}].
-bg_job_test_split(_Config) ->
-    BGJobId = db:add_bg_job({prog, type, user, prio}),
-    {BGTaskId1, []} = db:add_task({BGJobId, prog, split, "path1"}),
-    {BGTaskId2, []} = db:add_task({BGJobId, prog, split, "path2"}),
-    _BGTask1 = db:fetch_task(my_name_is1),
-    _BGTask2 = db:fetch_task(my_name_is2),
-    JobId = db:add_job({prog, type, user, prio}),
-    case db:add_task({JobId, prog, split, "path3"}) of
-        {TaskId, [One]} when One == my_name_is1 ; One == my_name_is2 ->
-            true = (BGTaskId1 /= TaskId andalso BGTaskId2 /= TaskId)
-    end.
-
-bg_job_test_map() ->
-    [{doc, "Test the handling of adding map when there are"
-      "background jobs."}].
-bg_job_test_map(_Config) ->
-    BGJobId = db:add_bg_job({prog, type, user, prio}),
-    {BGTaskId1, []} = db:add_task({BGJobId, prog, split, "path1"}),
-    {BGTaskId2, []} = db:add_task({BGJobId, prog, split, "path2"}),
-    _BGTask1 = db:fetch_task(my_name_is1),
-    _BGTask2 = db:fetch_task(my_name_is2),
-    JobId = db:add_job({prog, type, user, prio}),
-    case db:add_task({JobId, prog, map, "path3"}) of
-        {TaskId, [One]} when One == my_name_is1 ; One == my_name_is2 ->
-            true = (BGTaskId1 /= TaskId andalso BGTaskId2 /= TaskId)
-    end.
-
-bg_job_test_reduce() ->
-    [{doc, "Test the handling of adding reduce when there are"
-      "background jobs."}].
-bg_job_test_reduce(_Config) ->
-    BGJobId = db:add_bg_job({prog, type, user, prio}),
-    {_BGTaskId1, []} = db:add_task({BGJobId, prog, split, "path1"}),
-    {_BGTaskId2, []} = db:add_task({BGJobId, prog, split, "path2"}),
-    _BGTask1 = db:fetch_task(my_name_is1),
-    _BGTask2 = db:fetch_task(my_name_is2),
-    JobId = db:add_job({prog, type, user, prio}),
-    {_Task1, []} = db:add_task({JobId, prog, reduce, "path2"}),
-    {_Task2, []} = db:add_task({JobId, prog, reduce, "path3"}),
-    {_Task3, []} = db:add_task({JobId, prog, reduce, "path4"}),
-    case db:fetch_task(my_name_is3) of
-        {_Task4, [my_name_is1, my_name_is2]} ->
-            ololol;
-        {_Task4, [my_name_is2, my_name_is1]} ->
-            ololol
-    end.
-
-bg_job_test_finalize() ->
-    [{doc, "Test the handling of adding finalize when there are"
-      "background jobs."}].
-bg_job_test_finalize(_Config) ->
-    BGJobId = db:add_bg_job({prog, type, user, prio}),
-    {_BGTaskId1, []} = db:add_task({BGJobId, prog, split, "path1"}),
-    {_BGTaskId2, []} = db:add_task({BGJobId, prog, split, "path2"}),
-    _BGTask1 = db:fetch_task(my_name_is1),
-    _BGTask2 = db:fetch_task(my_name_is2),
-    JobId = db:add_job({prog, type, user, prio}),
-    {_Task1, []} = db:add_task({JobId, prog, finalize, "path2"}),
-    {_Task2, []} = db:add_task({JobId, prog, finalize, "path3"}),
-    {_Task3, []} = db:add_task({JobId, prog, finalize, "path4"}),
-    case db:fetch_task(my_name_is3) of
-        {_Task4, [my_name_is1, my_name_is2]} ->
-            ololol;
-        {_Task4, [my_name_is2, my_name_is1]} ->
-            ololol
-    end.

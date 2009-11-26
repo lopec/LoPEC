@@ -17,27 +17,36 @@ init_per_suite(Config) ->
     ok = application:start(common),
     ok = application:start(chronicler),
     ok = application:start(ecg),    
+    ok = application:start(master),
     Config.
 
 end_per_suite(_Config) ->
     ok = application:stop(chronicler),
     ok = application:stop(ecg),
-    ok = application:stop(common).
+    ok = application:stop(common),
+    ok = application:stop(master).
 
+%% Create a job in db for report_test
+init_per_testcase(report_test, Config) ->
+    JobId = db:add_job({raytracer, mapreduce, examiner_report, 1}),
+    [{job, JobId} | Config];
+
+%% No special initialisation for other tests
 init_per_testcase(_TestCase, Config) ->
-    ok = application:start(master),
     Config.
 
-end_per_testcase(_TestCase, _Config) ->
-    ok = application:stop(master).
+end_per_testcase(_TestCase, Config) ->
+    {job, JobId} = lists:keyfind(job, 1, Config),
+    db:remove_job(JobId),
+    [] = db:list(job).
 
 all() ->
     [report_test, out_of_bounds_test].
 
 report_test() ->
     [{doc, "Test the progress reporting in examiner."}].
-report_test(_Config) ->
-    JobId = db:add_job({raytracer, mapreduce, examiner_report, 1}),
+report_test(Config) ->
+    {job, JobId} = lists:keyfind(job, 1, Config),
     examiner:insert(JobId),
     examiner:report_created(JobId, split),
     examiner:report_assigned(JobId, split),

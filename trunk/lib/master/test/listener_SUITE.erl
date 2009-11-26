@@ -56,8 +56,10 @@ init_per_testcase(_TestCase, Config) ->
 
 % optional, can do function level tear down for all functions,
 % or for individual functions by matching on TestCase.
-end_per_testcase(_TestCase, _Config) ->
-    ok.
+end_per_testcase(_TestCase, Config) ->
+    {pause_id, JobId} = lists:keyfind(pause_id, 1, Config),
+    db:remove_job(JobId),
+    [] = db:list(job).
 
 %%%%%%%%%%%%%%%%
 %% test cases %%
@@ -69,9 +71,14 @@ input_error(Config) ->
         "This_File_Should_Never_Exist_Because_The_World_Will_Fall_If_It_Does"),
     Config.
 
-pause_resume_test([{pause_id, JobId} | Config]) ->
+pause_resume_test(Config) ->
+    {pause_id, JobId} = lists:keyfind(pause_id, 1, Config),
     ok = listener:pause_job(JobId),
+    Job = db:get_job(JobId),
+    paused = Job#job.state,
     ok = listener:resume_job(JobId),
+    PausedJob = db:get_job(JobId),
+    free = PausedJob#job.state,
     Config.
 
 listener_test(Config) ->

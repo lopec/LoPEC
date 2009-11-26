@@ -809,6 +809,7 @@ handle_info(Info, State) ->
 %%--------------------------------------------------------------------
 terminate(normal, _State) ->
     chronicler:debug("~w:Received normal terminate call.~n"),
+    diskMemHandler:stop(),
     application:stop(os_mon),
     application:stop(sasl),
     ok;

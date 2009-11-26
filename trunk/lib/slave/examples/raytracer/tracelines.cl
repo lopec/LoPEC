@@ -1,183 +1,17 @@
+/*tracelines.cl
+  LoPEC Low Power Erlang-based Cluster
+  Author:Christofer Ferm*/ 
+
 #define NULL ((void *)0)
 
-//////////////////////////////////////////////////////////////////////////
-typedef struct{
-  float x;
-  float y; 
-  float z; 
-}centervals;
-
-
-/////////////////////////////////////////////////////////////////////////
-typedef struct{
-  int colid; 
-  float val; 
-}pixel;
-
-//////////////////////////////////////////////////////////////////////////
-typedef struct{
-  int r;
-  int g; 
-  int b; 
-}color; 
-
-
-//////////////////////////////////////////////////////////////////////////
-
-typedef struct{
-  float r;
-  float4 center;
-  int color; 
-}sphere; 
-
-//////////////////////////////////////////////////////////////////////////
-
-typedef struct{
-  sphere val;
-}element; 
-
-//////////////////////////////////////////////////////////////////////////
-/*typedef struct{
-  sphere *value;
-  sphere *next; 
-}scene_element; 
-*/
-
 ////////////////////////////////////////////////////////////////////////// 
-
 typedef struct{
   float first; 
   float4 second;
   int  c;
 }hits; 
 
-//////////////////////////////////////////////////////////////////////////
-/*typedef struct{
-  scene_element *curr; 
-  scene_element *head; 
-  scene_element *it;
-  int len;
-  int itpos; 
-  }scene;*/
 
-typedef struct{
-  sphere *list; 
-  float4 light; 
-  float4 origin; 
-  int numobj; 
-
-}scene; 
-
-//////////////////////////////////////////////////////////////////////////
-
-color newColor(int r, int g, int b)
-{
-  color c; 
-
-  c.r = r; 
-  c.g = g; 
-  c.b = b; 
-
-  return c; 
-}
-
-/////////////////////////////////////////////////////////////////////////
-
-pixel newPixel(float val, int colid)
-{
-  pixel p; 
-
-  p.val = val; 
-  p.colid = colid; 
-
-  return p; 
-}
-
-
-/////////////////////////////////////////////////////////////////////////
-/*color getColorValues(float hitvalue, color c)
-{
-  hitvalue = (int)(.5 + 255. * hitvalue);
-  
-  if(hitvalue <=c.r)
-    {
-      c.r = hitvalue; 
-    }
-
-  if(hitvalue <=c.g)
-    {
-
-      c.g = hitvalue; 
-    }
-
-  if(hitvalue <= c.b)
-    {
-      c.b = hitvalue; 
-    }
-
-  return c; 
-
-  }*/
-
-//////////////////////////////////////////////////////////////////////////
- /*void createScene(scene *sc)
-{
-  sc->curr = NULL; 
-  sc->head = NULL;
-  sc->it = sc->head; 
-  sc->itpos = 0; 
-  sc->len = 0; 
- 
-  
-  }*/
-
-//////////////////////////////////////////////////////////////////////////
-  /*void resetIterator(scene *sc)
-{
-  sc->it = sc->head; 
-  sc->itpos = 0; 
-  }*/
-
-
-//////////////////////////////////////////////////////////////////////////
-   /*void addToScene(sphere *s,scene *sc)
-{
-  scene_element tmp; 
-  tmp.value = s; 
-  tmp.next  = sc->head; 
-  sc->curr = &tmp;
-  sc->head = sc->curr;
-  sc->len++; 
-
-  }*/
-
-void addToScene(sphere *s, scene *sc)
-{
-  //sphere sp; 
-  //sp  = *s; 
-  // sc->list[sc->numobj] =sp; 
-  //sc->numobj++; 
-
-}
-
-//////////////////////////////////////////////////////////////////////////
-    /*int sceneHasNext(scene *sc)
-{
-   return (sc->itpos < sc->len ? 1 : 0);
-   }*/
-
-/////////////////////////////////////////////////////////////////////////
-     /*void getNextFromScene(scene *sc, sphere *s)
-{
-  
-   scene_element *tmp; 
-
-     
-      tmp = sc->it;
-      sc->it = tmp->next; 
-      *s = *tmp->value;
-      sc->itpos++; 
-      }*/
 //////////////////////////////////////////////////////////////////////////
 void createHits(hits *hit,float first, float4 second)
 {
@@ -294,7 +128,7 @@ float ray_trace(float4 light,
   
 
   float4 dir2 = (float4)-1.*light;
-  //sphere sp = s; 
+
   sphere_intersect(&hit2,dir2,p,center, r);
  
 
@@ -302,63 +136,6 @@ float ray_trace(float4 light,
  
 
 }
-
-
-////////////////////////////////////////////////////////////////////
-/*start the ray tracing for each object in the scene
-  WARNING THIS IS UGLY !
- */
-
-/*float trace(float4 light,
-	    float4 o,
-	    float4 d,
-	    scene *s,
-	    int *color)
-{
-  float highest=0;
-  float sz = -100;  
-  resetIterator(s); 
-  while(sceneHasNext(s))
-    {
-      sphere sp; 
-      getNextFromScene(s, &sp);
-      
-      float f = ray_trace(light, o,d,sp);
-      float4 pos = sp.center; 
-      float z = pos[2]; 
-     
-       if(f > 0)
-       {
-
-	 if(sz<z)
-	 { 
-	       sz =z; 
-	       highest = f;  
-	       int c = sp.color; 
-	       *color = c;
-	   
-	 }
-	 else if(sz==z)
-	   {
-	     if(highest <= f)
-	       {
-		 highest = f; 
-		 int c = sp.color; 
-		 *color =c; 
-	       
-	       }
-	   
-	   }
-	  
-	 
-	}	
-     }
-  
-  return highest; 
-
-
-  }*/
-
 
 ///////////////////////////////////////////////////////////////////
 
@@ -383,10 +160,7 @@ __kernel void hello(__global int *input,
   int y = input[0]; 
   int n = count; 
   int d = 0; 
-  sphere s;
-  sphere s2; 
-  sphere s3; 
-  scene  sc;
+
 
   
   
@@ -410,14 +184,11 @@ __kernel void hello(__global int *input,
   assign(&dist, x-n/2., y-n/2., n);	  
   dir = normalize(dist);
   assign(&dir, dir[0],dir[1],dir[2]);
-  
-	  //  g = 16*trace(light,orig,dir,center,r,colorin,input[1],&colid);
-	
-	  
-	  
-	  // g = 16*ray_trace(light,orig,dir,sin[0]);
-	  
-	 int i = 0; 
+ 
+
+
+
+  int i = 0; 
   int numobj = input[1]; 
   
   float highest = 0; 
@@ -452,8 +223,8 @@ __kernel void hello(__global int *input,
   
 	  
    output[x] = highest;       
-    color[x] = colid;
-      //pos2++;
+   color[x] = colid;
+    
   
 
  

@@ -11,5 +11,14 @@
 -include_lib("eunit/include/eunit.hrl").
 
 child_test() ->
-    {ok, {_, ChildSpecs}} = master_sup:init(no_args),
-    ok = supervisor:check_childspecs(ChildSpecs).
+    {setup,
+     fun () -> master_sup:init(no_args) end,
+     fun (_) -> ok end,
+     fun ({ok, {_, ChildSpecs}}) ->
+             {inorder,
+              [
+               ?_assertMatch({ok, {_, ChildSpecs}}, master_sup:init(no_args)),
+               ?_assertEqual(ok, supervisor:check_childspecs(ChildSpecs))
+              ]}
+     end
+    }.

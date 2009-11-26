@@ -328,8 +328,14 @@ handle_call({cancel_job, JobId}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({add_job, JobSpec}, _From, State) ->
     NewJobId = db:add_job(JobSpec),
-    examiner:insert(NewJobId),
-    {reply, NewJobId, State};
+    case NewJobId of
+        {error, Error} ->
+            chronicler:error(Error),
+            {reply, {error, Error}, State};
+        _ ->
+            examiner:insert(NewJobId),
+            {reply, NewJobId, State}
+    end;
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -441,9 +447,11 @@ create_task(TaskSpec) ->
     chronicler:debug("TaskSpec: ~p", [TaskSpec]),
     case db:add_task(TaskSpec) of
         {error, job_not_in_db} ->
-            chronicler:debug("?MODULE: Job does not exist in DB", []);
-        task_not_added ->
-            chronicler:debug("?MODULE: Duplicate task was not created", []);
+            chronicler:debug("?MODULE: Job does not exist in DB", []),
+            {error, job_not_in_db};
+        {error, task_not_added} ->
+            chronicler:debug("?MODULE: Duplicate task was not created", []),
+            {error, tried_to_create_duplicate_task};
         {NewTaskId, NodesToKill} ->
             Task = db:get_task(NewTaskId),
             examiner:report_created(Task#task.job_id, Task#task.type),

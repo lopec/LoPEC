@@ -28,7 +28,8 @@
          report_task_done/1,
          free_tasks/1,
 	 task_failed/2,
-         get_split_amount/0
+         get_split_amount/0,
+         get_user_from_job/1
         ]).
 
 %% gen_server callbacks
@@ -195,6 +196,16 @@ task_failed(JobId, TaskType) ->
 %%--------------------------------------------------------------------
 get_split_amount() ->
     gen_server:call({global, ?MODULE}, get_split_amount).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns the user associated with the job
+%%
+%% @spec get_split_amount(JobId) -> User
+%% @end
+%%--------------------------------------------------------------------
+get_user_from_job(JobId) ->
+    gen_server:call({global, ?MODULE}, {get_user_from_job, JobId}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -392,6 +403,18 @@ handle_call(get_split_amount, _From, State) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
+%% Returns the user associated with the Job
+%%
+%% @spec handle_call({get_user_from_job, JobId, From, State) ->  User
+%%                                                    | {error, Reason}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({get_user_from_job, JobId}, _From, State) ->
+    {reply, db:get_user_from_job(JobId), State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
 %% Logs and discards unexpected messages.
 %%
 %% @spec handle_call(Msg, From, State) ->  {noreply, State}
@@ -438,10 +461,10 @@ find_task(RequesterPID, NodeId) ->
 
 mark_done(TaskId) ->
     db:mark_done(TaskId),
-    Task = db:get_task(TaskId),
-    chronicler:debug("Examiner in mark_done: ~p",
-                     [examiner:get_progress(Task#task.job_id)]),
-    examiner:report_done(Task#task.job_id, Task#task.type).
+    Task = db:get_task(TaskId).
+    %chronicler:debug("Examiner in mark_done: ~p",
+    %                 [examiner:get_progress(Task#task.job_id)]),
+    %examiner:report_done(Task#task.job_id, Task#task.type).
 
 create_task(TaskSpec) ->
     chronicler:debug("TaskSpec: ~p", [TaskSpec]),

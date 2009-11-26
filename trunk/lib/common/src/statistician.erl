@@ -22,8 +22,8 @@
 -export([start_link/1, update/1, job_finished/1, remove_node/1, stop/0,
          get_cluster_stats/1, get_job_stats/2,
          get_node_stats/2, get_node_job_stats/3,
-         get_node_disk_usage/1, get_node_mem_usage/1,
-         get_cluster_disk_usage/1, get_cluster_mem_usage/1]).
+	 get_node_disk_usage/1, get_node_mem_usage/1,
+         get_user_stats/2, get_cluster_disk_usage/1, get_cluster_mem_usage/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -34,9 +34,9 @@
 
 % Do we want to delete jobs from our tables once finished
 -ifdef(no_delete_tables).
--define(DELETE_TABLE, dont).
+-define(DELETE_TABLE(), dont).
 -else.
--define(DELETE_TABLE, delete).
+-define(DELETE_TABLE(), delete).
 -endif.
 
 
@@ -220,6 +220,27 @@ get_node_job_stats(NodeId, JobId, string) ->
             Return
     end.
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns stats for the given user.
+%% <pre>
+%% Flag:
+%%      raw - gives internal representation (Tuples, lists, whatnot)
+%%      string - gives nicely formatted string
+%% </pre>
+%% @spec get_user_stats(User, Flag) -> String
+%% @end
+%%--------------------------------------------------------------------
+get_user_stats(User, raw) ->
+    gen_server:call(?MODULE, {get_user_stats, User, raw});
+get_user_stats(User, string) ->
+    Return = gen_server:call(?MODULE, {get_user_stats, User, string}),
+    case Return of
+        {error, no_such_user} ->
+            {error, no_such_user};
+        _Result ->
+            io:format(Return)
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -297,7 +318,7 @@ init([master]) ->
     end,
 
     ets:new(job_stats_table,
-            [set, private, named_table,
+            [set, public, named_table,
              {keypos, 1}, {heir, none},
              {write_concurrency, false}]),
     ets:new(node_stats_table,
@@ -576,6 +597,19 @@ handle_call({get_node_job_stats, NodeId, JobId, Flag}, _From, State) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
+%% Flag = raw | string
+%% @see user_stats/1
+%%
+%% @spec handle_call({get_user_stats, User, Flag}, From, State) ->
+%%                                   {reply, Reply, State} 
+%% @end
+%%--------------------------------------------------------------------
+handle_call({get_user_stats, User, Flag}, _From, State) ->
+    Reply = gather_user_stats(User, Flag),
+    {reply, Reply, State};
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
 %% Logs and discards unexpected messages.
 %%
 %% @spec handle_call(Msg, From, State) ->  {noreply, State}
@@ -597,17 +631,28 @@ handle_call(Msg, From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({update, Stats}, State) ->
-    {{NodeId, JobId, TaskType},
+    {{NodeId, JobId, TaskType, Usr}, 
      Power, Time, Upload, Download, NumTasks, Restarts, Disk, Mem} = Stats,
 
-    case ets:lookup(job_stats_table, {NodeId, JobId, TaskType}) of
+    case Usr of
+        no_user ->
+            User = dispatcher:get_user_from_job(JobId);
+        _Whatevah ->
+            User = Usr
+    end,
+
+    case ets:lookup(job_stats_table, {NodeId, JobId, TaskType, User}) of
         [] ->
-            ets:insert(job_stats_table, Stats);
+            ets:insert(job_stats_table, {{NodeId, JobId, TaskType, User},
+                                         Power, Time, Upload, Download,
+                                         NumTasks, Restarts, Disk, Mem});
         [OldStats] ->
-            {{_,_,_}, OldPower, OldTime, OldUpload,
+            {{_,OldJobs,_,_}, OldPower, OldTime, OldUpload,
              OldDownload, OldNumTasks, OldRestarts, _, _} = OldStats,
 
-            ets:insert(job_stats_table, {{NodeId, JobId, TaskType},
+            ets:insert(job_stats_table, {{NodeId,
+                                          JobId,
+                                          TaskType, User},
                                          Power    + OldPower,
                                          Time     + OldTime,
                                          Upload   + OldUpload,
@@ -697,13 +742,13 @@ handle_cast({update_with_list, List}, State) ->
 %%--------------------------------------------------------------------
 handle_cast({job_finished, JobId}, State) ->
     JobStats = gather_node_job_stats('_', JobId, string),
-    case ?DELETE_TABLE of
-        delete ->
-            ets:match_delete(job_stats_table,
-                             {{'_', JobId, '_'},
-                              '_','_','_', '_','_','_', '_','_'});
-        _Dont ->
-            ok
+    case ?DELETE_TABLE() of
+	delete ->
+	    ets:match_delete(job_stats_table,
+                             {{'_', JobId, '_', '_'},
+                              '_','_','_','_','_','_','_','_'});
+	_Dont ->
+	    ok
     end,
     {ok, Root} =
         configparser:read_config(?CONFIGFILE, cluster_root),
@@ -970,22 +1015,22 @@ gather_node_mem_usage(Flag) ->
 gather_node_job_stats(NodeId, JobId, Flag) ->
     T = job_stats_table,
     % TODO: ets:match is a potential bottleneck
-    case ets:match(T, {{NodeId, JobId, '_'}, '$1', '_', '_', '_', '_', '_',
+    case ets:match(T, {{NodeId, JobId, '_', '_'}, '$1', '_', '_', '_', '_', '_',
                        '_', '_'}) of
         [] ->
             {error, no_such_stats_found};
         _Other ->
-            Split    = ets:match(T, {{NodeId, JobId, split},
+            Split    = ets:match(T, {{NodeId, JobId, split, '_'},
                                      '$1', '$2', '$3', '$4', '$5', '$6', '_', '_'}),
-            Map      = ets:match(T, {{NodeId, JobId, map},
+            Map      = ets:match(T, {{NodeId, JobId, map, '_'},
                                      '$1', '$2', '$3', '$4', '$5', '$6', '_', '_'}),
-            Reduce   = ets:match(T, {{NodeId, JobId, reduce},
+            Reduce   = ets:match(T, {{NodeId, JobId, reduce, '_'},
                                      '$1', '$2', '$3', '$4', '$5', '$6', '_', '_'}),
-            Finalize = ets:match(T, {{NodeId, JobId, finalize},
+            Finalize = ets:match(T, {{NodeId, JobId, finalize, '_'},
                                      '$1', '$2', '$3', '$4', '$5', '$6', '_', '_'}),
             Nodes = case NodeId of
                         '_' -> lists:umerge(
-                                 ets:match(T, {{'$1', JobId, '_'},
+                                 ets:match(T, {{'$1', JobId, '_', '_'},
                                                '_','_','_','_','_','_','_','_'}));
                         _NodeId -> NodeId
                     end,
@@ -1039,7 +1084,40 @@ gather_node_stats(NodeId, Flag) ->
             end
     end.
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Extracts statistics about User and returns it as a formatted string.
+%% Flag = raw | string
+%%
+%% @spec gather_node_stats(NodeId, Flag) -> String
+%% 
+%% @end
+%%--------------------------------------------------------------------
+gather_user_stats(User, Flag) ->
+    T = job_stats_table,
+    % TODO: ets:match is a potential bottleneck
+    ABC = ets:match(T, {{'_', '$1', '_', User},
+                        '$2', '$3', '$4', '$5', '$6', '$7', '_', '_'}),
+    Zeros = {[],0,0,0,0,0,0},
+    case ABC of
+        [] ->
+            {error, no_such_user};
+        _Stats ->
+            case Flag of
+                raw ->
+                    {User, sum_user_stats(ABC, Zeros)};
+                string ->
+                    format_user_stats({User, sum_user_stats(ABC, Zeros)})
+            end
+    end.
 
+sum_user_stats([], Tuple) ->
+    Tuple;
+sum_user_stats([[JobId, S1, S2, S3, S4, S5, S6] | Rest],
+               {J1, Sa1, Sa2, Sa3, Sa4, Sa5, Sa6}) ->
+    sum_user_stats(Rest, {lists:usort([JobId | J1]),
+                         S1+Sa1,S2+Sa2,S3+Sa3,S4+Sa4,S5+Sa5,S6+Sa6}).
+    
 %%--------------------------------------------------------------------
 %% @doc
 %% Extracts statistics about the entire cluster and returns it as a
@@ -1147,6 +1225,29 @@ format_node_stats({{NodeId},
       "Erlang process ~p using most memory, ~p bytes~n",
       [NodeId, Jobs, Power / 3600, Time, Upload, Download, Numtasks, Restarts,
       DiskTotal, DiskPercentage, MemTotal, MemPercentage, WorstPid, WorstSize]).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns a neatly formatted string of the stats of the given user
+%%
+%% @spec format_user_stats(Data) -> String
+%% 
+%% @end
+%%--------------------------------------------------------------------
+format_user_stats({User, {Jobs, Power, Time, Upload,
+                  Download, Numtasks, Restarts}}) ->
+    io_lib:format(
+      "Stats for user: ~p~n"
+      "------------------------------------------------------------~n"
+      "Jobs: ~p~n"
+      "Power used: ~.2f watt hours~n"
+      "Time executing: ~.2f seconds~n"
+      "Upload: ~p bytes~n"
+      "Download: ~p bytes~n"
+      "Number of tasks: ~p~n"
+      "Number of task restarts:~p~n",
+      [User, Jobs, Power / 3600, Time, Upload,
+       Download, Numtasks, Restarts]).
 
 %%--------------------------------------------------------------------
 %% @doc

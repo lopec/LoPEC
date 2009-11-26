@@ -191,13 +191,13 @@ update_and_getters([{_Pid, MasterDisk, MasterMem,
     Config.
 
 
-slavetests([{_Pid, JobId, Node}
+slavetests([{Pid, JobId, Node}
             | Config]) ->
     %must be empty initially
     {error, no_such_stats_found} =
         statistician:get_job_stats(JobId, raw),
     %flush when empty
-    statistician:handle_info({flush, JobId}, []),
+    Pid ! flush,
 
     %Lets add some fake info!
     statistician:update({{Node, JobId, split, usr}, 1.0, 1.0, 1, 1, 1, 1,
@@ -208,7 +208,7 @@ slavetests([{_Pid, JobId, Node}
     
     %Flush now should remove it. Though normally there'd be a wait and a msg
     %sent automatically rather than a call to to handle_info
-    statistician:handle_info({flush, JobId}, []),
+    Pid ! flush,
     %make sure it was removed
     {error, no_such_stats_found} =
         statistician:get_job_stats(JobId, raw),
@@ -225,7 +225,7 @@ slavetests([{_Pid, JobId, Node}
     [2.0, 2.0, 2, 2, 2, 2] =
         statistician:get_job_stats(JobId, raw),
     %flush with multiple elements
-    statistician:handle_info({flush, JobId}, []),
+    Pid ! flush,
     {error, no_such_stats_found} =
         statistician:get_job_stats(JobId, raw),
     Config.

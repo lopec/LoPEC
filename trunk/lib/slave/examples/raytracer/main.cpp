@@ -1,3 +1,9 @@
+/*
+main.c 
+A Raytracer using OpenCL for
+LoPEC Low Power Erlang-based Cluster 
+Author: Christofer Ferm  
+*/
 #include <CL/cl.h>
 #include <string.h>
 #include <stdio.h>
@@ -8,6 +14,8 @@
 #include <cmath>
 #include <list>
 #include <fstream>
+#include <sys/wait.h>
+#include <sys/types.h>
 
 
 using namespace std;
@@ -17,64 +25,31 @@ typedef struct{
 
 }centers; 
 
+/*a list of center arrays for the spheres*/ 
 cl_float *center = (cl_float *)malloc(sizeof(cl_float)*4);
+/*store the light vector */ 
 cl_float *light = (cl_float*)malloc(sizeof(cl_float)*4);  
+/*store the position of the origin*/ 
 cl_float *origin = (cl_float*)malloc(sizeof(cl_float)*4);
+/*store the radius of the spheres*/ 
 cl_float *r = (cl_float*)malloc(sizeof(cl_float)); 
+/*store the color id's of the spheres */ 
 cl_int *colorid = (cl_int*)malloc(sizeof(cl_int)); 
+/*will contian how many objects we have in the scene*/ 
 cl_int numobj;  
 
 
-typedef struct{
-  cl_float x;
-  cl_float y;
-  cl_float z; 
-}centervals; 
 
-
-
-
+/*Color datatype to hold RGB values*/ 
 typedef struct{
   cl_int r; 
   cl_int g;
   cl_int b; 
 }color;
 
-typedef struct{
-  cl_float r;
-  cl_float4 center; 
-  cl_int color; 
-}sphere; 
 
-/*typedef struct{
-  sphere *list; 
-  cl_float4 light; 
-  cl_float4 origin;
-  cl_int numobj;     
-}scene; 
-*/
-
-typedef struct{
-  cl_float4 center[]; 
-  cl_float r[]; 
-  cl_int colorid[]; 
-  cl_float4 light; 
-  cl_float4 origin; 
-  cl_int numobj; 
-}scene; 
-
-typedef struct{
-  cl_int colid; 
-  cl_float val; 
-}pixel; 
-
-
-void printArray(const cl_float *olol, cl_uint count, const char *s);
+/*prints out the results */
 void printResults(const cl_float *res, cl_int *col, cl_uint count); 
-//void printResults(const pixel *res, cl_uint count);
-// Use a static data size for simplicity
-//
-
   
 
 #define DATA_SIZE (1)
@@ -82,6 +57,32 @@ void printResults(const cl_float *res, cl_int *col, cl_uint count);
 int colorvals[3] = {255,255,0}; 
 color map[16];
 
+char *pid_file_path; 
+
+
+/*writes a pid file*/
+int writePID(int pid)
+{
+  FILE *pid_file; 
+  char *file = (char*)malloc(sizeof(char)*100);
+  char *value = (char*)malloc(sizeof(char)*100);  
+  int size =0;  
+  sprintf(file, "%s%d.pid", pid_file_path,pid);
+  size = sprintf(value, "%d",pid); 
+  pid_file=fopen(file,"w"); 
+  if(pid_file == NULL)
+    {
+      
+      return -1; 
+    }
+    fwrite(value,1,size,pid_file);
+    fclose(pid_file);
+
+ return 0; 
+}
+
+
+/*adds a center vector to the center list*/
 void addCenterToList(cl_float *item)
 {
   center=(cl_float*)realloc(center, sizeof(cl_float4)*4*(numobj+1));
@@ -92,6 +93,10 @@ void addCenterToList(cl_float *item)
   
 }
 
+
+/*read a scene file
+asumes that object are orded by their z values 
+with the object with largest z value last in the file */ 
 void readSceneFromFile(const char *filename)
 {
 
@@ -148,7 +153,7 @@ void readSceneFromFile(const char *filename)
     } 
 }
 
-//assign a float4 array to another 
+/*assign a float4 array to another*/  
 void float4Assign(cl_float *to, cl_float from[4])
 {
 
@@ -162,7 +167,8 @@ void float4Assign(cl_float *to, cl_float from[4])
 }
 
 
-
+/*prints out a cl_float4
+ for debugging purposes*/  
 void printOutFloat4(cl_float in[4])
 {
   for(int i=0; i<4;  i++)
@@ -173,19 +179,7 @@ void printOutFloat4(cl_float in[4])
 
 }
 
-// create a new Sphere 
-sphere newSphere(cl_float r, cl_float4 center)
-{
-
-  sphere s; 
-
-  s.r = r; 
-  //float4Assign(&s.center, center); 
-
-  return s; 
-
-}
-
+/*creates a new Color with RGB values*/ 
 color newColor(int r, int g, int b)
 {
   color c; 
@@ -206,7 +200,8 @@ color getColor(cl_int id)
 
 }
 
-
+/*read the scene from file if the filename is null use a static scene
+NEED CLEAN UP*/ 
 void readScene(const char *filename)
 {
   
@@ -227,27 +222,18 @@ void readScene(const char *filename)
   inorig[2] = -4; 
   inorig[0] = 0; 
 
-  // Fix this function
-  //printOutFloat4(inlight);  
 
-  // Fix this function
   float4Assign(light, inlight);
   float4Assign(origin, inorig); 
 
 
-  if(filename!=NULL)
+  if(filename!=NULL) /* if there is a scene file read settings else use static scene*/
     {
-  readSceneFromFile(filename);
+      readSceneFromFile(filename);
     }
   else 
     {
-      //Fix this function
-      //printOutFloat4(light);
-      // cl_float **centerlist = (cl_float **)malloc(sizeof(cl_float*)*3);
-      /* for(int i=0; i < 4; i++)
-    {
-    center[i] = (cl_float *)malloc(sizeof(cl_float)*4);
-    }*/
+      
       cl_float *center1 =  (cl_float *)malloc(sizeof(cl_float)*4);
       /* 00-1
 	 100
@@ -289,51 +275,77 @@ void readScene(const char *filename)
 
 int main(int argc, char* argv[]){
 
+/*set this to false if you don't want the file header to be written*/ 
 bool write_header = true;
-  if(argc < 5)
+  
+
+ if(argc < 5)
     {
-      cout << "Usage: <path to OpenCL code> <startline> <stopline> <total lines>" << endl; 
+      cout << "Usage: <path to OpenCL code> <startline> <stopline> <total lines> <scene_file>  <pid_file_path>" << endl; 
       exit(0);
     }
 
+  /*filepath to scene file will be stored here*/ 
   char *filename = NULL;  
-  /* if(argc == 8)
-    {
-  
-      colorvals[0] = atoi(argv[5]); 
-      colorvals[1] = atoi(argv[6]); 
-      colorvals[2] = atoi(argv[7]);
-  
-      }*/
 
+
+  /*optional arguments*/ 
+ 
+  /*scenefile path */ 
   if(argc > 4) 
     {
-      filename = argv[5]; 
+      filename = argv[5];
+      
+      
     }
-  //size_t global, local;
-  int err;
+  
+  /*if and where to write the PID file*/ 
+  if(argc > 5)
+    {
+      if(realloc(pid_file_path,sizeof(char)*strlen(argv[6]))==NULL)
+	{
+	  cout << "failed to allocate memmory" << endl;  
+	  exit(-1); 
+	}
 
-  // cl_int data[3] ={atoi(argv[2]),atoi(argv[3]),atoi(argv[4])};
-  //  cl_uint results[DATA_SIZE];
+	pid_file_path = argv[6];
+
+	int pid = getpid();
+	if(writePID(pid)==-1)
+	  {
+
+	    cout << "failed to write pid " << endl; 
+	    exit(-1); 
+
+	  }
+        
+
+    }
+  
+  /*used to store error codes from OpenCL*/
+  int err;
   int output_size = OUTPUT_SIZE;
-  // int print_out =  (argv[4]) * (atoi(argv[2]) - atoi(argv[3]));
-  // cl_float *results2 =  (cl_float*)malloc(OUTPUT_SIZE*sizeof(cl_float)); 
-  // pixel *results2 = (pixel*)malloc(OUTPUT_SIZE*sizeof(pixel)); 
+
   // OpenCL stuffs
-   cl_device_id device_id;
-   cl_context context;
-   cl_command_queue queue;
+  /*device identifier*/ 
+  cl_device_id device_id;
+  /*openCL context*/ 
+  cl_context context;
+  /*openCL command queue*/ 
+  cl_command_queue queue;
+
   cl_program program;
   cl_kernel kernel;
-  //  cl_mem input; 
-  // cl_mem output;
-  //cl_mem posmem; 
+
+  /*read in the width of the image to render*/ 
+  /*this will be the number of times the OpenCL kernel will be run for each y*/ 
   cl_int count = atoi(argv[4]);
-   
   cl_int pos =0;
-  //cl_int *colors = (cl_int*)malloc(OUTPUT_SIZE*sizeof(cl_int));
+ 
 
   
+  /*color id's*/
+  /* should be in the scene file */
 
   map[0]=newColor(0,0,0);//black 
   map[1]=newColor(255,0,0);//red
@@ -347,12 +359,13 @@ bool write_header = true;
   map[9]=newColor(2, 253,232); //turquoise
   map[10]=newColor(179,253,2); //slimegreen 
   map[11]=newColor(255,170,200); //pink
-  //count = DATA_SIZE;
+  
 
   
    
 /** 
-      read the opencl code from file 
+  
+    read the opencl code from file 
 
 
 */
@@ -435,7 +448,7 @@ bool write_header = true;
       }
 
       /**
-	 Load the program somewheres
+	 Load the program source 
       */
       program = clCreateProgramWithSource(context, 1, &KernelSource, NULL, &err);
 
@@ -477,50 +490,42 @@ bool write_header = true;
 
       cl_int y = count-1;    
      
+      /*data[3] contians which y we are processing*/  
       cl_int data[3] = {y,0,atoi(argv[4])}; 
        cl_int start = atoi(argv[2]);
       cl_int stop  = atoi(argv[3]);
 
+      /*write file header*/ 
       if(write_header)
 	{
 	  
 	  cout << "P3\n" << count << " " << start-stop << "\n" << "255" << "\n";
         }
       
+      /* read scene file if there was one provided 
+	 if filename is null a default scene will be used*/ 
       readScene(filename);
             
-      //cl_mem centermem;
-      //cl_mem radiusmem;
-      //cl_mem colorinmem;
-      //printOutFloat4(light);
-      
-      //printOutFloat4(center);
-      
-      
+           
       data[1] = numobj;
      
-
+      /* for every y we calculate the pixel value of every x */
   for(y=start-1; y>=stop; y--)
     {
 
      
-     
-
-      //cl_float *result = (cl_float*)malloc((count*sizeof(cl_float))*s.numobj); 
-      //   cl_float result[numobj][count];
-
+      /* color array will contian color id for each pixel */
       cl_int *colors = (cl_int*)malloc(count*sizeof(cl_int));
-      /* for(int i=0; i<s.numobj; i++)
-      	{
-      */
+
      
     
-      data[0] = y;    
-	   cl_float *results2 =  (cl_float*)malloc(count*sizeof(cl_float));
+          data[0] = y;    
+	  cl_float *results2 =  (cl_float*)malloc(count*sizeof(cl_float));
 	
 	  size_t global, local;
 
 
+	  /*declare opencl memory objects*/ 
 	  cl_mem input; 
 	  cl_mem output;
 	  cl_mem centermem;
@@ -532,13 +537,7 @@ bool write_header = true;
 	  
 
       
-	  // for(int i=0; i<count; i++)
-	  // {
-	  // results2[i]=0;
-      
-      
-	  // }
-
+	  
  
 
 	  /**
@@ -617,10 +616,11 @@ bool write_header = true;
 	      exit(1);
 	    }
     
-	  //  printArray((cl_uint *)input, count, "Input: ");
+	
 	  /**
 	     Write stuff to the input buffer.
 	  */
+	
 	  err = clEnqueueWriteBuffer(queue, input, CL_TRUE, 0, sizeof(cl_int) * 3,
 				 &data, 0, NULL, NULL);
 
@@ -737,7 +737,7 @@ bool write_header = true;
   return 0;
 }
 
-
+/* if the luminess value is larger then max return max else value. */ 
 int getColorValue(int max, int value)
 {
  
@@ -750,17 +750,16 @@ int getColorValue(int max, int value)
 }
 
 
-
+/* prints out the results */
 
 void printResults(const cl_float *res, cl_int *col,cl_uint count)
 {
-  // cout << "P2\n" << int(sqrt(count)) << " " << int(sqrt(count)) << "\n255\n";
 
  
   for(cl_uint i=0;  i<count; i++)
     {
       int num = int(.5 + 255. * res[i]/16);
-      // int num  = int(res[i]);
+      
       
       if(num<0)
       {
@@ -776,11 +775,9 @@ void printResults(const cl_float *res, cl_int *col,cl_uint count)
        int r = getColorValue(c.r,num); 
        int g = getColorValue(c.g,num); 
        int b = getColorValue(c.b,num);  
-      //cout << res[0][0 << endl;
-      // cout << col[i] << " " << num  << " RGB" << r << " " << g << " " << b <<  endl;
+  
        cout << r << " " << g << " "  << b <<  "\n";
-       //cout << res[i] << endl;
-       //cout << num << "  " <<  i <<  endl;
+  
 	
 
     }

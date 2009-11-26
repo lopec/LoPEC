@@ -3,8 +3,25 @@
 -include_lib("eunit/include/eunit.hrl").
 
 child_init_test_() ->
-    ?_assertMatch({ok, {_, _}}, clientSupervisor:init(no_args)).
+   {setup,
+     fun () -> ok end,
+     fun (_) -> ok end,
+     fun (_) ->
+             {inorder,
+              [
+               ?_assertMatch({ok, {_, _}}, clientSupervisor:init(no_args))
+              ]}
+     end
+    }.
 
 child_specs_test_() ->
-    {ok, {_, ChildSpecs}} = clientSupervisor:init(no_args),
-    ?_assertMatch(ok, supervisor:check_childspecs(ChildSpecs)).
+   {setup,
+     fun () -> clientSupervisor:init(no_args) end,
+     fun (_) -> ok end,
+     fun ({ok, {_, ChildSpecs}}) ->
+             {inorder,
+              [
+               ?_assertMatch(ok, supervisor:check_childspecs(ChildSpecs))
+              ]}
+     end
+    }.

@@ -4,7 +4,7 @@
           program_name,  % program name to be run
           problem_type,  % default should be mapreduce
           path,          % Path to the directory containing input data
-          state = free,  % [free | stopped | paused]
+          state = free,  % [free | stopped | paused | no_tasks]
           owner,         % Name of the user who submitted job
           priority,      % for future use, not supported right now
           is_bg = false, % true if this job is a background job

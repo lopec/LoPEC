@@ -440,7 +440,7 @@ mark_done(TaskId) ->
 create_task(TaskSpec) ->
     chronicler:debug("TaskSpec: ~p", [TaskSpec]),
     case db:add_task(TaskSpec) of
-        job_not_in_db ->
+        {error, job_not_in_db} ->
             chronicler:debug("?MODULE: Job does not exist in DB", []);
         task_not_added ->
             chronicler:debug("?MODULE: Duplicate task was not created", []);

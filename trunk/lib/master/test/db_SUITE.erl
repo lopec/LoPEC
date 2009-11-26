@@ -82,7 +82,7 @@ db_no_job(_Config) ->
     {error, job_not_in_db} = db:add_task(TaskWithoutJob),
 
     TaskWithoutJob2 = {1, raytracer, reduce, 'ystads-nisse/pron'},
-    job_not_in_db = db:add_task(TaskWithoutJob2).
+    {error, job_not_in_db} = db:add_task(TaskWithoutJob2).
 
 db_fetch_task(_Config) ->
     Job = {raytracer, mapreduce, ystadsnisse, 15},
@@ -115,7 +115,7 @@ db_fetch_task(_Config) ->
 
 db_incorrect_input_type(_Config) ->
     Job = {raytracer, mapreduce, ystadsnisse, 15},
-    TaskWithErrorType = {Job, raytracer, this_is_errornous, 'ystads-nisse/pron'},
+    TaskWithErrorType = {Job, raytracer, non_existing_task_type, 'ystads-nisse/pron'},
     {error, incorrect_input_type} = db:add_task(TaskWithErrorType).
 
 db_test() ->

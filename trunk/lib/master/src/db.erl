@@ -217,12 +217,12 @@ add_task({JobId, ProgramName, Type, Path})
         false ->
             case read(job, JobId) of
                 {error, _Reason} ->
-                    job_not_in_db;
+                    {error, job_not_in_db};
                 _ ->
                     call_add(TableName, JobId, ProgramName, Type, Path)
             end;
         _ ->
-            task_not_added
+            {error, task_not_added}
     end;
 add_task({JobId, ProgramName, Type, Path}) when Type == split ; Type == map ->
     TableName = list_to_atom(lists:concat([Type, '_free'])),

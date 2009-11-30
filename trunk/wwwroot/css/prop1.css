@@ -4,7 +4,7 @@ body{
 }
 
 
-div#sidemenu
+div#header
 {
     width: 11%;
     height: 900px;
@@ -15,29 +15,30 @@ div#sidemenu
     color: #FFFFFF;
 }
 
-div#sidemenu div#logo
+div#header div#logo
 {
     margin-top: 15px;
 }
-div#sidemenu div#logo img
+div#header div#logo img
 {
     width: 100px;
 }
 
-div#sidemenu div#title
+div#header div#title
 {
     font-size: 12px;
     font-weight: bold;
     margin-top: 10px;
 }
 
-div#sidemenu div#information
+div#header div#information
 {
     margin-top: 10px;
     font-size: 8px;
 }
 div#menu_border
 {
+    display: none;
     height: 5px;
     background-color: #000000;
     float: left;
@@ -58,7 +59,16 @@ div#menu div#menuitem, div#menu div#menuitem a
     float: left;
     margin-left: 15px;
     text-decoration: none;
-    margin-top: 5px;
+    margin-top: 2px;
+}
+
+div#submenu
+{
+    background-color: #006060;
+    margin-top: 10px;
+    float: left;
+    width: 89%;
+    height: 50px;
 }
 
 div#main
@@ -75,20 +85,6 @@ div#main div#title
     color: #000000;
 }
 
-div#header
-{
-	 font-size: 22px;
-    font-weight: bold;
-    width: 89%;
-    background-color: #006060;
-    float: left;
-    color: #FFFFFF;
-    font-size: 10px;
-    font-weight: bold;
-    text-align: center;
-    height: 30px;
-}
-
 div#header div#text
 {
     font-size: 22px;
@@ -96,6 +92,7 @@ div#header div#text
 
 div#footer
 {
+    display: none;
     width: 89%;
     background-color: #006060;
     float: left;

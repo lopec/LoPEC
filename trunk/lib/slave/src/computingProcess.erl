@@ -137,7 +137,7 @@ init([Progname, Path, Op, LoadPath, SavePath, JobId, TaskId, PidPath]) ->
 %% @doc
 %% Logs and discards unexpected messages.
 %%
-%% @spec handle_call(stop_job, State) ->  {reply, job_stopped, State}
+%% @spec handle_call(stop_job, From, State) ->  {reply, job_stopped, State}
 %% @end
 %%--------------------------------------------------------------------
 %% HERE IS THE EVUL PRÅBLEM

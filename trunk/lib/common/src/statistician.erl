@@ -6,9 +6,23 @@
 %%% @copyright (C) 2009, Axel Andren <axelandren@gmail.com>
 %%% @doc
 %%%
-%%% Collects various statistics about the cluster and its nodes, like
-%%% power consumption and time taken for jobs to complete, and lets
-%%% users access these through the API.
+%%% Collects various statistics about the cluster nodes and jobs put
+%%% in the cluster.
+%%% <pre>
+%%% Cluster global statistics include:
+%%%    * Jobs executed (also those that are done or cancelled)
+%%%    * Power consumed (estimation)
+%%%    * Time spent executing tasks (sum total for all nodes)
+%%%    * Upload network traffic (total unfortunately, not just ours)
+%%%    * Download network traffic (ditto)
+%%%    * Number of tasks processed
+%%%    * Number of task restarts
+%%%    * Total amount of master node diskspace
+%%%    * % of master node diskspace used
+%%%    * Total amount of master node primary memory
+%%%    * % of master node primary memory used
+%%%    * What process is using the most primary memory, and how much
+%%%</pre>
 %%%
 %%% @end
 %%% Created : 21 Oct 2009 by Axel Andren <axelandren@gmail.com>
@@ -18,7 +32,7 @@
 
 -behaviour(gen_server).
 
-%% API
+%% API functions
 -export([start_link/1, update/1, job_finished/1, remove_node/1, stop/0,
          get_cluster_stats/1, get_job_stats/2,
          get_node_stats/2, get_node_job_stats/3,
@@ -29,10 +43,10 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
-% Milliseconds
+% Hiow often do slaves flush stats to master, in milliseconds
 -define(UPDATE_INTERVAL, 1000).
 
-% Do we want to delete jobs from our tables once finished
+% Do we want to delete jobs from our tables once finished (debug flag)
 -ifdef(no_delete_tables).
 -define(DELETE_TABLE(), dont).
 -else.
@@ -49,8 +63,10 @@
 %% Starts the server.
 %% <pre>
 %% Type:
-%%  slave - start an interval timer to flush gathered stats to master regularly
-%%  master - no timer, but create a second ets table for storing node stats in
+%%  slave  - start a slave node statistician. It intermittently flushes
+%%           collected stats to the master.
+%%  master - start a master node statistician. It keeps track of node
+%%           (global) stats as well as job stats.
 %% </pre>
 %% @spec start_link(Type) -> {ok, Pid} | ignore | {error, Error}
 %% @end
@@ -61,7 +77,7 @@ start_link(Type) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Stops the statistician.
+%% Stops the statistician and all related applications and modules.
 %%
 %% @spec stop() -> ok
 %% @end
@@ -71,14 +87,14 @@ stop() ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Returns average disk usage over all nodes
+%% Returns average disk usage over all nodes.
 %% <pre>
 %% Flag:
 %%  raw - gives internal representation (Tuples, lists, whatnot)
 %%  string - gives nicely formatted string
 %% </pre>
 %% @spec get_cluster_disk_usage(Flag) -> String
-%%                                 | {Total::Integer, Percentage::Integer}
+%%                             | {Total::Integer, Percentage::Integer}
 %% @end
 %%--------------------------------------------------------------------
 get_cluster_disk_usage(Flag) ->
@@ -86,14 +102,14 @@ get_cluster_disk_usage(Flag) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Returns average primary memory usage over all nodes
+%% Returns average primary memory usage over all nodes.
 %% <pre>
 %% Flag:
 %%  raw - gives internal representation (Tuples, lists, whatnot)
 %%  string - gives nicely formatted string
 %% </pre>
 %% @spec get_cluster_mem_usage(Flag) -> String
-%%                                 | {Total::Integer, Percentage::Integer}
+%%                             | {Total::Integer, Percentage::Integer}
 %% @end
 %%--------------------------------------------------------------------
 get_cluster_mem_usage(Flag) ->
@@ -169,15 +185,6 @@ get_job_stats(JobId, string) ->
 %% @doc
 %% Returns stats for NodeId.
 %% <pre>
-%% Current statistics include:
-%%    * Jobs being executed
-%%    * Power consumed
-%%    * Time spent executing tasks
-%%    * Upload network traffic
-%%    * Download network traffic
-%%    * Number of tasks processed
-%%    * Number of task restarts
-%%
 %% Flag:
 %%      raw - gives internal representation (Tuples, lists, whatnot)
 %%      string - gives nicely formatted string
@@ -347,136 +354,32 @@ init([slave]) ->
     {ok, []}.
 
 %%--------------------------------------------------------------------
-%% private
-%% doc
+%% @private
+%% @doc
 %% Flag = raw | string
-%% see node_stats/1
+%% @see node_stats/1
 %%
-%% spec handle_call({get_cluster_disk_usage, Flag}, From, State) ->
+%% @spec handle_call({get_cluster_disk_usage, Flag}, From, State) ->
 %%                          {reply, Reply, State}
-%% end
+%% @end
 %%--------------------------------------------------------------------
 handle_call({get_cluster_disk_usage, Flag}, _From, State) ->
-    Nodes = [node()|nodes()],
-    NodesStats = [gather_node_stats(X, raw)
-                  || X <- Nodes],
-    CorrectNodesStats =
-        lists:filter(fun ({error, _}) -> false; (_) -> true end,
-                     NodesStats),
-
-    F = fun({{_NodeId},
-             _Jobs, _Power, _Time, _Upload, _Download, _Numtasks,
-             _Restarts,
-             {DiskTotal, DiskPercentage},
-             {_MemTotal, _MemPercentage, {_WorstPid, _WorstSize}}}) ->
-                {DiskTotal, DiskPercentage}
-        end,
-
-    E1 = fun({First, _Second}) -> First end,
-
-    E2 = fun({_First, Second}) -> Second end,
-
-    DiskUsed = fun({DiskTotal, DiskPercentage}) ->
-                       _Result = DiskPercentage*0.01*DiskTotal
-               end,
-
-    ListOfStats = lists:map(F, CorrectNodesStats),
-
-    ResultList =
-        case length(ListOfStats) of
-            0 ->
-                [0,0,0,0,0];
-            Length ->
-                TotalSize = lists:sum(lists:map(E1, ListOfStats)),
-                SumPercentage = lists:sum(lists:map(E2, ListOfStats)),
-                TotalUsed = lists:sum(lists:map(DiskUsed, ListOfStats)),
-
-                AveragePercentage = SumPercentage / Length,
-                AverageSize = TotalSize / Length,
-                TotalPercentage = (TotalUsed / TotalSize) * 100,
-
-                [TotalSize, TotalUsed, AverageSize,
-                 TotalPercentage, AveragePercentage]
-    end,
-
-    Reply =
-        case Flag of
-            raw ->
-                [{per_node, CorrectNodesStats}, {collected, ResultList}];
-            string ->
-                io_lib:format("Total disk size of nodes: ~p Kb~n"
-                              "Total disk used on nodes: ~p Kb~n"
-                              "Average disk size on nodes: ~p Kb~n"
-                              "Total disk used in cluster: ~p%~n"
-                              "Average disk used on nodes: ~p%~n",
-                              [trunc(X) || X <- ResultList])
-        end,
+    Reply = gather_cluster_disk_usage(Flag),
     {reply, Reply, State};
 
 
 %%--------------------------------------------------------------------
-%% private
-%% doc
+%% @private
+%% @doc
 %% Flag = raw | string
-%% see node_stats/1
+%% @see node_stats/1
 %%
-%% spec handle_call({get_cluster_mem_usage, Flag}, From, State) ->
+%% @spec handle_call({get_cluster_mem_usage, Flag}, From, State) ->
 %%                          {reply, Reply, State}
-%% end
+%% @end
 %%--------------------------------------------------------------------
 handle_call({get_cluster_mem_usage, Flag}, _From, State) ->
-    Nodes = [node()|nodes()],
-    NodesStats = [gather_node_stats(X, raw)||
-		     X <- Nodes],
-    CorrectNodesStats = [X || X <- NodesStats,
-			      X /= {error, no_such_node_in_stats}],
-    F = fun({{_NodeId},
-             _Jobs, _Power, _Time, _Upload, _Download, _Numtasks,
-             _Restarts,
-             {_DiskTotal, _DiskPercentage},
-             {MemTotal, MemPercentage, {WorstPid, WorstSize}}}) ->
-                {MemTotal, MemPercentage, {WorstPid, WorstSize}}
-        end,
-
-    E1 = fun({First, _Second, _Third}) -> First end,
-
-    E2 = fun({_First, Second, _Third}) -> Second end,
-
-    MemUsed = fun({MemTotal, MemPercentage, _Worst}) ->
-                      MemPercentage*0.01*MemTotal
-              end,
-
-    ListOfStats = lists:map(F, CorrectNodesStats),
-
-    ResultList =
-        case length(ListOfStats) of
-            0 ->
-                [0,0,0,0,0];
-            Length ->
-                TotalSize = lists:sum(lists:map(E1, ListOfStats)),
-                SumPercentage = lists:sum(lists:map(E2, ListOfStats)),
-                TotalUsed = lists:sum(lists:map(MemUsed, ListOfStats)),
-
-                AveragePercentage = SumPercentage / Length,
-                AverageSize = TotalSize / Length,
-                TotalPercentage = (TotalUsed / TotalSize) * 100,
-
-                [TotalSize, TotalUsed, AverageSize,
-                 TotalPercentage, AveragePercentage]
-    end,
-
-    Reply =
-        case Flag of
-            raw ->
-                [{per_node, CorrectNodesStats}, {collected, ResultList}];
-            string ->
-                io_lib:format("Total primary memory size of nodes: ~p b~n"
-                              "Total primary memory used on nodes: ~p b~n"
-                              "Average primary memory size on nodes: ~p b~n"
-                              "Total primary memory used in cluster: ~p%~n"
-                              "Average primary memory used on nodes: ~p%~n",
-                              [trunc(X) || X <- ResultList])
-        end,
+    Reply = gather_cluster_mem_usage(Flag),
     {reply, Reply, State};
 
 %%--------------------------------------------------------------------
@@ -492,20 +395,6 @@ handle_call({get_cluster_mem_usage, Flag}, _From, State) ->
 handle_call({get_cluster_stats, Flag}, _From, State) ->
     Reply = gather_cluster_stats(Flag),
     {reply, Reply, State};
-
-%%--------------------------------------------------------------------
-%% private
-%% doc
-%% Flag = raw | string
-%% see node_stats/1
-%%
-%% spec handle_call({get_cluster_disk_usage, Flag}, From, State) ->
-%%                          {reply, Reply, State}
-%% end
-%%--------------------------------------------------------------------
-
-%%handle_call({get_cluster_disk_usage, Flag}, _From, State) ->
-%%        {reply, Reply, State};
 
 %%--------------------------------------------------------------------
 %% @private
@@ -682,7 +571,7 @@ handle_cast({update, Stats}, State) ->
 %% @doc
 %% @see stop/0
 %%
-%% @spec handle_cast(stop, State) -> {stop, State}
+%% @spec handle_cast(stop, State) -> {stop, normal, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(stop, State) ->
@@ -691,9 +580,9 @@ handle_cast(stop, State) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% @see stop/0
 %%
-%% @spec handle_cast({alarm, Type, Alarm}, State) -> {stop, State}
+%% @spec handle_cast({alarm, Node, Type, Alarm}, State) ->
+%%                                               {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({alarm, Node, Type, Alarm}, State) ->
@@ -745,7 +634,7 @@ handle_cast({job_finished, JobId}, State) ->
 %% @see remove_node/1
 %% We do not delete data from the job stats tables when a node leaves,
 %% only from the global stats.
-%% Should produce a file: /storage/test/results/node_#_stats
+%% Should produce a file: /storage/test/results/node_NodeId_stats
 %%
 %% @spec handle_cast({remove_node, NodeId}, State) -> {noreply, State}
 %% @end
@@ -1069,10 +958,9 @@ gather_node_stats(NodeId, Flag) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Extracts statistics about User and returns it as a formatted string.
-%% Flag = raw | string
+%% Extracts statistics about a user.
 %%
-%% @spec gather_user_stats(NodeId, Flag) -> String
+%% @spec gather_user_stats(User, Flag) -> String
 %% 
 %% @end
 %%--------------------------------------------------------------------
@@ -1100,7 +988,147 @@ sum_user_stats([[JobId, S1, S2, S3, S4, S5, S6] | Rest],
                {J1, Sa1, Sa2, Sa3, Sa4, Sa5, Sa6}) ->
     sum_user_stats(Rest, {lists:usort([JobId | J1]),
                          S1+Sa1,S2+Sa2,S3+Sa3,S4+Sa4,S5+Sa5,S6+Sa6}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Extracts statistics about the cluster disk usage.
+%%
+%% @spec gather_cluster_disk_usage(Flag) -> String | ListOfValues
+%%           
+%%
+%% @end
+%%--------------------------------------------------------------------
+gather_cluster_disk_usage(Flag) ->
+    Nodes = [node()|nodes()],
+    NodesStats = [gather_node_stats(X, raw)
+                  || X <- Nodes],
+    CorrectNodesStats =
+        lists:filter(fun ({error, _}) -> false; (_) -> true end,
+                     NodesStats),
     
+        F = fun({{_NodeId},
+             _Jobs, _Power, _Time, _Upload, _Download, _Numtasks,
+             _Restarts,
+             {DiskTotal, DiskPercentage},
+             {_MemTotal, _MemPercentage, {_WorstPid, _WorstSize}}}) ->
+                {DiskTotal, DiskPercentage}
+        end,
+
+    E1 = fun({First, _Second}) -> First end,
+
+    E2 = fun({_First, Second}) -> Second end,
+
+    DiskUsed = fun({DiskTotal, DiskPercentage}) ->
+                       DiskPercentage*0.01*DiskTotal
+               end,
+
+    ListOfStats = lists:map(F, CorrectNodesStats),
+
+    ResultList =
+        case length(ListOfStats) of
+            0 ->
+                [0,0,0,0,0];
+            Length ->
+                TotalSize = lists:sum(lists:map(E1, ListOfStats)),
+                SumPercentage = lists:sum(lists:map(E2, ListOfStats)),
+                TotalUsed = lists:sum(lists:map(DiskUsed, ListOfStats)),
+
+                AveragePercentage = SumPercentage / Length,
+                AverageSize = TotalSize / Length,
+                TotalPercentage = case TotalSize of
+                                      0 ->
+                                          chronicler:debug("Total disk size of cluster was"
+                                                           "reported as 0 bytes~n"),
+                                          0;
+                                      _ ->
+                                          (TotalUsed / TotalSize) * 100
+                                  end,
+
+                [TotalSize, TotalUsed, AverageSize,
+                 TotalPercentage, AveragePercentage]
+    end,
+
+
+    case Flag of
+        raw ->
+            [{per_node, CorrectNodesStats}, {collected, ResultList}];
+        string ->
+            io_lib:format("Total disk size of nodes: ~p Kb~n"
+                          "Total disk used on nodes: ~p Kb~n"
+                          "Average disk size on nodes: ~p Kb~n"
+                          "Total disk used in cluster: ~p%~n"
+                          "Average disk used on nodes: ~p%~n",
+                          [trunc(X) || X <- ResultList])
+    end.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Extracts statistics about the cluster memory usage.
+%%
+%% @spec gather_cluster_mem_usage(Flag) -> String::string() | 
+%%                                         ListOfValues
+%% @end
+%%--------------------------------------------------------------------
+gather_cluster_mem_usage(Flag) ->
+    Nodes = [node()|nodes()],
+    NodesStats = [gather_node_stats(X, raw)||
+		     X <- Nodes],
+    CorrectNodesStats = [X || X <- NodesStats,
+			      X /= {error, no_such_node_in_stats}],
+    F = fun({{_NodeId},
+             _Jobs, _Power, _Time, _Upload, _Download, _Numtasks,
+             _Restarts,
+             {_DiskTotal, _DiskPercentage},
+             {MemTotal, MemPercentage, {WorstPid, WorstSize}}}) ->
+                {MemTotal, MemPercentage, {WorstPid, WorstSize}}
+        end,
+
+    E1 = fun({First, _Second, _Third}) -> First end,
+
+    E2 = fun({_First, Second, _Third}) -> Second end,
+
+    MemUsed = fun({MemTotal, MemPercentage, _Worst}) ->
+                      MemPercentage*0.01*MemTotal
+              end,
+
+    ListOfStats = lists:map(F, CorrectNodesStats),
+
+    ResultList =
+        case length(ListOfStats) of
+            0 ->
+                [0,0,0,0,0];
+            Length ->
+                TotalSize = lists:sum(lists:map(E1, ListOfStats)),
+                SumPercentage = lists:sum(lists:map(E2, ListOfStats)),
+                TotalUsed = lists:sum(lists:map(MemUsed, ListOfStats)),
+
+                TotalPercentage = case TotalSize of
+                                      0 ->
+                                          chronicler:debug("Total memory size of cluster was"
+                                                           "reported as 0 bytes~n"),
+                                          0;
+                                      _ ->
+                                          (TotalUsed / TotalSize) * 100
+                                  end,
+                AveragePercentage = SumPercentage / Length,
+                AverageSize = TotalSize / Length,
+
+                [TotalSize, TotalUsed, AverageSize,
+                 TotalPercentage, AveragePercentage]
+    end,
+
+    case Flag of
+        raw ->
+            [{per_node, CorrectNodesStats}, {collected, ResultList}];
+        string ->
+            io_lib:format("Total primary memory size of nodes: ~p b~n"
+                          "Total primary memory used on nodes: ~p b~n"
+                          "Average primary memory size on nodes: ~p b~n"
+                          "Total primary memory used in cluster: ~p%~n"
+                          "Average primary memory used on nodes: ~p%~n",
+                          [trunc(X) || X <- ResultList])
+    end.
+
 %%--------------------------------------------------------------------
 %% @doc
 %% Extracts statistics about the entire cluster and returns it as a
@@ -1128,8 +1156,8 @@ gather_cluster_stats(Flag) ->
                   Mem}
         end,
 
-    MasterDisk = gather_node_disk_usage(raw),
-    MasterMem = gather_node_mem_usage(raw),
+    ClusterDiskUsage = gather_cluster_disk_usage(raw),
+    ClusterMemUsage = gather_cluster_mem_usage(raw),
 
     {Nodes, Jobs, Power, Time, Upload, Download, NumTasks, Restarts,
      _Disk, _Mem} =
@@ -1137,7 +1165,8 @@ gather_cluster_stats(Flag) ->
                   node_stats_table),
     Data = {lists:usort(Nodes), lists:usort(Jobs),
             Power, Time, Upload, Download, NumTasks, Restarts,
-            MasterDisk, MasterMem},
+            ClusterDiskUsage,
+            ClusterMemUsage},
 
     case Flag of
         raw ->
@@ -1156,8 +1185,10 @@ gather_cluster_stats(Flag) ->
 %%--------------------------------------------------------------------
 format_cluster_stats(
   {Nodes, Jobs, Power, Time, Upload, Download, Numtasks, Restarts,
-   {DiskTotal, DiskPercentage},
-   {MemTotal, MemPercentage, {WorstPid, WorstSize}}}) ->
+   [{per_node, WhichNodesDiskStats},
+   {collected, [TotalDisk, TotalUsedDisk, AverageDisk, TotalUsedDiskP, AverageUsedDiskP]}],
+   [{per_node, WhichNodesMemStats},
+   {collected, [TotalMem, TotalUsedMem, AverageMem, TotalUsedMemP, AverageUsedMemP]}]}) ->
       io_lib:format(
         "The cluster currently has these stats stored:~n"
         "------------------------------------------------------------~n"
@@ -1169,15 +1200,24 @@ format_cluster_stats(
         "Download: ~p bytes~n"
         "Number of tasks total: ~p~n"
         "Number of task restarts:~p~n"
-        "Master Disk size: ~p bytes~n"
-        "Master Disk used: ~p%~n"
-        "Master Primary memory size: ~p bytes~n"
-        "Master Primary memory used: ~p%~n"
-        "Erlang process ~p using most memory, ~p bytes~n",
+        "---------------------~n"
+        "Disk stats from nodes: ~n~p~n"
+        "Total Disk size: ~p bytes~n"
+        "Total Disk used: ~p%~n"
+        "Total Disk used: ~p bytes~n"
+        "Average Disk size: ~p bytes~n"
+        "Average Disk used: ~p%~n"
+        "---------------------~n"
+        "Memory stats from nodes: ~n~p~n"
+        "Total Memory size: ~p bytes~n"
+        "Total Memory used: ~p bytes~n"
+        "Total Memory used: ~p%~n"
+        "Average Memory size: ~p bytes~n"
+        "Average Memory used: ~p%~n",
         [Nodes, Jobs, Power / 3600, Time, Upload,
          Download, Numtasks, Restarts,
-         DiskTotal, DiskPercentage, MemTotal,
-         MemPercentage, WorstPid, WorstSize]).
+         WhichNodesDiskStats, TotalDisk, TotalUsedDisk, TotalUsedDiskP, AverageDisk, AverageUsedDiskP,
+         WhichNodesMemStats, TotalMem, TotalUsedMem, TotalUsedMemP, AverageMem, AverageUsedMemP]).
 
 %%--------------------------------------------------------------------
 %% @doc

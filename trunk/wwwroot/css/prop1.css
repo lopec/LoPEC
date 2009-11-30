@@ -1,0 +1,112 @@
+body{
+    margin:0;
+    padding:0;
+}
+
+
+div#sidemenu
+{
+    width: 11%;
+    height: 900px;
+    background-color: #006060;
+    padding-left: 0px;
+    text-align: center;
+    float: left;
+    color: #FFFFFF;
+}
+
+div#sidemenu div#logo
+{
+    margin-top: 15px;
+}
+div#sidemenu div#logo img
+{
+    width: 100px;
+}
+
+div#sidemenu div#title
+{
+    font-size: 12px;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+div#sidemenu div#information
+{
+    margin-top: 10px;
+    font-size: 8px;
+}
+div#menu_border
+{
+    height: 5px;
+    background-color: #000000;
+    float: left;
+    width: 89%;
+}
+
+div#menu
+{
+    background-color: #006060;
+    float: left;
+    width: 89%;
+    height: 30px;
+}
+
+div#menu div#menuitem, div#menu div#menuitem a
+{
+    color: #FFFFFF;
+    float: left;
+    margin-left: 15px;
+    text-decoration: none;
+    margin-top: 5px;
+}
+
+div#main
+{
+    float: left;
+    width: 50%;
+    height: 820px;
+    margin-left: 10px;
+    margin-top: 10px;
+}
+
+div#main div#title
+{
+    color: #000000;
+}
+
+div#header
+{
+	 font-size: 22px;
+    font-weight: bold;
+    width: 89%;
+    background-color: #006060;
+    float: left;
+    color: #FFFFFF;
+    font-size: 10px;
+    font-weight: bold;
+    text-align: center;
+    height: 30px;
+}
+
+div#header div#text
+{
+    font-size: 22px;
+}
+
+div#footer
+{
+    width: 89%;
+    background-color: #006060;
+    float: left;
+    color: #FFFFFF;
+    font-size: 10px;
+    font-weight: bold;
+    text-align: center;
+    height: 30px;
+}
+
+div#footer div#text
+{
+    margin-top: 12px;
+}

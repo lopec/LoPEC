@@ -183,7 +183,7 @@ checkempty([{_Pid, ClusterDisk, ClusterMem,
         statistician:get_node_job_stats(Node1, JobId1, string),
     Config.
 
-update_and_getters([{_Pid, _ClusterDisk, _ClusterMem,
+update_and_getters([{Pid, _ClusterDisk, _ClusterMem,
                      {JobId1, JobId2, JobId3}, {Node1, Node2, Node3, Node4}}
                     | Config]) ->
 
@@ -245,6 +245,26 @@ update_and_getters([{_Pid, _ClusterDisk, _ClusterMem,
     true = is_list(statistician:get_node_job_stats(Node1, JobId1, string)),
     true = is_list(statistician:get_node_stats(Node1, string)),
     true = is_list(statistician:get_cluster_stats(string)),
+
+    %flushing here should result in the master sending all its data to itself
+    %with a cast (which it'll handle later) and then clearing its table.
+    Pid ! flush,
+
+    %If it handles the cast immediately after, these stats should be in the
+    %master stats again.
+    timer:sleep(100),
+    [4.0, 4.0, 4, 4, 4, 4] =
+        statistician:get_job_stats(JobId1, raw),
+    [0.0, 0.0, 0, 0, 0, 0] =
+        statistician:get_node_job_stats(Node1, JobId1, raw),
+    
+    %Node stats should have been updated, doubling all job values
+    {{Node1}, Node1JobsList, 2.0,2.0,2,2,2,2,{0,0},{0,0,{Self,0}}} =
+        statistician:get_node_stats(Node1, raw),
+    true = lists:member(JobId1, Node1JobsList),
+    true = lists:member(JobId3, Node1JobsList),
+    [] = Node1JobsList -- [JobId1, JobId3],
+    
     Config.
 
 

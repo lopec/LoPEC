@@ -358,34 +358,25 @@ init([slave]) ->
 %%--------------------------------------------------------------------
 handle_call({get_cluster_disk_usage, Flag}, _From, State) ->
     Nodes = [node()|nodes()],
-    NodesStats = [gather_node_stats(X, raw)||
-			       X <- Nodes],
-    CorrectNodesStats = [X || X <- NodesStats,
-			      X /= {error, no_such_node_in_stats}],
+    NodesStats = [gather_node_stats(X, raw)
+                  || X <- Nodes],
+    CorrectNodesStats =
+        lists:filter(fun ({error, _}) -> false; (_) -> true end,
+                     NodesStats),
 
-    F = fun(H) ->
-                {{_NodeId},
-                 _Jobs, _Power, _Time, _Upload, _Download, _Numtasks,
-                 _Restarts,
-                 {DiskTotal, DiskPercentage},
-                 {_MemTotal, _MemPercentage, {_WorstPid, _WorstSize}}}
-                    = gather_node_stats(H, raw),
-
+    F = fun({{_NodeId},
+             _Jobs, _Power, _Time, _Upload, _Download, _Numtasks,
+             _Restarts,
+             {DiskTotal, DiskPercentage},
+             {_MemTotal, _MemPercentage, {_WorstPid, _WorstSize}}}) ->
                 {DiskTotal, DiskPercentage}
         end,
 
-    E1 = fun(H) ->
-                {First, _Second} = H,
-                 First
-         end,
+    E1 = fun({First, _Second}) -> First end,
 
-    E2 = fun(H) ->
-                 {_First, Second} = H,
-                 Second
-         end,
+    E2 = fun({_First, Second}) -> Second end,
 
-    DiskUsed = fun(H) ->
-                       {DiskTotal, DiskPercentage} = H,
+    DiskUsed = fun({DiskTotal, DiskPercentage}) ->
                        _Result = DiskPercentage*0.01*DiskTotal
                end,
 
@@ -404,7 +395,8 @@ handle_call({get_cluster_disk_usage, Flag}, _From, State) ->
                 AverageSize = TotalSize / Length,
                 TotalPercentage = (TotalUsed / TotalSize) * 100,
 
-                [TotalSize, TotalUsed, AverageSize, TotalPercentage,AveragePercentage]
+                [TotalSize, TotalUsed, AverageSize,
+                 TotalPercentage, AveragePercentage]
     end,
 
     Reply =
@@ -412,13 +404,13 @@ handle_call({get_cluster_disk_usage, Flag}, _From, State) ->
             raw ->
                 [{per_node, CorrectNodesStats}, {collected, ResultList}];
             string ->
-            io_lib:format("Total disk size of nodes: ~p Kb~n"
-                          "Total disk used on nodes: ~p Kb~n"
-                          "Average disk size on nodes: ~p Kb~n"
-                          "Total disk used in cluster: ~p%~n"
-                          "Average disk used on nodes: ~p%~n",
-                          [trunc(X) || X <- ResultList])
-    end,
+                io_lib:format("Total disk size of nodes: ~p Kb~n"
+                              "Total disk used on nodes: ~p Kb~n"
+                              "Average disk size on nodes: ~p Kb~n"
+                              "Total disk used in cluster: ~p%~n"
+                              "Average disk used on nodes: ~p%~n",
+                              [trunc(X) || X <- ResultList])
+        end,
     {reply, Reply, State};
 
 
@@ -438,31 +430,21 @@ handle_call({get_cluster_mem_usage, Flag}, _From, State) ->
 		     X <- Nodes],
     CorrectNodesStats = [X || X <- NodesStats,
 			      X /= {error, no_such_node_in_stats}],
-    F = fun(H) ->
-                {{_NodeId},
-                 _Jobs, _Power, _Time, _Upload, _Download, _Numtasks,
-                 _Restarts,
-                 {_DiskTotal, _DiskPercentage},
-                 {MemTotal, MemPercentage, {WorstPid, WorstSize}}}
-                    = gather_node_stats(H, raw),
-
+    F = fun({{_NodeId},
+             _Jobs, _Power, _Time, _Upload, _Download, _Numtasks,
+             _Restarts,
+             {_DiskTotal, _DiskPercentage},
+             {MemTotal, MemPercentage, {WorstPid, WorstSize}}}) ->
                 {MemTotal, MemPercentage, {WorstPid, WorstSize}}
         end,
 
-    E1 = fun(H) ->
-                {First, _Second, _Third} = H,
-                 First
-         end,
+    E1 = fun({First, _Second, _Third}) -> First end,
 
-    E2 = fun(H) ->
-                 {_First, Second, _Third} = H,
-                 Second
-         end,
+    E2 = fun({_First, Second, _Third}) -> Second end,
 
-    MemUsed = fun(H) ->
-                       {MemTotal, MemPercentage, _Worst} = H,
-                       _Result = MemPercentage*0.01*MemTotal
-               end,
+    MemUsed = fun({MemTotal, MemPercentage, _Worst}) ->
+                      MemPercentage*0.01*MemTotal
+              end,
 
     ListOfStats = lists:map(F, CorrectNodesStats),
 
@@ -479,7 +461,8 @@ handle_call({get_cluster_mem_usage, Flag}, _From, State) ->
                 AverageSize = TotalSize / Length,
                 TotalPercentage = (TotalUsed / TotalSize) * 100,
 
-                [TotalSize, TotalUsed, AverageSize, TotalPercentage,AveragePercentage]
+                [TotalSize, TotalUsed, AverageSize,
+                 TotalPercentage, AveragePercentage]
     end,
 
     Reply =

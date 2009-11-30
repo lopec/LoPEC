@@ -129,7 +129,7 @@ handle_call(Msg, From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType, _Progname}},
-	    {_LolTimer, {OldUp, OldDown}}) ->
+            {_LolTimer, {OldUp, OldDown}}) ->
     %% Report to statistician
     Diff = timer:now_diff(now(), Time) / 1000000,
     Power = power_check:get_watt_per_task(Diff),
@@ -138,8 +138,8 @@ handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType, _Progname}},
     Mem = statistician:get_node_mem_usage(raw),
     statistician:update({{node(), JobId, list_to_atom(TaskType), no_user},
                          Power, Diff, NewUp - OldUp, NewDown - OldDown, 1, 0,
-			 Disk, Mem}),
-    
+                         Disk, Mem}),
+
     %% Kill and remove computingProcess spec from dynamic supervisor
     supervisor:terminate_child(?DYNSUP, ?WORKER),
     supervisor:delete_child(?DYNSUP, ?WORKER),
@@ -162,7 +162,7 @@ handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType, _Progname}},
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({_Pid, error,  {JobId, _TaskId, Time, TaskType, _Progname}},
-	    {_Timer, {OldUp, OldDown}}) ->
+            {_Timer, {OldUp, OldDown}}) ->
     %% Report to statistician
     Diff = timer:now_diff(now(), Time) / 1000000,
     Power = power_check:get_watt_per_task(Diff),
@@ -172,7 +172,7 @@ handle_cast({_Pid, error,  {JobId, _TaskId, Time, TaskType, _Progname}},
     statistician:update({{node(), JobId, list_to_atom(TaskType), no_user},
                          Power, Diff, NewUp - OldUp, NewDown - OldDown, 0, 1,
                          Disk, Mem}),
-    
+
     %% Free task that has been given to node
     dispatcher:task_failed(JobId, list_to_atom(TaskType)),
 
@@ -221,18 +221,21 @@ handle_info(stop_job, {State, NetLoad}) ->
     chronicler:debug("~w : Stopping job~n", [?MODULE]),
     computingProcess:stop_job(),
     computingProcess:stop(),
+    supervisor:terminate_child(?DYNSUP, ?WORKER),
+    supervisor:delete_child(?DYNSUP, ?WORKER),
     {NewUp, NewDown} = netMonitor:get_net_stats(),
     {ok, Timer} = timer:send_interval(?TASK_FETCH_INTERVAL, poll),
     {noreply, {#state{work_state = no_task, timer = Timer}, {NewUp, NewDown}}};
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
 %% Logs and discards unexpected messages.
 %%
-%% @spec handle_info(Info, State) -> {noreply, State} 
+%% @spec handle_info(Info, State) -> {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(Info, State) -> 
+handle_info(Info, State) ->
     chronicler:warning("~w : Received unexpected handle_info call.~n"
                        "Info: ~p~n",
                        [?MODULE, Info]),
@@ -250,7 +253,7 @@ handle_info(Info, State) ->
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(Reason, _State) -> 
+terminate(Reason, _State) ->
     chronicler:info("~w : Received terminate call.~n"
                     "Reason: ~p~n",
                     [?MODULE, Reason]),
@@ -265,7 +268,7 @@ terminate(Reason, _State) ->
 %% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% @end
 %%--------------------------------------------------------------------
-code_change(OldVsn, State, Extra) -> 
+code_change(OldVsn, State, Extra) ->
     chronicler:debug("~w : Received unexpected code_change call.~n"
                      "Old version: ~p~n"
                      "Extra: ~p~n",
@@ -295,7 +298,7 @@ request_task() ->
 %%--------------------------------------------------------------------
 give_task({JobId, _TaskId, _Time, _OldType, Progname}, Type, Path) ->
     dispatcher:add_task({JobId, Progname, Type,
-			    "tmp/" ++ integer_to_list(JobId) ++ Path}).
+                            "tmp/" ++ integer_to_list(JobId) ++ Path}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -307,12 +310,12 @@ give_task({JobId, _TaskId, _Time, _OldType, Progname}, Type, Path) ->
 
 start_task({_Lool, TaskId, JobId, Name, Op, Path, _OLOLOL}) ->
     ChildSpec = {?WORKER,
-		 {?WORKER,
-		  start_link,
-		  [Name, Op, JobId, Path, TaskId]},
-		 transient,
-		 1,
-		 worker,
-		 [?WORKER]},
+                 {?WORKER,
+                  start_link,
+                  [Name, Op, JobId, Path, TaskId]},
+                 temporary,
+                 1,
+                 worker,
+                 [?WORKER]},
     supervisor:start_child(?DYNSUP, ChildSpec),
     ChildSpec.

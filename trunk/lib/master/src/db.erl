@@ -370,28 +370,7 @@ pause_job(JobId) ->
 %% @end
 %%--------------------------------------------------------------------
 stop_job(JobId) ->
-    set_job_state(JobId, stopped),
-    ListOfTasks = list_job_tasks(JobId),
-    AssignedFilter =
-        fun(H) ->
-                Task = get_task(H),
-                TaskState = Task#task.state,
-                case TaskState of
-                    assigned ->
-                        true;
-                    _ ->
-                        false
-                end
-        end,
-    GetNode =
-        fun(H) ->
-                _NodeId = gen_server:call(?SERVER, {get_node, H})
-        end,
-    ListOfNodes =
-        lists:map(GetNode, lists:filter(AssignedFilter, ListOfTasks)),
-    chronicler:info("~w:Stopped job.~nJobId:~p~nAffected nodes:~p~n",
-                    [?MODULE, JobId, ListOfNodes]),
-    ListOfNodes.
+    gen_server:call(?SERVER, {stop_job, JobId}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -634,6 +613,35 @@ handle_call({remove_job, JobId}, _From, State) ->
     chronicler:debug("~w:Removed job and associated tasks.~nJobId:~p~n",
                      [?MODULE, JobId]),
     {reply, ok, State};
+
+handle_call({stop_job, JobId}, _From, State) ->
+    set_job_state_internal(JobId, stopped),
+    Reply =
+        case get_tasks_assigned_in_job(JobId) of
+            {ok, AssignedTasks} ->
+                chronicler:user_info("found assigned tasks: ~p", [AssignedTasks]),
+                CollectNodes =
+                    fun (TaskId, Nodes) ->
+                            case read(assigned_tasks, TaskId) of
+                                {error, _} -> Nodes;
+                                #assigned_tasks{node_id = Node} -> [Node | Nodes]
+                            end
+                    end,
+                ListOfNodes = lists:foldr(CollectNodes, [], AssignedTasks),
+                ListForExaminer =
+                    [begin TaskRelation = read(task_relations, TaskId),
+                           Task = read(TaskRelation#task_relations.table_name, TaskId),
+                           {JobId, Task#task.type} end
+                     || TaskId <- AssignedTasks],
+                examiner:report_free(ListForExaminer),
+                lists:foreach(fun (TaskId) -> set_task_state(TaskId, free) end,
+                              AssignedTasks),
+                chronicler:info("~w:Stopped job.~nJobId:~p~nAffected nodes:~p~n",
+                                [?MODULE, JobId, ListOfNodes]),
+                ListOfNodes;
+            {error, Reason} -> {error, Reason}
+        end,
+    {reply, Reply, State};
 
 %%--------------------------------------------------------------------
 %% @private
@@ -1351,8 +1359,15 @@ set_task_state(TaskId, NewState) ->
                                                     = NewTableName}),
                     case NewState of
                         free ->
-                            set_job_state_internal(Task#task.job_id,
-                                                   NewState);
+                            case read(job, Task#task.job_id) of
+                                {error, _} ->
+                                    {error, job_not_found};
+                                Job when Job#job.state /= stopped ->
+                                    set_job_state_internal(Task#task.job_id,
+                                                           free);
+                                _ ->
+                                    ok
+                            end;
                         done ->
                             JobId = Task#task.job_id,
                             FreeTasks =
@@ -1537,4 +1552,19 @@ job_exists(JobID) ->
     case read(job, JobID) of
         {error, _} -> false;
         _          -> true
+    end.
+
+get_tasks_assigned_in_job(JobId) ->
+    FindTasks =
+        fun() ->
+                MatchHead =
+                    #assigned_tasks{job_id = '$1', task_id = '$2',  _ = '_'},
+                Guard = {'==', '$1', JobId},
+                Result = '$2',
+                mnesia:select(assigned_tasks, [{MatchHead, [Guard], [Result]}])
+        end,
+
+    case mnesia:transaction(FindTasks) of
+        {atomic, TaskIds} -> {ok, TaskIds};
+        _ -> {error, could_not_find_assigned_tasks}
     end.

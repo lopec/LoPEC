@@ -1,6 +1,6 @@
 %% The NEW job record.
 -record(job, {
-          job_id, 
+          job_id,
           program_name,  % program name to be run
           problem_type,  % default should be mapreduce
           path,          % Path to the directory containing input data

@@ -325,7 +325,7 @@ handle_call({stop_job, JobId}, _From, State) ->
 handle_call({cancel_job, JobId}, _From, State) ->
     NodeList = db:cancel_job(JobId),
     %% This sends a message "stop" to all nodes. This message will be
-    %% caught in taskFetcher on the slave-side. 
+    %% caught in taskFetcher on the slave-side.
     lists:foreach(fun (X) -> global:send(X, stop_job) end, NodeList),
     {reply, ok, State};
 
@@ -493,7 +493,9 @@ create_task(TaskSpec) ->
 %%--------------------------------------------------------------------
 stop_nodes(NodeList) ->
     chronicler:debug("~w: Killing nodes ~p", [?MODULE, NodeList]),
-    lists:foreach(fun (Node) -> global:send(Node, stop) end, NodeList).
+    lists:foreach(fun (Node) -> global:send(Node, stop_job),
+                                TaskList = db:free_tasks(Node),
+                                examiner:report_free(TaskList) end, NodeList).
 
 
 %%%===================================================================

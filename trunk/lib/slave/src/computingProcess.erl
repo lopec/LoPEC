@@ -19,19 +19,20 @@
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-	 terminate/2, code_change/3]).
+         terminate/2, code_change/3]).
 
--define(SERVER, ?MODULE). 
+-define(SERVER, ?MODULE).
 
 kill_all_procs([]) ->
+    chronicler:info("~w : No moar PIDs to keel.", [?MODULE]),
     [];
 kill_all_procs([{pid, Pid}|T]) ->
-    chronicler:info("~w : Killing PID = ~w~n", [?MODULE, Pid]),
+    chronicler:info("~w : Killing PID = ~p~n", [?MODULE, Pid]),
     os:cmd("kill -9 " ++ Pid),
     kill_all_procs(T);
 kill_all_procs([H|T]) ->
-    chronicler:info("~w : Killing PID (thru pid-file) = ~w~n", [?MODULE, H]),
-    os:cmd("kill -9 " ++ H),
+    chronicler:info("~w : Killing PID (thru pid-file) = ~p~n", [?MODULE, H]),
+    os:cmd("kill -9 `cat " ++ H ++ "`"),
     kill_all_procs(T).
 
 %%%===================================================================
@@ -54,7 +55,7 @@ start_link(Path, Op, JobId, InputPath, TaskId) ->
     StringId = integer_to_list(JobId),
     {ok, Root} = configparser:read_config(?CONFIGFILE, cluster_root),
     {ok, Platform} = configparser:read_config(?CONFIGFILE, platform),
-    Prog = Root ++ "programs/" ++ atom_to_list(Path) ++ "/script." ++ Platform,
+    Prog = lists:concat([Root, "programs/", Path, "/script.", Platform]),
     LoadPath = Root ++ InputPath,
     SavePath = Root ++
         case Op of
@@ -67,9 +68,12 @@ start_link(Path, Op, JobId, InputPath, TaskId) ->
                 file:change_mode(Dir, 8#777),
                 "results/" ++ StringId
         end,
+    PidPath = Root ++ "tmp/" ++ StringId ++ "/pid/"++ atom_to_list(node()) ++ "/",
+    filelib:ensure_dir(PidPath),
+    file:change_mode(PidPath, 8#777),
     gen_server:start_link({local, ?SERVER},?MODULE,
-			  [Path, Prog, atom_to_list(Op),
-			   LoadPath, SavePath, JobId, TaskId], []).
+                          [Path, Prog, atom_to_list(Op),
+                           LoadPath, SavePath, JobId, TaskId, PidPath], []).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -92,7 +96,7 @@ stop() ->
 %%--------------------------------------------------------------------
 stop_job() ->
     chronicler:debug("~w : Stopping current task.~n", [?MODULE]),
-    gen_server:call(?MODULE, {stop_job}),
+    gen_server:call(?MODULE, stop_job),
     ok.
 
 %%%===================================================================
@@ -110,22 +114,22 @@ stop_job() ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([Progname, Path, "split", LoadPath, SavePath, JobId, TaskId]) ->
+init([Progname, Path, "split", LoadPath, SavePath, JobId, TaskId, PidPath]) ->
     Splits = dispatcher:get_split_amount(),
     chronicler:debug("~w : Path: ~ts~nOperation: ~ts~nLoadpath:"
-		     " ~ts~nSavepath: ~ts~nJobId: ~p~n",
+                     " ~ts~nSavepath: ~ts~nJobId: ~p~n",
                      [?MODULE, Path, "split", LoadPath, SavePath, JobId]),
     open_port({spawn_executable, Path},
-	      [use_stdio, stderr_to_stdout, exit_status, {line, 512},
-	       {args, ["split", LoadPath, SavePath, integer_to_list(Splits)]}]),
+              [use_stdio, stderr_to_stdout, exit_status, {line, 512},
+               {args, ["split", LoadPath, SavePath, PidPath, integer_to_list(Splits)]}]),
     {ok, {JobId, TaskId, now(), "split", Progname, []}};
-init([Progname, Path, Op, LoadPath, SavePath, JobId, TaskId]) ->
+init([Progname, Path, Op, LoadPath, SavePath, JobId, TaskId, PidPath]) ->
     chronicler:debug("~w : Path: ~ts~nOperation: ~ts~nLoadpath:"
-		     " ~ts~nSavepath: ~ts~nJobId: ~p~n",
+                     " ~ts~nSavepath: ~ts~nJobId: ~p~n",
                      [?MODULE, Path, Op, LoadPath, SavePath, JobId]),
     open_port({spawn_executable, Path},
-	      [use_stdio, stderr_to_stdout, exit_status, {line, 512},
-	       {args, [Op, LoadPath, SavePath]}]),
+              [use_stdio, stderr_to_stdout, exit_status, {line, 512},
+               {args, [Op, LoadPath, SavePath, PidPath]}]),
     {ok, {JobId, TaskId, now(), Op, Progname, []}}.
 
 %%--------------------------------------------------------------------
@@ -133,21 +137,21 @@ init([Progname, Path, Op, LoadPath, SavePath, JobId, TaskId]) ->
 %% @doc
 %% Logs and discards unexpected messages.
 %%
-%% @spec handle_call(Msg, From, State) ->  {noreply, State}
+%% @spec handle_call(stop_job, State) ->  {reply, job_stopped, State}
 %% @end
 %%--------------------------------------------------------------------
 %% HERE IS THE EVUL PRÅBLEM
-handle_call({stop_job}, _From,
-            {JobId, TaskId, Time, TaskType, Progname, StartedPids}) ->
+handle_call(stop_job, _From,
+            State = {JobId, _TaskId, _Time, _TaskType, _Progname, StartedPids}) ->
     {ok, Root} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
-    PidPath = Root ++ "/tmp/" ++ integer_to_list(JobId) ++ "/*.pid",
-    Result = kill_all_procs(StartedPids),
-    PidFiles = os:cmd("for pidFile in `ls " ++ PidPath ++ "` ; do cat $pidFile; echo \"\n\"; done"),
-    Tokens = string:tokens(PidFiles, "\n"),
-    kill_all_procs(Tokens),
-    
-    %taskfetcher:reset_state(),
-    {noreply, {JobId, TaskId, Time, TaskType, Progname, Result}};
+    chronicler:info("~w: About to kill ~p", [?MODULE, StartedPids]),
+    PidPath = lists:concat([Root, "/tmp/", JobId, "/pid/", node(), "/*.pid"]),
+    PidFiles = filelib:wildcard(PidPath),
+    chronicler:info("~w: About to kill ~p", [?MODULE, PidFiles]),
+    kill_all_procs(StartedPids),
+    kill_all_procs(PidFiles),
+
+    {reply, job_stopped, State};
 
 %%--------------------------------------------------------------------
 %% @private
@@ -169,13 +173,12 @@ handle_call(Msg, From, State) ->
 %% @doc
 %% Handling cast messages
 %%
-%% @spec handle_cast(Msg, State) -> {noreply, State} |
-%%                                  {noreply, State, Timeout} |
-%%                                  {stop, Reason, State}
+%% @spec handle_cast(Msg, State) -> {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(stop, State) ->
     {stop, normal, State};
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -205,8 +208,8 @@ handle_cast(Msg, State) ->
 %%--------------------------------------------------------------------
 handle_info({_Pid, {data, {_Flag, "MY_PID " ++ Data}}},
             {JobId, TaskId, Time, TaskType, Progname, StartedPids}) ->
-    chronicler:debug("~w : MY_PID ~w Reported~n", [?MODULE, Data]),
-    {noreply, {JobId, TaskId, Time, TaskType, Progname, 
+    chronicler:debug("~w : MY_PID ~s Reported~n", [?MODULE, Data]),
+    {noreply, {JobId, TaskId, Time, TaskType, Progname,
         [{pid, Data}|StartedPids]}};
 handle_info({_Pid, {data, {_Flag, "NEW_SPLIT " ++ Data}}},
             State = {JobId, TaskId, Time, TaskType, Progname, _StartedPids}) ->
@@ -235,7 +238,7 @@ handle_info({_Pid, {data, {_Flag, "LOG " ++ Data}}}, State) ->
 handle_info({Pid, {data, {_Flag, "Segmentation fault"}}},
             State = {JobId, TaskId, Time, TaskType, Progname, _StartedPids}) ->
     chronicler:error("~w : Process ~p exited with reason: Segmentation fault",
-		     [?MODULE, Pid]),
+                     [?MODULE, Pid]),
     taskFetcher:error({self(), error,
                        {JobId, TaskId, Time, TaskType, Progname}}),
     {stop, normal, State};
@@ -252,7 +255,7 @@ handle_info({Pid, {exit_status, Status}}, State =
 handle_info({Pid, {exit_status, Status}},
             State = {JobId, TaskId, Time, TaskType, Progname, _StartedPids}) ->
     chronicler:error("~w : Process ~p exited with status: ~p~n",
-		     [?MODULE, Pid, Status]),
+                     [?MODULE, Pid, Status]),
     taskFetcher:error({self(), error,
                                {JobId, TaskId, Time, TaskType, Progname}}),
     {stop, normal, State};
@@ -261,10 +264,10 @@ handle_info({Pid, {exit_status, Status}},
 %% @doc
 %% Logs and discards unexpected messages.
 %%
-%% @spec handle_info(Info, State) -> {noreply, State} 
+%% @spec handle_info(Info, State) -> {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(Info, State) -> 
+handle_info(Info, State) ->
     chronicler:warning("~w : Received unexpected handle_info call.~n"
                        "Info: ~p~n",
                        [?MODULE, Info]),
@@ -282,7 +285,7 @@ handle_info(Info, State) ->
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(Reason, _State) -> 
+terminate(Reason, _State) ->
     chronicler:debug("~w : Received terminate call.~n"
                      "Reason: ~p~n",
                      [?MODULE, Reason]),
@@ -296,7 +299,7 @@ terminate(Reason, _State) ->
 %% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
 %% @end
 %%--------------------------------------------------------------------
-code_change(OldVsn, State, Extra) -> 
+code_change(OldVsn, State, Extra) ->
     chronicler:debug("~w : Received code_change call.~n"
                      "Old version: ~p~n"
                      "Extra: ~p~n",

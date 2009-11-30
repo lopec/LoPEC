@@ -1,0 +1,49 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>[[[page:title()]]]</title>
+<script src='/nitrogen/jquery.js' type='text/javascript' charset='utf-8'></script>
+<script src='/nitrogen/jquery-ui.js' type='text/javascript' charset='utf-8'></script>
+<script src='/nitrogen/livevalidation.js' type='text/javascript' charset='utf-8'></script>
+<script src='/nitrogen/nitrogen.js' type='text/javascript' charset='utf-8'></script>
+<link rel="stylesheet" href="/nitrogen/jquery-ui/jquery-ui.css" type="text/css" media="screen" charset="utf-8">
+<link rel="stylesheet" href="/nitrogen/elements.css" type="text/css" media="screen" charset="utf-8">
+<link rel="stylesheet" href="/css/normal.css" type="text/css" media="screen" charset="utf-8">
+</head>
+
+<body>
+
+<div id="header">
+    <div id="logo"><img src="/images/lopec.jpg"></div>
+    <div id="title">[[[page:title()]]]</div>
+    <div id="information">[[[page:get_info()]]]</div>
+</div>
+<div id="menu_border">&nbsp;</div>
+<div id="menu">
+    <div id="menuitem"><a href="web_index">Dashboard</a></div>
+    <div id="menuitem"><a href="web_add_job">Node information</a></div>
+    <div id="menuitem"><a href="web_list_jobs">Cluster information</a></div>
+    <div id="menuitem"><a href="web_list_nodes">Job information</a></div>
+    <div id="menuitem"><a href="web_list_nodes">Logs</a></div>
+</div>
+<div id="menu_border">&nbsp;</div>
+<div id="submenu">
+    <div id="menuitem"><a href="http://www.google.com">Add job</a></div>
+    <div id="menuitem"><a href="http://www.google.com">Status</a></div>
+    <div id="menuitem"><a href="http://www.google.com">Statistics</a></div>
+    <div id="menuitem"><a href="http://www.google.com">User Profile</a></div>
+</div>
+
+<div id="main">
+    <div id="title">[[[page:subtitle()]]]</div>
+    [[[element_flash:render()]]]
+    [[[page:body()]]]
+</div>
+
+<div id="footer"><div id="text">[[[page:footer()]]]</div></div>
+
+<script>
+[[[script]]]
+</script>
+</body>
+</html>

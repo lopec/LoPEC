@@ -1,3 +1,16 @@
+%%%-------------------------------------------------------------------
+%%% @author Henkan <henkethalin@hotmail.com>
+%%% @author Gustav Simonsson <gusi7871@student.uu.se>
+%%% @doc
+%%%
+%%% Custom event handler, adds itself to SASL event manager
+%%% 'alarm_handler' and sends any alarm event receieved to
+%%% global statistician, as a cast in log_alarm.
+%%%
+%%% @end
+%%% Created : Nov 2009 by Gustav Simonsson <gusi7871@student.uu.se>
+%%%-------------------------------------------------------------------
+
 -module(diskMemHandler).
 
 %% API

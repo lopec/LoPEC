@@ -49,5 +49,6 @@
 	  user_name,
 	  password,
 	  email,
-	  real_name
+	  real_name,
+	  role
 	 }).

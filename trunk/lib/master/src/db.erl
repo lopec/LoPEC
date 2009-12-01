@@ -49,7 +49,11 @@
 
 %% APIs for users
 -export([add_user/3,
-	 validate_user/2]).
+	 validate_user/2,
+	 get_user/1,
+	 set_role/2,
+	 set_password/3,
+	 set_email/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -286,6 +290,70 @@ add_user(Username, Email, Password) ->
 %%--------------------------------------------------------------------
 validate_user(Username, Password) ->
     gen_server:call(?SERVER, {validate_user, Username, Password}).
+
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Gets a user from the database.
+%%
+%% @spec get_user(Username::atom()) -> User | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+get_user(Username) ->
+    gen_server:call(?SERVER, {get_user, Username}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Changes the role (and thus the rights) of a specific user.
+%%
+%% @spec set_role(Username::atom(), NewRole::atom()) 
+%%                                 -> {ok, role_set} | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+set_role(Username, NewRole) ->
+    User = get_user(Username),
+    case User of
+	{error, Reason} ->
+	    {error, Reason};
+	_ ->
+	    NewUser = User#user{role=NewRole},
+	    gen_server:call(?SERVER, {modify_user, NewUser}),
+	    {ok, role_set}
+    end.
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Changes the password of a specific user.
+%%
+%% @spec set_role(Username::atom(), OldPassword::atom(), NewPassword::atom()) 
+%%                                 -> {ok, password_set} | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+set_password(Username, OldPassword, NewPassword) ->
+    gen_server:call(?SERVER, {set_password, Username, OldPassword, NewPassword}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Changes the email address of a specific user.
+%%
+%% @spec set_mail(Username::atom(), NewEmail::atom()) 
+%%                                 -> {ok, email_set} | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+set_email(Username, NewEmail) ->
+    User = get_user(Username),
+    case User of
+	{error, Reason} ->
+	    {error, Reason};
+	_ ->
+	    NewUser = User#user{email=NewEmail},
+	    gen_server:call(?SERVER, {modify_user, NewUser}),
+	    {ok, email_set}
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -993,7 +1061,71 @@ handle_call({validate_user, Username, Password}, _From, State) ->
 	    end
     end,
     {reply, Reply, State};
-		  
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Gets a user from the database.
+%%
+%% @spec handle_call({get_user, Username}, _From, State) ->
+%%                                 {reply, User, State} | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({get_user, Username}, _From, State) ->
+    User = read(user, Username),
+    {reply, User, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Sets the new properties of a user in the database to User.
+%%
+%% @spec handle_call({modify_user, Username, NewPassword}, _From, State) ->
+%%                                 {reply, role_set, State} | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({modify_user, User}, _From, State) ->
+    Username = User#user.user_name,
+    case read(user, Username) of
+	{error, Reason} ->
+	    Reply = {error, Reason};
+	_ -> 
+	    remove(user, Username),
+	    add(user, User),
+	    Reply = {ok, user_modified}
+    end,
+    {reply, Reply, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Sets a new password for a user in the database.
+%%
+%% @spec handle_call({set_password, Username, OldPassword, NewPassword},
+%%                    _From, State) ->
+%%                             {reply, password_set, State} | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({set_password, Username, OldPassword, NewPassword}, _From, State) ->
+    User = read(user, Username),
+    case User of
+	{error, Reason} ->
+	    Reply = {error, Reason};
+	_ ->
+	    UserPass = User#user.password,
+	    case crypto:sha(OldPassword) of
+		UserPass ->
+		    remove(user, Username),
+		    Password = crypto:sha(NewPassword),
+		    add(user, User#user{password=Password}),
+		    Reply = {ok, password_set}
+	    end
+    end,
+    {reply, Reply, State};
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc

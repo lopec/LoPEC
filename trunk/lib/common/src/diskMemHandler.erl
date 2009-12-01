@@ -18,9 +18,17 @@
 
 %% gen_event callbacks
 -export([init/1, handle_event/2, handle_call/2, handle_info/2, terminate/2, code_change/3]).
-
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Adds itself to SASL event manager alarm_handler if not already
+%% added to it. add_sup_handler is used as gen_event:add_handler/2
+%% doesn't check for duplicates.
+%%
+%% @spec stop() -> ok | {'EXIT',Reason} | Other
+%% @end
+%%--------------------------------------------------------------------
 start() ->
-    % gen_event:add_handler/2 doesn't check for duplicates
     case lists:member(?MODULE, gen_event:which_handlers(alarm_handler)) of
 	true  ->
 	    already_started;

@@ -47,6 +47,10 @@
          get_task/1,
 	 get_user_from_job/1]).
 
+%% APIs for users
+-export([add_user/3,
+	 validate_user/2]).
+
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
@@ -258,6 +262,30 @@ get_task(TaskId) ->
 %%--------------------------------------------------------------------
 get_job(JobId) ->
     gen_server:call(?SERVER, {get_job, JobId}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Adds a user to the database.
+%%
+%% @spec add_user(Username::atom(), Email::string(), Password::string()) 
+%%                                 -> {ok, user_added} | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+add_user(Username, Email, Password) ->
+    gen_server:call(?SERVER, {add_user, Username, Email, Password}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Validates a user's name and password to the database.
+%%
+%% @spec validate_user(Username::atom(), Password::string()) 
+%%                                 -> {ok, user_validated} | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+validate_user(Username, Password) ->
+    gen_server:call(?SERVER, {validate_user, Username, Password}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -484,6 +512,7 @@ increment_task_restarts(JobId) ->
 %%--------------------------------------------------------------------
 init(_Args) ->
     NodeList = [node()],
+    application:start(crypto),
     application:start(mnesia),
     {ok, NodeList}.
 
@@ -532,6 +561,12 @@ handle_call({create_tables, StorageType}, _From, State) ->
                 [{record_name, task_relations},
                     {attributes,
                         record_info(fields, task_relations)}|Opts]),
+
+	    % Create the user table
+	    mnesia:create_table(user,
+				[{record_name, user},
+				 {attributes,
+				 record_info(fields, user)}|Opts]),
 
             % Add secondary keys to some of the tables
             mnesia:add_table_index(assigned_task, job_id),
@@ -904,6 +939,55 @@ handle_call({set_job_path, JobId, NewPath}, _From, State) ->
 handle_call({exists_path, TableName, JobId, Path}, _From, State) ->
     Flag = exists_path(TableName, JobId, Path),
     {reply, Flag, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Adds a user.
+%%
+%% @spec handle_call({add_user, UserName::atom(), Email::string(),
+%%                    Password::string()}, _From, State) ->
+%%                                 {reply, {ok, user_added}, State}
+%%                               | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({add_user, Username, Email, Password}, _From, State) ->
+    PasswordDigest = crypto:sha(Password),
+    User = #user{user_name=Username, email=Email, password=PasswordDigest},
+    case add(user, User) of
+	ok ->
+	    Reply = {ok, user_added};
+	{error, Reason} ->
+	    chronicler:error(
+	      "~w:Adding user failed!~nUser: ~s aborted.~nReason: ~s~n", 
+	      [?MODULE, User, Reason]),
+	    Reply = {error, Reason}
+    end,
+    {reply, Reply, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Validates a user's name and password.
+%%
+%% @spec handle_call({validate_user, UserName::atom(),
+%%                    string::atom()}, _From, State) ->
+%%                                 {reply, {ok, user_validated}, State}
+%%                               | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({validate_user, Username, Password}, _From, State) ->
+    PasswordDigest = crypto:sha(Password),
+    User = read(user, Username),
+    case (User#user.password == PasswordDigest) of
+	false ->
+	    Reply = {error, invalid};
+	true ->
+	    Reply = {ok, user_validated}
+    end,
+    {reply, Reply, State};
 
 %%--------------------------------------------------------------------
 %% @private

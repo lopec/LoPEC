@@ -43,3 +43,11 @@
           job_id,
           table_name
          }).
+
+%% The record for users.
+-record(user, {
+	  user_name,
+	  password,
+	  email,
+	  real_name
+	 }).

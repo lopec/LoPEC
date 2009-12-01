@@ -14,8 +14,6 @@ require 'fileutils'
 # reduce   $REDUCETIME $REDUCESIZE
 # finalize $FINALIZETIME $FINALIZESIZE
 
-# = Helpers
-
 def split(input, output, count)
   puts "MY_PID #{Process.pid}"
   File.open(input, 'r') do |input_file|
@@ -45,7 +43,7 @@ def split(input, output, count)
       while (Time.now < before + split_time) do
       end
       (1..split_count).each do |i|
-        puts "NEW_SPLIT #{output}/split#{i}"
+        puts "NEW_SPLIT split#{i}"
       end
     else
       puts "ERROR incorrect input line for split task"
@@ -77,7 +75,7 @@ def map(input, output)
       end
       while (Time.now < before + map_time) do
       end
-      puts "NEW_REDUCE_TASK #{output}/#{id}"
+      puts "NEW_REDUCE_TASK #{id}"
     else
       puts "ERROR incorrect input line for map task"
     end
@@ -118,8 +116,8 @@ def finalize(input, output)
   File.open("#{input}/split1", 'r') do |input_file|
     case input_file.gets.strip
     when /finalize (\d+) (\d+)/i
-      finalize_time = $1
-      finalize_size = $2
+      finalize_time = $1.to_i
+      finalize_size = $2.to_i
       before = Time.now
       File.open("#{output}/finalized", "w") do | output_file |
         output_file.puts("Nothing to see here, move along.")

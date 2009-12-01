@@ -4,6 +4,12 @@
 -compile(export_all).
 
 main() -> 
+    case wf:user() of 
+        undefined ->
+            wf:redirect_to_login("/web/login");
+        _Username ->
+            ok
+    end,
 	#template { file="./wwwroot/template.html"}.
 
 title() ->
@@ -53,15 +59,14 @@ submenu() ->
         }
     ].
 
-get_partition_names([{Partition, _F, _C}]) ->
-    [Partition];
-get_partition_names([{Partition, _FreeDisc, _Cap}|T]) ->
-    [Partition|[get_partition_names(T)]].
-
-get_freedisc_space([{_Partition, FreeDisc, _Cap}]) ->
-    [FreeDisc];
-get_freedisc_space([{_Partition, FreeDisc, _Cap}|T]) ->
-    [FreeDisc|[get_freedisc_space(T)]].
+user_status() ->
+    case Username = wf:user() of 
+        undefined -> 
+           "";
+        Username ->
+            ["Logged in as " ++ Username ++ " ",
+            #link {text="[LOGOUT]", postback=logout}]
+    end.
 
 body() ->
     [
@@ -78,6 +83,9 @@ body() ->
             #br{}
         ]
             }
-        ].
-	
+    ].
+
+event(logout) ->
+    wf:clear_user(),
+    wf:redirect("/web/login");	
 event(_) -> ok.

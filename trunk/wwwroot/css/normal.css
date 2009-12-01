@@ -28,6 +28,17 @@ div#header div#logo img
     width: 100px;
 }
 
+div#userinfo
+{
+    position: absolute;
+    padding-left: 100%;
+    margin-left: -400px;
+    margin-top: 10px;
+    width: 350px;
+    font-size: 12px;
+    color: #FFEFD5;
+    text-align: right;
+}
 div#header div#info_bulb
 {
     padding-left: 100%;

@@ -5,6 +5,15 @@ body{
     background-color: #F4F1E5;
 }
 
+div#page__login
+{
+    margin-left: 20px;
+}
+
+div#page__login div#page__login__text
+{
+    font-size: 10px;
+}
 
 div#header 
 {

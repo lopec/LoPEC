@@ -60,7 +60,7 @@ put(Bucket, Key, Val) ->
 %% @doc
 %% Gets the value associated with the bucket and the key.
 %%
-%% @spec get(Bucket, Key) -> ok | {error, Reason}
+%% @spec get(Bucket, Key) -> binary() | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
 get(Bucket, Key) ->

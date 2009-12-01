@@ -981,14 +981,19 @@ handle_call({add_user, Username, Email, Password}, _From, State) ->
 handle_call({validate_user, Username, Password}, _From, State) ->
     PasswordDigest = crypto:sha(Password),
     User = read(user, Username),
-    case (User#user.password == PasswordDigest) of
-	false ->
-	    Reply = {error, invalid};
-	true ->
-	    Reply = {ok, user_validated}
+    case User of
+	{error, Reason} ->	
+	    Reply = {error, Reason};
+	_ ->
+	    case (User#user.password) of
+		PasswordDigest ->
+		    Reply = {ok, user_validated};
+		_->
+		    Reply = {error, invalid}
+	    end
     end,
     {reply, Reply, State};
-
+		  
 %%--------------------------------------------------------------------
 %% @private
 %% @doc

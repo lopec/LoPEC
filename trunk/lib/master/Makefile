@@ -2,7 +2,7 @@
 APPNAME = master
 DEBUG_FLAGS= -Ddebug
 ERLC_FLAGS= -I include +debug_info
-SOURCES= $(wildcard src/*.erl)
+SOURCES= $(wildcard src/*.erl, src/pages/*.erl)
 TESTFILES= $(wildcard test/*_tests.erl)
 HEADERS= $(wildcard include/*.hrl)
 OBJECTS= $(SOURCES:src/%.erl=ebin/%.beam)

@@ -66,6 +66,16 @@ handle_info(_, Alarms)      -> {ok, Alarms}.
 terminate(swap,    Alarms)  -> {?MODULE, Alarms};
 terminate(_Reason,_Alarms)  -> ok.
 
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Called when diskMemHandler as attached event_handler receives an
+%% event which is either set_alarm or clear_alarm. Propagates the
+%% alarm to global statistician.
+%%
+%% @spec log_alarm(Type, Alarm) -> ok
+%% @end
+%%--------------------------------------------------------------------
 log_alarm(Type, Alarm) when Type==set_alarm; Type==clear_alarm ->
     % do custom logging here
     gen_server:cast({global, statistician}, {alarm, node(), Type, Alarm}),

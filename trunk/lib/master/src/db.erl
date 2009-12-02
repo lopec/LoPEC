@@ -33,7 +33,8 @@
          get_user_jobs/1,
          list_active_jobs/0,
          cancel_job/1,
-         increment_task_restarts/1]).
+         increment_task_restarts/1,
+	 job_status/1]).
 
 %% APIs for handling tasks
 -export([add_task/1,
@@ -271,6 +272,31 @@ get_job(JobId) ->
 %%--------------------------------------------------------------------
 %% @doc
 %%
+%% Returns the status of a given job.
+%%
+%% @spec job_status(JobId::integer()) -> {ok, active}
+%%                                     | {ok, paused}
+%%                                     | {ok, stopped}
+%%                                     | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+job_status(JobId) ->
+    Job = get_job(JobId),
+    case Job of
+	{error, Reason} ->
+	    {error, Reason};
+	_ ->
+	    case Job#job.state of
+		free ->
+		    {ok, active};
+		State ->
+		    {ok, State}
+	    end
+    end.
+		
+%%--------------------------------------------------------------------
+%% @doc
+%%
 %% Adds a user to the database.
 %%
 %% @spec add_user(Username::atom(), Email::string(), Password::string()) 
@@ -366,7 +392,7 @@ set_email(Username, NewEmail) ->
 %%--------------------------------------------------------------------
 exist_user(Username) ->
     case get_user(Username) of
-	{error, Reason} ->
+	{error, _Reason} ->
 	    {ok, no};
 	_User ->
 	    {ok, yes}

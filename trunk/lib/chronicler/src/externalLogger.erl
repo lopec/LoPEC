@@ -19,7 +19,7 @@
         handle_cast/2,
         handle_info/2,
         code_change/3
-        ]).
+    ]).
 
 %%%===================================================================
 %%% gen_event callbacks
@@ -49,23 +49,23 @@ init(State) ->
 %%
 %% @spec handle_event(Event, State) ->
 %%                          {ok, State} |
-%%                          {swap_handler, Args1, State1, Mod2, Args2} |
-%%                          remove_handler
 %% @end
 %%--------------------------------------------------------------------
 handle_event({error_report, _From, Msg}, State) ->
     gen_server:cast({global, externalLoggerPID},
-		    {error, {node(), self()}, Msg}),
+        {error, {node(), self()}, Msg}),
     {ok, State};
 handle_event({info_report, _From, Msg}, State) ->
     gen_server:cast({global, externalLoggerPID},
-		    {info, {node(), self()}, Msg}),
+        {info, {node(), self()}, Msg}),
     {ok, State};
 handle_event({warning_report, _From, Msg}, State) ->
     gen_server:cast({global, externalLoggerPID},
-		    {warning, {node(), self()}, Msg}),
+        {warning, {node(), self()}, Msg}),
     {ok, State};
-handle_event(_Other, State) ->
+handle_event(Other, State) ->
+    gen_server:cast({global, externalLoggerPID},
+        {other, {node(), self()}, Other}),
     {ok, State}.
 
 %%--------------------------------------------------------------------
@@ -104,7 +104,7 @@ handle_cast(Msg, State) ->
 %%--------------------------------------------------------------------
 handle_info(_Info, _State) ->
     ok.
-    %{error, implementationNeeded}.
+%{error, implementationNeeded}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -116,10 +116,10 @@ handle_info(_Info, _State) ->
 %% @spec terminate(Reason, State) -> void()
 %% @end
 %%--------------------------------------------------------------------
-terminate(Reason, _State) -> 
+terminate(Reason, _State) ->
     chronicler:info("~w:Received terminate call.~n"
-                    "Reason: ~p~n",
-                    [?MODULE, Reason]),
+        "Reason: ~p~n",
+        [?MODULE, Reason]),
     ok.
 
 %%--------------------------------------------------------------------

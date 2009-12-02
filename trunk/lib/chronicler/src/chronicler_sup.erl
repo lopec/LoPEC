@@ -49,9 +49,15 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init(no_args) ->
+    LogChild = case "logger" == lists:takewhile(fun(X)->X /= $@ end,
+				     atom_to_list(node())) of
+        true -> child(main_chronicler, worker, no_args);
+        false -> child(chronicler, worker, no_args)
+    end,
+
     {ok,{{rest_for_one, 1, 60},
             [   child(gen_event, worker, {local, logger_manager}),
-                child(chronicler, worker, no_args)
+                LogChild
             ]}}.
 
 %%%===================================================================

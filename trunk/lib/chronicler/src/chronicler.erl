@@ -17,7 +17,8 @@
 -module(chronicler).
 -behaviour(gen_server).
 
--include("../include/chroniclerState.hrl").
+-record(state, {loggingLevel = [],
+        logFile = atom_to_list(node())}). %TODO add modules level logging
 
 %% API
 -export([start_link/0,
@@ -188,14 +189,7 @@ init(no_args) ->
     State = #state{loggingLevel = [error, user_info],
                    logFile = LogFile},
 
-    %register the externalLogger if we are not the logger process
-    case "logger" == lists:takewhile(fun(X)->X /= $@ end,
-				     atom_to_list(node())) of
-        true -> info("I am the externalLogger"),
-            global:register_name(externalLoggerPID, self()),
-            ok;
-        false -> error_logger:add_report_handler(externalLogger, State)
-    end,
+    error_logger:add_report_handler(externalLogger),
 
     info("Chronicler application started"),
     {ok, State}.

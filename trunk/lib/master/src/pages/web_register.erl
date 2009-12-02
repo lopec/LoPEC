@@ -40,7 +40,8 @@ body() ->
 
     ],
     wf:wire(registerButton, username, #validate { validators=[
-        #is_required { text="Required." }
+        #is_required { text="Required." },
+        #custom { text="Username is already taken.", function=fun username_free/2, tag=check }
     ]}),
     wf:wire(registerButton, password2, #validate { validators=[
         #confirm_password { text="Passwords must match.", password=password1 }
@@ -50,6 +51,12 @@ body() ->
     ]}),
 
     wf:render(Body).
+
+username_free(_Tag, Username) ->
+    case db:exist_user(Username) of
+        {ok, no} -> true;
+        {ok, yes} -> false
+    end.
 
 event(continue) ->
     %% Here we register the user

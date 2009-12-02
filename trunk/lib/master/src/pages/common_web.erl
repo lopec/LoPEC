@@ -45,7 +45,7 @@ submenu() ->
             ]
         },
         #panel{id=menuitem, body=[
-            #link{text="Add new job", url="web_add_job"}
+            #link{text="Add new job", url="/web/add/job"}
             ]
         },
         #panel{id=menuitem, body=[
@@ -57,7 +57,7 @@ submenu() ->
             ]
         },
         #panel{id=menuitem, body=[
-                #link{text="LogViewer", url="log_viewer"}
+                #link{text="LogViewer", url="/web/log/viewer"}
             ]
         }
     ],

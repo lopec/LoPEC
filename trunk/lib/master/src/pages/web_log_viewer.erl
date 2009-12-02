@@ -27,7 +27,8 @@ body() ->
     #rounded_panel {
         color=gray,
         body=[
-            #h2{text="LogView"}
+            #h2{text="LogView"},
+            #h3{text=main_chronicler:get_everything()}
         ]
             }
         ].

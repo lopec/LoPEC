@@ -24,7 +24,9 @@
     }).
 
 %% API
--export([start_link/0
+-export([
+        start_link/0,
+        get_everything/0
     ]).
 
 %% gen_server callbacks
@@ -48,6 +50,16 @@
 %%--------------------------------------------------------------------
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, no_args, []).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns all the log messages in the database
+%% @spec get_everything() -> {ok, Match}
+%% @end
+%%--------------------------------------------------------------------
+get_everything() ->
+    Reply = gen_server:call(?MODULE, {request, get_everything}),
+    Reply.
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -78,6 +90,17 @@ init(no_args) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
+%% Returns the whole database
+%% @spec handle_call({request, get_everything}, State) -> {noreply, State} |
+%% @end
+%%--------------------------------------------------------------------
+handle_call({request, get_everything}, _From, State) ->
+    Match = ets:match(log_table,
+        #log_message{type = '$1', fromNode = '$2', message = '$3'}),
+    {reply, Match, State};
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
 %% Logs and discards unexpected messages.
 %%
 %% @spec handle_call(Msg, From, State) ->  {noreply, State}
@@ -85,8 +108,8 @@ init(no_args) ->
 %%--------------------------------------------------------------------
 handle_call(Msg, From, State) ->
     chronicler:warning("~w: Received unexpected handle_call from ~p.~n"
-                       "Msg: ~p~n",
-                       [?MODULE, From, Msg]),
+        "Msg: ~p~n",
+        [?MODULE, From, Msg]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -98,17 +121,10 @@ handle_call(Msg, From, State) ->
 %% @spec handle_cast(Level, State) -> {noreply, State} |
 %% @end
 %%--------------------------------------------------------------------
-%Messages recieved are on the form.
-%{info, <- error_logger type (info, warning or error)
-%{slogger@localhost, <9518.4.0>}, <- (node(), pid of externalLogger
-%{<9518.42.0>, <- the pid that sent the event
-%  std_info, <- custom type if called ass error_logger:info_report(custom_type, msg)
-%  "Node slogger@localhost transmitting stats.\n"} <- The message
-%}
 handle_cast(Msg, State) ->
     io:format("Got message: ~p~n", [Msg]),
     process_message(Msg),
-    {noreply, State};
+    {noreply, State}.
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -117,11 +133,11 @@ handle_cast(Msg, State) ->
 %% @spec handle_cast(Msg, State) ->  {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast(Msg, State) ->
-    chronicler:warning("~w: Received unexpected handle_cast.~n"
-                       "Msg: ~p~n",
-                       [?MODULE, Msg]),
-    {noreply, State}.
+%handle_cast(Msg, State) ->
+%    chronicler:warning("~w: Received unexpected handle_cast.~n"
+%                       "Msg: ~p~n",
+%                       [?MODULE, Msg]),
+%    {noreply, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -150,8 +166,8 @@ handle_info(Info, State) ->
 %%--------------------------------------------------------------------
 terminate(Reason, State) ->
     chronicler:debug("~w: Received terminate call.~n"
-                     "Reason: ~p~n",
-                     [?MODULE, Reason]),
+        "Reason: ~p~n",
+        [?MODULE, Reason]),
     ets:delete(State#state.ets_table),
     ok.
 

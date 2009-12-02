@@ -53,7 +53,8 @@
 	 get_user/1,
 	 set_role/2,
 	 set_password/3,
-	 set_email/2]).
+	 set_email/2,
+	 exist_user/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -328,7 +329,7 @@ set_role(Username, NewRole) ->
 %%
 %% Changes the password of a specific user.
 %%
-%% @spec set_role(Username::atom(), OldPassword::atom(), NewPassword::atom()) 
+%% @spec set_password(Username::atom(), OldPassword::atom(), NewPassword::atom()) 
 %%                                 -> {ok, password_set} | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
@@ -340,7 +341,7 @@ set_password(Username, OldPassword, NewPassword) ->
 %%
 %% Changes the email address of a specific user.
 %%
-%% @spec set_mail(Username::atom(), NewEmail::atom()) 
+%% @spec set_email(Username::atom(), NewEmail::atom()) 
 %%                                 -> {ok, email_set} | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
@@ -353,6 +354,22 @@ set_email(Username, NewEmail) ->
 	    NewUser = User#user{email=NewEmail},
 	    gen_server:call(?SERVER, {modify_user, NewUser}),
 	    {ok, email_set}
+    end.
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Checks whether a user exists in the database.
+%%
+%% @spec exist_user(Username::atom()) -> {ok, yes} | {ok, no}
+%% @end
+%%--------------------------------------------------------------------
+exist_user(Username) ->
+    case get_user(Username) of
+	{error, Reason} ->
+	    {ok, no};
+	_User ->
+	    {ok, yes}
     end.
 
 %%--------------------------------------------------------------------

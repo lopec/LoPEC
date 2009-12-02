@@ -8,51 +8,25 @@
 %% - A redirect to a new page when job is started
 %% - Fix ProblemType and ProgramType input
 
-main() -> 
-	#template { file="./wwwroot/template.html"}.
+main() ->
+    common_web:main().
 
-title() -> "LoPEC".
+title() ->
+    common_web:title().
 
-footer() -> "LoPEC 2009".
+footer() ->
+    common_web:footer().
 
 get_info() ->
-    "Low Power Erlang-based Cluster".
+    common_web:get_info().
 
+% Creates the menu.
 menu() ->
-    Event = #event { target=submenu, type=click },
-    Menu = [
-        #panel{id=menuitem, body=[
-            #link{text="Dashboard", actions=Event#event {actions=#appear{}}}
-            ]
-        }
-            
-        ,
-        #panel{id=menuitem, body=[
-            #link{text="Node information", actions=Event#event {actions=#hide{}}}
-            ]
-        }
-    ].
+    common_web:menu().
 
 % Creates the submenu.        
 submenu() ->
-    Submenu = [
-        #panel{id=menuitem, body=[
-            #link{text="Current jobs"}
-            ]
-        },
-        #panel{id=menuitem, body=[
-            #link{text="Add new job", url="web_add_job"}
-            ]
-        },
-        #panel{id=menuitem, body=[
-            #link{text="User statistics"}
-            ]
-        },
-        #panel{id=menuitem, body=[
-            #link{text="Profile"}
-            ]
-        }
-    ].
+    common_web:submenu().
 
 body() -> 
     {ok, Path} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),

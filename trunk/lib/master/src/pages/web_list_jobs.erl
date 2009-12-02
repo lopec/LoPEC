@@ -9,21 +9,26 @@
 %% - Some nicer table perhaps?
 %% - Pause/Resume buttons
 %% - Hyperlink on the JobId so the user could see more information
-main() -> 
-	#template { file="./wwwroot/template.html"}.
+
+main() ->
+    common_web:main().
 
 title() ->
-	"LoPEC".
-
-subtitle() ->
-    "".
+    common_web:title().
 
 footer() ->
-    "LoPEC 2009".
+    common_web:footer().
 
+get_info() ->
+    common_web:get_info().
+
+% Creates the menu.
+menu() ->
+    common_web:menu().
+
+% Creates the submenu.        
 submenu() ->
-    [].
-
+    common_web:submenu().
 
 get_jobs([]) ->
     [];

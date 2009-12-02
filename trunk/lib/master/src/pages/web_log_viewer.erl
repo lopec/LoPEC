@@ -1,5 +1,5 @@
--module (web_info).
--include_lib ("nitrogen/include/wf.inc").
+-module (web_log_viewer).
+-include_lib("nitrogen/include/wf.inc").
 -compile(export_all).
 
 main() ->
@@ -23,9 +23,13 @@ submenu() ->
     common_web:submenu().
 
 body() ->
-    #rounded_panel { color=gray, body=[
-	    #label{text="Dansa!"},
-      "This is a rounded panel."
-    ]}.
-	
+    [
+    #rounded_panel {
+        color=gray,
+        body=[
+            #h2{text="LogView"}
+        ]
+            }
+        ].
+
 event(_) -> ok.

@@ -11,6 +11,7 @@ TESTOBJECTS= $(TESTFILES:test/%.erl=test/%.beam)
 all: build test docs
 
 build: $(OBJECTS)
+	erl -make # for nitrogen
 
 ebin/%.beam : src/%.erl $(HEADERS) Makefile
 	erlc $(ERLC_FLAGS) $(DEBUG_FLAGS) -o ebin/ $<

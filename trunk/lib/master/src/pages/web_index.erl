@@ -24,13 +24,7 @@ submenu() ->
     common_web:submenu().
 
 user_status() ->
-    case Username = wf:user() of 
-        undefined -> 
-           "";
-        Username ->
-            ["Logged in as " ++ Username ++ " ",
-            #link {text="[LOGOUT]", postback=logout}]
-    end.
+    common_web:is_logged_in(true).
 
 body() ->
     [

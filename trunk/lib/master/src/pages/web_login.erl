@@ -3,17 +3,17 @@
 -compile(export_all).
 
 main() -> 
-	#template { file="./wwwroot/template.html"}.
+    common_web:main().
 
 title() ->
-    "LoPEC".
+    common_web:title().
 
 %% This is not currently used in our design
 footer() ->
-    "LoPEC 2009".
+    common_web:footer().
 
 get_info() ->
-    "Low Power Erlang-based Cluster".
+    common_web:get_info().
 
 % Creates the menu.
 menu() ->
@@ -25,10 +25,10 @@ body() ->
     Body = [
         #panel { id=login, body=[
             #label { text="Username: " },
-            #textbox { id=username },
+            #textbox { id=username, next=password },
             #p {},
             #label { text="Password: " },
-            #password { id=password },
+            #password { id=password, next=loginButton },
             #panel { id=text, body=[
                 "If you have forgot your password [press here]"
             ] },

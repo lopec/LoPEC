@@ -28,24 +28,43 @@ menu() ->
 submenu() ->
     common_web:submenu().
 
+user_status() ->
+    common_web:is_logged_in(true).
+
 %% Help function to output jobs
 get_jobs([]) ->
     [];
 get_jobs([H|T]) ->
     IdString = lists:flatten(io_lib:format("~p", [H])),
+    case db:job_status(H) of
+        {ok, active} -> 
+            Status = "Running",
+            Buttons = [#link { body = [#image{ class="controlimage", image = "/images/delete.gif", alt="Cancel job" }], postback={cancel, H}},
+                       #link { body = [#image{ class="controlimage", image = "/images/stop.jpg", alt="Stop job"}], postback={stop, H}},
+                       #link { body = [#image{ class="controlimage", image = "/images/pause.png", alt="Pause job" }], postback={pause, H}}];
+        {ok, paused} -> 
+            Status = "Paused",
+            Buttons = [#link { body = [#image{ class="controlimage", image = "/images/delete.gif", alt="Cancel job" }], postback={cancel, H}},
+                       #link { body = [#image{ class="controlimage", image = "/images/stop.jpg", alt="Stop job"}], postback={stop, H}},
+                       #link { body = [#image{ class="controlimage", image = "/images/resume.gif", alt="Resume job"}], postback={resume, H}}];
+        {ok, stopped} -> 
+            Status = "Stopped",
+            Buttons = [#link { body = [#image{ class="controlimage", image = "/images/delete.gif", alt="Cancel job" }], postback={cancel, H}},
+                       #link { body = [#image{ class="controlimage", image = "/images/resume.gif", alt="Resume job"}], postback={resume, H}}];
+        _ -> 
+            Status = "Error.",
+            Buttons = []
+    end,
     [
         #tablerow { cells=[
-            #tablecell { body=[#link { body = [#image{ image = "/images/delete.gif", alt="Cancel job" }], postback={cancel, H}},
-            #link { body = [#image{ image = "/images/pause.png", alt="Pause job" }], postback={pause, H}},
-            #link { body = [#image{ image = "/images/resume.gif", alt="Resume job" }], postback={resume, H}},
-            #link { body = [#image{ image = "/images/stop.jpg", alt="Stop job" }], postback={stop, H}}]},
-            #tablecell { text=IdString },
-            #tablecell { text="Running" }
+            #tablecell { body=Buttons },
+            #tablecell { body=#link { text=IdString, url="/web/view/job/" ++ IdString } },
+            #tablecell { text=Status }
         ]} 
     |[get_jobs(T)]].
 
 get_job_table() ->
-    #table { id=jobTable, 
+    #table { id=jobTable, class="jobtable", 
         rows = [
             #tablerow { cells=[
                 #tableheader { text="Controls  " },
@@ -69,6 +88,7 @@ body() ->
         _JobString -> 
             Body = []
     end,
+    wf:comet(fun() -> update_jobtable() end),
     wf:render(Body).
 
 
@@ -115,27 +135,58 @@ event(add_job_box) ->
 event(add_job) ->
     User = wf:user(),
     [Priority] = wf:q(priorityTextBox),
-    ProblemType = "mapreduce",
-    ProgramType = "raytracer2",
-    case listener:add_job(list_to_atom(ProgramType), list_to_atom(ProblemType), 
-        User, list_to_integer(Priority), "/storage/test/lol.txt") of
-        {ok, JobId} -> 
-            wf:flash(wf:f("Added a new job with id: ~w", [JobId])),
-            wf:update(jobTable, get_job_table());
-        {error, Reason} -> 
-            wf:flash(wf:f("Could not add job. Reason: ~w", [Reason]))
-    end,
+    InputData = wf:state(inputdata),
+    case InputData of 
+        "" ->
+            wf:flash(wf:f("You must give an inputfile"));
+        _ ->
+            ProblemType = "mapreduce",
+            ProgramType = "raytracer2",
+            case listener:add_job(list_to_atom(ProgramType), list_to_atom(ProblemType), User, list_to_integer(Priority), InputData) of
+                {ok, JobId} -> 
+                    wf:flash(wf:f("Added a new job with id: ~w", [JobId])),
+                    wf:update(jobTable, get_job_table());
+                {error, Reason} -> 
+                    wf:flash(wf:f("Could not add job. Reason: ~w", [Reason]))
+            end
+        end,
+    wf:clear_state(),
     ok;
-%%%%%%%%%%%%%%%%%%
-%% Cancels a job %
-%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%
+%% Controls a job %
+%%%%%%%%%%%%%%%%%%%
 event({cancel, JobId}) ->
-    wf:wire(#confirm { text = "Are you sure that you want to cancel this job?", postback={confirm_cancel, JobId}});
+    wf:wire(#confirm { text = "Are you sure that you want to CANCEL this job?", postback={confirm_cancel, JobId}});
+event({stop, JobId}) ->
+    wf:wire(#confirm { text = "Are you sure that you want to STOP this job?", postback={confirm_stop, JobId}});
+event({resume, JobId}) ->
+    wf:wire(#confirm { text = "Are you sure that you want to RESUME this job?", postback={confirm_resume, JobId}});
+event({pause, JobId}) ->
+    wf:wire(#confirm { text = "Are you sure that you want to PAUSE this job?", postback={confirm_pause, JobId}});
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% When user pressed "yes" in the msgbox %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 event({confirm_cancel, JobId}) ->
     listener:cancel_job(JobId),
     wf:flash(wf:f("Removed job with Id: ~w", [JobId])),
     wf:update(jobTable, get_job_table());
+event({confirm_pause, JobId}) ->
+    listener:pause_job(JobId),
+    wf:flash(wf:f("Paused job with Id: ~w", [JobId])),
+    wf:update(jobTable, get_job_table());
+event({confirm_stop, JobId}) ->
+    listener:stop_job(JobId),
+    wf:flash(wf:f("Stopped job with Id: ~w", [JobId])),
+    wf:update(jobTable, get_job_table());
+event({confirm_resume, JobId}) ->
+    listener:resume_job(JobId),
+    wf:flash(wf:f("Resumed job with Id: ~w", [JobId])),
+    wf:update(jobTable, get_job_table());
 
+%%%%%%%%%%%%
+% Basecase %
+%%%%%%%%%%%%
 event(_) -> ok.
 
 %%%%%%%%%%%%%%%%%%%%%%
@@ -147,7 +198,16 @@ upload_event(_Tag, undefined, _) ->
 
 upload_event(_Tag, FileName, LocalFileData) ->
     FileSize = filelib:file_size(LocalFileData),
-    case filename:extension(FileName) of
-        _ -> wf:flash(wf:f("Uploaded file: ~s (~p bytes)", [FileName, FileSize]))
-    end,
+    wf:state(inputdata, "/storage/test/rayscene2048"),
+    wf:flash(wf:f("FIX THIS WHEN I/O MODULE IS WORKING! Uploaded file: ~s (~p bytes)", [FileName, FileSize])),
     {ok, LocalFileData}.
+
+
+%%%%%%%%%%%%%%%%%
+% COMET PROCESS %
+%%%%%%%%%%%%%%%%%
+update_jobtable() ->
+    timer:sleep(5000),
+    wf:update(jobTable, get_job_table()),
+    wf:comet_flush(),
+    update_jobtable().

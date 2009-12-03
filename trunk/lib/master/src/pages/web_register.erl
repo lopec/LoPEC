@@ -3,34 +3,34 @@
 -compile(export_all).
 
 main() -> 
-	#template { file="./wwwroot/template.html"}.
+    common_web:main().
 
 title() ->
-	"LoPEC".
+    common_web:title().
 
 footer() ->
-    "LoPEC 2009".
+    common_web:footer(). 
 
 get_info() ->
-    "Low Power Erlang-based Cluster".
+    common_web:get_info().
 
 get_license() ->
-"The hallmark of proprietary software licenses is that the software publisher grants a license to use one or more copies of software, but that ownership of those copies remains with the software publisher (hence use of the term proprietary). One consequence of this feature of proprietary software licenses is that virtually all rights regarding the software are reserved by the software publisher. Only a very limited set of well-defined rights are conceded to the end-user. Therefore, it is typical of proprietary software license agreements to include many terms which specifically prohibit certain uses of the software, often including uses which would otherwise be allowed under copyright law.".
+    common_web:get_license().
 
 body() ->
     Body = [
     #h3 {text="User information"},
     #label {text="Desired username: "},
-    #textbox {id=username},
+    #textbox {id=username, next=password1},
     #p {},
     #label {text="Password: "},
-    #password {id=password1},
+    #password {id=password1, next=password2},
     #p {},
     #label {text="Retype password: "},
-    #password {id=password2},
+    #password {id=password2, next=email},
     #p {},
     #label {text="Email adress: "},
-    #textbox {id=email},
+    #textbox {id=email, next=registerButton},
     #p {},
     #label {text="End user license agreement?"},
     #panel { id=licensePanel, style="overflow: auto; width: 500px; border: 1px solid black; height: 200px;", body=[get_license()]},

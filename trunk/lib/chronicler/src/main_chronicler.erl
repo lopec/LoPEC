@@ -2,11 +2,9 @@
 %%% @author Fredrik Andersson <sedrik@consbox.se>
 %%% @copyright (C) 2009, Fredrik Andersson
 %%% @doc
-%%%
 %%% main_chronicler is responsible for keeping a database over the logging
-%%% messages passed to the system. It runs on the node logger@<host> only and
+%%% messages passed to the system. It runs on the node logger only and
 %%% should only be runned once since it is globaly registered.
-%%%
 %%% @end
 %%% Created : 02 Dec 2009 by Fredrik Andersson <sedrik@consbox.se>
 %%%-------------------------------------------------------------------
@@ -45,7 +43,7 @@
 %% @doc
 %% Starts the master chronicler that holds a database over the log messages in
 %% the system.
-%% @spec start_link(Type) -> {ok, Pid} | ignore | {error, Error}
+%% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
@@ -91,7 +89,7 @@ init(no_args) ->
 %% @private
 %% @doc
 %% Returns the whole database
-%% @spec handle_call({request, get_everything}, State) -> {noreply, State} |
+%% @spec handle_call({request, get_everything}, From, State) -> {reply, Match}
 %% @end
 %%--------------------------------------------------------------------
 handle_call({request, get_everything}, _From, State) ->
@@ -118,7 +116,7 @@ handle_call(Msg, From, State) ->
 %% Handling casted messages, checks to see if Level is in the logging levels of
 %% state
 %%
-%% @spec handle_cast(Level, State) -> {noreply, State} |
+%% @spec handle_cast(Msg, State) -> {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
@@ -194,14 +192,6 @@ code_change(OldVsn, State, Extra) ->
 %% @private
 %% @doc
 %% Stores a message in the local database
-%% Messages are recieved on the form.
-%% {info, <- error_logger type (info, warning or error)
-%% {slogger@localhost, <9518.4.0>}, <- (node(), pid of externalLogger
-%% {<9518.42.0>, <- the pid that sent the event
-%%   std_info, <- custom type if called ass error_logger:info_report(custom_type, msg)
-%%   "Node slogger@localhost transmitting stats.\n"} <- The message
-%}
-%%
 %% @spec process_message(Message) -> ok
 %% @end
 %%--------------------------------------------------------------------

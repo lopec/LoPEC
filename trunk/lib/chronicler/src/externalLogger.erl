@@ -50,7 +50,7 @@ init(State) ->
 %% io:format but it is recommended that it is a simple string.
 %%
 %% @spec handle_event(Event, State) ->
-%%                          {ok, State} |
+%%                          {ok, State}
 %% @end
 %%--------------------------------------------------------------------
 handle_event({error_report, _From, Msg}, State) ->

@@ -55,7 +55,8 @@
 	 set_role/2,
 	 set_password/3,
 	 set_email/2,
-	 exist_user/1]).
+	 exist_user/1,
+	 task_info_from_job/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -420,6 +421,28 @@ get_user_jobs(User) ->
                        end
                end,
     _Return = lists:filter(UserJobs, ListOfJobs).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Returns a tuple containing information of all tasks of a specific
+%% type belonging to the given JobId.
+%%
+%% @spec task_info_from_job(Type::atom(), JobId::integer()) ->
+%%                                        {ok, Info} | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+task_info_from_job(Type, JobId) ->
+    FreeTable = list_to_atom(lists:concat([Type, "_free"])),
+    AssignedTable = list_to_atom(lists:concat([Type, "_assigned"])),
+    DoneTable = list_to_atom(lists:concat([Type, "_done"])),
+    {ok, Free} = gen_server:call(?SERVER, 
+	       {count_tasks, FreeTable, JobId}),
+    {ok, Assigned} = gen_server:call(?SERVER, 
+	       {count_tasks, AssignedTable, JobId}),
+    {ok, Done} = gen_server:call(?SERVER, 
+	       {count_tasks, DoneTable, JobId}),
+    {ok, {free, Free}, {assigned, Assigned}, {done, Done}}.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -1228,6 +1251,26 @@ handle_call({list_active_jobs}, _From, State) ->
                 mnesia:select(job, [{MatchHead, [Guard], [Result]}])
         end,
     {atomic, Result} = mnesia:transaction(F),
+    {reply, Result, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Counts the number of tasks in the given table that belongs to the
+%% specified JobId
+%%
+%% @spec handle_call({count_tasks, TableName, JobId}, _From, State) ->
+%%                                 {reply, {ok, Count::integer}, State} 
+%%                               | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({count_tasks, TableName, JobId}, _From, State) ->
+    F = fun() ->
+		mnesia:match_object(TableName, #task{job_id=JobId, _ = '_'}, read)
+        end,
+    {atomic, List} = mnesia:transaction(F),
+    Result = {ok, length(List)},
     {reply, Result, State};
 
 %%--------------------------------------------------------------------

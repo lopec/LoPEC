@@ -28,7 +28,7 @@ body() ->
         color=gray,
         body=[
             #h2{text="LogView"},
-            #h3{text=main_chronicler:get_everything()}
+            #h3{text=wf:f("~p~n", [main_chronicler:get_everything()])}
         ]
             }
         ].

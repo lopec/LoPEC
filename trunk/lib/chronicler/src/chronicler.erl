@@ -340,12 +340,12 @@ is_level_logging_on(Level, State) ->
 %% @end
 %%--------------------------------------------------------------------
 error_report_message(info, Msg) ->
-    error_logger:info_report(Msg);
+    error_logger:info_report(lopec_info, Msg);
 error_report_message(debug, Msg) ->
-    error_logger:info_report(Msg); %TODO Use something else than info_report
+    error_logger:info_report(lopec_debug, Msg);
 error_report_message(user_info, Msg) ->
-    error_logger:info_report(Msg); %TODO Use something else than info_report
+    error_logger:info_report(lopec_user_info, Msg);
 error_report_message(error, Msg) ->
-    error_logger:error_report(Msg);
+    error_logger:error_report(lopec_error, Msg);
 error_report_message(warning, Msg) ->
-    error_logger:warning_report(Msg).
+    error_logger:warning_report(lopec_warning, Msg).

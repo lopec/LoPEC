@@ -12,6 +12,8 @@
 
 -include("../include/chroniclerState.hrl").
 
+-define(EXTERNAL_LOGGER, main_chronicler).
+
 -export([init/1,
         handle_event/2,
         terminate/2,
@@ -52,19 +54,19 @@ init(State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_event({error_report, _From, Msg}, State) ->
-    gen_server:cast({global, externalLoggerPID},
+    gen_server:cast({global, ?EXTERNAL_LOGGER},
         {error, {node(), self()}, Msg}),
     {ok, State};
 handle_event({info_report, _From, Msg}, State) ->
-    gen_server:cast({global, externalLoggerPID},
+    gen_server:cast({global, ?EXTERNAL_LOGGER},
         {info, {node(), self()}, Msg}),
     {ok, State};
 handle_event({warning_report, _From, Msg}, State) ->
-    gen_server:cast({global, externalLoggerPID},
+    gen_server:cast({global, ?EXTERNAL_LOGGER},
         {warning, {node(), self()}, Msg}),
     {ok, State};
 handle_event(Other, State) ->
-    gen_server:cast({global, externalLoggerPID},
+    gen_server:cast({global, ?EXTERNAL_LOGGER},
         {other, {node(), self()}, Other}),
     {ok, State}.
 

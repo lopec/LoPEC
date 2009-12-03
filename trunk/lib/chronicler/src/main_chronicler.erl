@@ -49,7 +49,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, no_args, []).
+    gen_server:start_link({global, ?MODULE}, ?MODULE, no_args, []).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -58,7 +58,7 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 get_everything() ->
-    Reply = gen_server:call(?MODULE, {request, get_everything}),
+    Reply = gen_server:call({global, ?MODULE}, {request, get_everything}),
     Reply.
 
 %%%===================================================================
@@ -77,7 +77,7 @@ get_everything() ->
 %% @end
 %%--------------------------------------------------------------------
 init(no_args) ->
-    global:register_name(externalLoggerPID, self()),
+    %global:register_name(externalLoggerPID, self()),
 
     EtsTable = ets:new(?LOG_TABLE,
         [duplicate_bag, protected, named_table,
@@ -205,7 +205,45 @@ code_change(OldVsn, State, Extra) ->
 %% @spec process_message(Message) -> ok
 %% @end
 %%--------------------------------------------------------------------
-process_message({_, {Node, _}, {_, Type, Msg}}) ->
+process_message({_, {Node, _}, {_, lopec_info, Msg}}) ->
     ets:insert(?LOG_TABLE,
-        #log_message{type = Type, fromNode = Node, message = Msg}),
+        #log_message{
+            type = lopec_info,
+            fromNode = Node,
+            message = Msg
+        }),
+    ok;
+process_message({_, {Node, _}, {_, lopec_debug, Msg}}) ->
+    ets:insert(?LOG_TABLE,
+        #log_message{
+            type = lopec_debug,
+            fromNode = Node,
+            message = Msg
+        }),
+    ok;
+process_message({_, {Node, _}, {_, lopec_user_info, Msg}}) ->
+    ets:insert(?LOG_TABLE,
+        #log_message{
+            type = lopec_user_info,
+            fromNode = Node,
+            message = Msg
+        }),
+    ok;
+process_message({_, {Node, _}, {_, lopec_error, Msg}}) ->
+    ets:insert(?LOG_TABLE,
+        #log_message{
+            type = lopec_error,
+            fromNode = Node,
+            message = Msg
+        }),
+    ok;
+process_message({_, {Node, _}, {_, lopec_warning, Msg}}) ->
+    ets:insert(?LOG_TABLE,
+        #log_message{
+            type = lopec_warning,
+            fromNode = Node,
+            message = Msg
+        }),
+    ok;
+process_message(_) ->
     ok.

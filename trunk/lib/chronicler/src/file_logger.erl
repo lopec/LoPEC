@@ -132,7 +132,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% @private
 %% @doc
 %% Prints the message to the logfile in State
-%% @spec process_message(Message) -> ok
+%% @spec process_message(Message, State) -> ok
 %% @end
 %%--------------------------------------------------------------------
 process_message({_, _, {_, Type, Msg}}, State) when

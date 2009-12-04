@@ -58,7 +58,6 @@ init(_Args) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_event(Msg, State) ->
-    io:format("Recieved message: ~p", [Msg]),
     process_message(Msg, State),
     {ok, State}.
 

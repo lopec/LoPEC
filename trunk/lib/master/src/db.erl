@@ -1101,15 +1101,15 @@ handle_call({exists_path, TableName, JobId, Path}, _From, State) ->
 handle_call({add_user, Username, Email, Password}, _From, State) ->
     PasswordDigest = crypto:sha(Password),
     User = #user{user_name=Username, email=Email, password=PasswordDigest},
-    case add(user, User) of
-	ok ->
-	    Reply = {ok, user_added};
-	{error, Reason} ->
-	    chronicler:error(
-	      "~w:Adding user failed!~nUser: ~s aborted.~nReason: ~s~n", 
-	      [?MODULE, User, Reason]),
-	    Reply = {error, Reason}
-    end,
+    Reply = case add(user, User) of
+                ok ->
+                    {ok, user_added};
+                {error, Reason} ->
+                    chronicler:error(
+                      "~w:Adding user failed!~nUser: ~s aborted.~nReason: ~s~n", 
+                      [?MODULE, User, Reason]),
+                    {error, Reason}
+            end,
     {reply, Reply, State};
 
 %%--------------------------------------------------------------------
@@ -1127,17 +1127,17 @@ handle_call({add_user, Username, Email, Password}, _From, State) ->
 handle_call({validate_user, Username, Password}, _From, State) ->
     PasswordDigest = crypto:sha(Password),
     User = read(user, Username),
-    case User of
-	{error, Reason} ->	
-	    Reply = {error, Reason};
-	_ ->
-	    case (User#user.password) of
-		PasswordDigest ->
-		    Reply = {ok, user_validated};
-		_->
-		    Reply = {error, invalid}
-	    end
-    end,
+    Reply = case User of
+                {error, Reason} ->	
+                    {error, Reason};
+                _ ->
+                    case (User#user.password) of
+                        PasswordDigest ->
+                            {ok, user_validated};
+                        _->
+                            {error, invalid}
+                    end
+            end,
     {reply, Reply, State};
 
 %%--------------------------------------------------------------------
@@ -1166,14 +1166,14 @@ handle_call({get_user, Username}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({modify_user, User}, _From, State) ->
     Username = User#user.user_name,
-    case read(user, Username) of
-	{error, Reason} ->
-	    Reply = {error, Reason};
-	_ -> 
-	    remove(user, Username),
-	    add(user, User),
-	    Reply = {ok, user_modified}
-    end,
+    Reply = case read(user, Username) of
+                {error, Reason} ->
+                    {error, Reason};
+                _ -> 
+                    remove(user, Username),
+                    add(user, User),
+                    {ok, user_modified}
+            end,
     {reply, Reply, State};
 
 %%--------------------------------------------------------------------
@@ -1189,21 +1189,21 @@ handle_call({modify_user, User}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({set_password, Username, OldPassword, NewPassword}, _From, State) ->
     User = read(user, Username),
-    case User of
-	{error, Reason} ->
-	    Reply = {error, Reason};
-	_ ->
-	    UserPass = User#user.password,
-	    case crypto:sha(OldPassword) of
-		UserPass ->
-		    remove(user, Username),
-		    Password = crypto:sha(NewPassword),
-		    add(user, User#user{password=Password}),
-		    Reply = {ok, password_set};
-		_ ->
-		    Reply = {error, wrong_password}
-	    end
-    end,
+    Reply = case User of
+                {error, Reason} ->
+                    {error, Reason};
+                _ ->
+                    UserPass = User#user.password,
+                    case crypto:sha(OldPassword) of
+                        UserPass ->
+                            remove(user, Username),
+                            Password = crypto:sha(NewPassword),
+                            add(user, User#user{password=Password}),
+                            {ok, password_set};
+                        _ ->
+                            {error, wrong_password}
+                    end
+            end,
     {reply, Reply, State};
 
 %%--------------------------------------------------------------------
@@ -1228,12 +1228,12 @@ handle_call({list_users}, _From, State) ->
                 Users = mnesia:all_keys(user),
 		lists:map(Extract, Users)
         end,
-    case mnesia:transaction(F) of
-	{atomic, Result} ->
-	    Reply = {ok, Result};
-	{aborted, Reason} ->
-	    Reply = {error, Reason}
-    end,
+    Reply = case mnesia:transaction(F) of
+                {atomic, Result} ->
+                    {ok, Result};
+                {aborted, Reason} ->
+                    {error, Reason}
+            end,
     {reply, Reply, State};
 
 %%--------------------------------------------------------------------

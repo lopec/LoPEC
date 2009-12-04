@@ -14,7 +14,7 @@
         ]}.
 
 {suites, chronicler, [
-        chronicler_SUITE
+        %chronicler_SUITE
         ]}.
 
 {suites, master, [

@@ -20,7 +20,6 @@
 {suites, master, [
         master_SUITE,
         db_SUITE,
-        db_bg_jobs_SUITE,
         examiner_SUITE,
         listener_SUITE,
         janitor_SUITE

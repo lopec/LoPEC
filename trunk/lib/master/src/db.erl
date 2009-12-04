@@ -1199,7 +1199,9 @@ handle_call({set_password, Username, OldPassword, NewPassword}, _From, State) ->
 		    remove(user, Username),
 		    Password = crypto:sha(NewPassword),
 		    add(user, User#user{password=Password}),
-		    Reply = {ok, password_set}
+		    Reply = {ok, password_set};
+		_ ->
+		    Reply = {error, wrong_password}
 	    end
     end,
     {reply, Reply, State};

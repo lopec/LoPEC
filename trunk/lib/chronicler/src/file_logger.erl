@@ -145,18 +145,16 @@ Type =:= lopec_warning ->
     {message, Message} = lists:keyfind(message, 1, Msg),
 
     %Write to file
-    io:format("~p", [State#state.logFile]),
     io:format(State#state.logFile, "~n"
         "=== ~p === ~B/~B-~B = ~B:~B.~B ==~n",
         [Type, Day, Month, Year, Hour, Minute, Second]),
     io:format(State#state.logFile, "Message: ~p~n", [Message]),
 
     %TTY TODO: add filter for this.
-    io:format("~p", [State#state.logFile]),
-    io:format(State#state.logFile, "~n"
+    io:format("~n"
         "=== ~p === ~B/~B-~B = ~B:~B.~B ==~n",
         [Type, Day, Month, Year, Hour, Minute, Second]),
-    io:format(State#state.logFile, "Message: ~p~n", [Message]),
+    io:format("Message: ~p~n", [Message]),
 
     ok;
 process_message(_, State) -> %Not supported message type, discard it.

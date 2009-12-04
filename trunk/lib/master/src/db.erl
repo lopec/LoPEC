@@ -57,7 +57,8 @@
 	 set_email/2,
 	 exist_user/1,
 	 task_info_from_job/2,
-	 list_users/0]).
+	 list_users/0,
+	 delete_user/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -468,6 +469,18 @@ get_user_from_job(JobId) ->
 %%--------------------------------------------------------------------
 list_users() ->
     gen_server:call(?SERVER, {list_users}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Removes a user.
+%%
+%% @spec delete_user(UserName::string()) -> {ok} | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+delete_user(UserName) ->
+    gen_server:call(?SERVER, {delete_user, UserName}).
+
 %%--------------------------------------------------------------------
 %% @doc
 %%
@@ -1153,6 +1166,25 @@ handle_call({validate_user, Username, Password}, _From, State) ->
 handle_call({get_user, Username}, _From, State) ->
     User = read(user, Username),
     {reply, User, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%%
+%% Deletes a user from the database.
+%%
+%% @spec handle_call({delete_user, UserName::string()}, _From, State) ->
+%%                                 {reply, {ok}, State} | {error, Reason}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({delete_user, UserName}, _From, State) ->
+    case remove(user, UserName) of
+	ok ->
+	    Reply = {ok};
+	Error ->
+	    Reply = Error
+    end,
+    {reply, Reply, State};
 
 %%--------------------------------------------------------------------
 %% @private

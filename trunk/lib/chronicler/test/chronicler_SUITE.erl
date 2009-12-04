@@ -65,31 +65,33 @@ testing_log(File, LoggingLevel, LevelString, Msg, Arg) ->
     %"Chronicler application started\n" = io:get_line(File, ""),
     "\n" = io:get_line(File, ""),
     true = lists:prefix(LevelString, io:get_line(File, "")),
-    true = lists:prefix(lists:flatten(io_lib:format(Msg, Arg)), io:get_line(File, "")),
+    true = lists:prefix(lists:flatten(io_lib:format(Msg, Arg)),
+        io:get_line(File, "")),
     ok.
 
 info_log_test([{filePointer, File}]) ->
-    testing_log(File, info, "=INFO REPORT=", "This is a info ~p", [test]);
+    testing_log(File, info, "=== lopec_info ===",
+        "Message: This is a info ~p", [test]);
 info_log_test(_Config) ->
     ok.
 
 error_log_test([{filePointer, File}]) ->
-    testing_log(File, error, "=ERROR REPORT=", "This is a error ~p", [test]);
+    testing_log(File, error, "=== lopec_error ===", "Message: This is a error ~p", [test]);
 error_log_test(_Config) ->
     ok.
 
 debug_log_test([{filePointer, File}]) ->
-    testing_log(File, debug, "=INFO REPORT=", "This is a debug ~p", [test]);
+    testing_log(File, debug, "=== lopec_debug ===", "Message: This is a debug ~p", [test]);
 debug_log_test(_Config) ->
     ok.
 
 warning_log_test([{filePointer, File}]) ->
-    testing_log(File, warning, "=WARNING REPORT=", "This is a warning ~p", [test]);
+    testing_log(File, warning, "=== lopec_warning ===", "Message: This is a warning ~p", [test]);
 warning_log_test(_Config) ->
     ok.
 
 user_info_log_test([{filePointer, File}]) ->
-    testing_log(File, user_info, "=INFO REPORT=", "This is a user_info ~p", [test]);
+    testing_log(File, user_info, "=== lopec_user_info ===", "Message: This is a user_info ~p", [test]);
 user_info_log_test(_Config) ->
     ok.
 

@@ -120,7 +120,6 @@ handle_call(Msg, From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    io:format("Got message: ~p~n", [Msg]),
     process_message(Msg),
     {noreply, State}.
 %%--------------------------------------------------------------------

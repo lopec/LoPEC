@@ -2,17 +2,15 @@
 %%% @private
 %%% @author Fredrik Andersson <sedrik@consbox.se>
 %%% @copyright (C) 2009, Clusterbusters
-%%% @doc the terminalLogger is an event handler that will print the logging
-%%% messages to a external logger.
+%%% @doc the file_logger is an event handler that will print the logging
+%%% messages to a log file.
 %%% @end
 %%% Created : 29 Sep 2009 by Fredrik Andersson <sedrik@consbox.se>
 %%%-------------------------------------------------------------------
--module(externalLogger).
+-module(file_logger).
 -behaviour(gen_event).
 
--include("../include/chroniclerState.hrl").
-
--define(EXTERNAL_LOGGER, main_chronicler).
+-record(state, {logFile, tty = []}).
 
 -export([init/1,
         handle_event/2,
@@ -35,7 +33,14 @@
 %% @spec init(Args) -> {ok, State}
 %% @end
 %%--------------------------------------------------------------------
-init(State) ->
+init(_Args) ->
+    {ok, LogDir} =
+    configparser:read_config("/etc/clusterbusters.conf",
+        log_dir),
+    LogFile = LogDir ++ "/" ++ atom_to_list(node()),
+
+    State =  #state{logFile = LogFile},
+
     {ok, State}.
 
 %%--------------------------------------------------------------------
@@ -52,21 +57,9 @@ init(State) ->
 %%                          {ok, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_event({error_report, _From, Msg}, State) ->
-    gen_server:cast({global, ?EXTERNAL_LOGGER},
-        {error, {node(), self()}, Msg}),
-    {ok, State};
-handle_event({info_report, _From, Msg}, State) ->
-    gen_server:cast({global, ?EXTERNAL_LOGGER},
-        {info, {node(), self()}, Msg}),
-    {ok, State};
-handle_event({warning_report, _From, Msg}, State) ->
-    gen_server:cast({global, ?EXTERNAL_LOGGER},
-        {warning, {node(), self()}, Msg}),
-    {ok, State};
-handle_event(Other, State) ->
-    gen_server:cast({global, ?EXTERNAL_LOGGER},
-        {other, {node(), self()}, Other}),
+handle_event(Msg, State) ->
+    io:format("Recieved message: ~p", [Msg]),
+    process_message(Msg, State),
     {ok, State}.
 
 %%--------------------------------------------------------------------
@@ -112,6 +105,9 @@ handle_info(_Info, State) ->
 %% @end
 %%--------------------------------------------------------------------
 terminate(Reason, _State) ->
+    %close the logfile
+    error_logger:logfile(close),
+
     chronicler:info("~w:Received terminate call.~n"
         "Reason: ~p~n",
         [?MODULE, Reason]),
@@ -127,3 +123,29 @@ terminate(Reason, _State) ->
 %%--------------------------------------------------------------------
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
+
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Prints the message to the logfile in State
+%% @spec process_message(Message) -> ok
+%% @end
+%%--------------------------------------------------------------------
+process_message({_, _, {_, Type, Msg}}, State) when
+Type =:= lopec_info;
+Type =:= lopec_debug;
+Type =:= lopec_user_info;
+Type =:= lopec_error;
+Type =:= lopec_warning ->
+    {time, {{Year,Month,Day},{Hour,Minute,Second}}} = lists:keyfind(time, 1, Msg),
+    {message, Message} = lists:keyfind(message, 1, Msg),
+    io:format("~n"
+        "=== ~p === ~B/~B-~B = ~B:~B.~B ==~n",
+        [Type, Day, Month, Year, Hour, Minute, Second]),
+    io:format("Message: ~p~n", [Message]),
+    ok;
+process_message(_, State) -> %Not supported message type, discard it.
+    ok.

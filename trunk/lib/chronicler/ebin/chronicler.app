@@ -5,6 +5,7 @@
         chronicler_app,
         chronicler_sup,
         chronicler,
+        file_logger,
         externalLogger
             ]},
     {registered, [externalLoggerPID]},

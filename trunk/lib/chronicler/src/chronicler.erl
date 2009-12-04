@@ -17,8 +17,7 @@
 -module(chronicler).
 -behaviour(gen_server).
 
--record(state, {loggingLevel = [],
-        logFile = atom_to_list(node())}). %TODO add modules level logging
+-record(state, {loggingLevel = []}).
 
 %% API
 -export([start_link/0,
@@ -32,8 +31,7 @@
         warning/2,
         debug/2,
         user_info/2,
-        set_logging_level/1,
-        fetch_logfile/0
+        set_logging_level/1
     ]).
 
 %% gen_server callbacks
@@ -149,16 +147,6 @@ user_info(Format, Args) ->
 set_logging_level(NewLevel) ->
     gen_server:cast(?MODULE, {new_level, NewLevel}).
 
-%%--------------------------------------------------------------------
-%% @doc
-%% Returns the logging file currently in use.
-%%
-%% @spec fetch_logfile() -> string()
-%% @end
-%%--------------------------------------------------------------------
-fetch_logfile() ->
-    gen_server:call(?MODULE, {fetch_logfile}).
-
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -175,21 +163,11 @@ fetch_logfile() ->
 %% @end
 %%--------------------------------------------------------------------
 init(no_args) ->
-    case error_logger:logfile(filename) of
-        {error, no_log_file} ->
-            {ok, LogDir} = configparser:read_config("/etc/clusterbusters.conf",
-						    log_dir),
-            LogFile = LogDir ++ "/" ++ atom_to_list(node()),
-            ok = error_logger:logfile({open, LogFile});
-        LogFile ->
-            LogFile
-    end,
-
     %TODO add module information logging level
-    State = #state{loggingLevel = [error, user_info],
-                   logFile = LogFile},
+    State = #state{loggingLevel = [error, user_info, warning]},
 
     error_logger:add_report_handler(externalLogger),
+    error_logger:add_report_handler(file_logger),
 
     info("Chronicler application started"),
     {ok, State}.
@@ -202,8 +180,6 @@ init(no_args) ->
 %% @spec handle_call(Msg, From, State) ->  {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({fetch_logfile}, _From, State) ->
-    {reply, State#state.logFile, State};
 handle_call(Msg, From, State) ->
     chronicler:warning("~w:Received unexpected handle_call call.~n"
         "Message: ~p~n"
@@ -297,8 +273,6 @@ terminate(Reason, State) ->
         false -> error_logger:delete_report_handler(externalLogger)
     end,
 
-    %close the logfile
-    error_logger:logfile(close),
     ok.
 
 %%--------------------------------------------------------------------
@@ -335,17 +309,23 @@ is_level_logging_on(Level, State) ->
 %% @private
 %% @doc
 %% Calls the correct error_logger reoport function depending on Level.
+%% Also adds the localtime to the message.
 %%
 %% @spec error_report_message(LoggingLevel, Msg) -> ok
 %% @end
 %%--------------------------------------------------------------------
 error_report_message(info, Msg) ->
-    error_logger:info_report(lopec_info, Msg);
+    error_logger:info_report(lopec_info,
+        [{time, erlang:localtime()}, {message, Msg}]);
 error_report_message(debug, Msg) ->
-    error_logger:info_report(lopec_debug, Msg);
+    error_logger:info_report(lopec_debug,
+        [{time, erlang:localtime()}, {message, Msg}]);
 error_report_message(user_info, Msg) ->
-    error_logger:info_report(lopec_user_info, Msg);
+    error_logger:info_report(lopec_user_info,
+        [{time, erlang:localtime()}, {message, Msg}]);
 error_report_message(error, Msg) ->
-    error_logger:error_report(lopec_error, Msg);
+    error_logger:error_report(lopec_error,
+        [{time, erlang:localtime()}, {message, Msg}]);
 error_report_message(warning, Msg) ->
-    error_logger:warning_report(lopec_warning, Msg).
+    error_logger:warning_report(lopec_warning,
+        [{time, erlang:localtime()}, {message, Msg}]).

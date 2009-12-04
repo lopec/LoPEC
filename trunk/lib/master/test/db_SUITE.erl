@@ -31,65 +31,86 @@ end_per_testcase(_TestCase, _Config) ->
 
 all() ->
     [
-     db_user_fetch,
+     db_add_get_remove_jobs,
+     db_user_jobs,
+     db_add_fetch_task,
      db_cancel_job,
-     db_no_job,
-     db_fetch_task,
      db_incorrect_input_type,
      bg_job_test_tasktypes
     ].
 
-db_user_fetch(_Config) ->
-    % Two jobs.
-    JobA1 = {raytracer, mapreduce, ystadsnisse, 15},
-    JobA2 = {wordcount, mapreduce, ystadsnisse, 30},
-    JobB1 = {raytracer, mapreduce, grillbritt, 30},
-    JobB2 = {wordcount, mapreduce, grillbritt, 30},
+db_add_get_remove_jobs(_Config) ->
+    %Check that db is empty
+    [] = db:list(job),
+    
+    %Two job definitions (the 1 is priority; currently unused)
+    JobDef1 = {program1, problemtype1, user, 1},
+    JobDef2 = {program2, problemtype2, user, 2},
 
-    % Let's add them
+    %Adding the definitions to the db...
+    JobId1 = db:add_job(JobDef1),
+    JobId2 = db:add_job(JobDef2),
+
+    %Checking that the jobs were added
+    false = ([] == db:list(job)),
+    Job1 = db:get_job(JobId1),
+    Job2 = db:get_job(JobId2),
+
+    %Checking that the details match
+    user = Job1#job.owner,
+    program1 = Job1#job.program_name,
+    JobId1 = Job1#job.job_id,
+    problemtype1 = Job1#job.problem_type,
+    1 = Job1#job.priority,
+
+    user = Job2#job.owner,
+    program2 = Job2#job.program_name,
+    JobId2 = Job2#job.job_id,
+    problemtype2 = Job2#job.problem_type,
+    2 = Job2#job.priority,
+
+    %Remove the jobs from db
+    db:remove_job(JobId1),
+    db:remove_job(JobId2),
+    
+    %Check that they were removed
+    [] = db:list(job),
+    
+    ok.
+
+db_user_jobs(_Config) ->
+    JobA1 = {program1, problemtype, user1, 1},
+    JobA2 = {program2, problemtype, user1, 1},
+    JobB1 = {program1, problemtype, user2, 1},
+    JobB2 = {program2, problemtype, user2, 1},
+
     JobAId1 = db:add_job(JobA1),
     JobAId2 = db:add_job(JobA2),
     JobBId1 = db:add_job(JobB1),
     JobBId2 = db:add_job(JobB2),
-
-    case db:get_user_jobs(grillbritt) of
+    
+    case db:get_user_jobs(user1) of
+        [JobAId1, JobAId2] ->
+            ok;
+        [JobAId2, JobAId1] ->
+            ok
+    end,
+    case db:get_user_jobs(user2) of
         [JobBId1, JobBId2] ->
             ok;
         [JobBId2, JobBId1] ->
             ok
     end,
+    ok.
 
-    case db:get_user_jobs(ystadsnisse) of
-        [JobAId1, JobAId2] ->
-            ok;
-        [JobAId2, JobAId1] ->
-            ok
-    end.
-
-db_no_task(_Config) ->
-    no_task = db:fetch_task(node()).
-
-db_cancel_job(_Config) ->
-    JobC = {wordcount, mapreduce, skatasbort, 30},
-    JobCId = db:add_job(JobC),
-    %TODO Matcha!
-    {_TaskID, []} = db:add_task({JobCId, raytracer, split, '/pr/stuff'}),
-    {_TaskIS2, []} = db:fetch_task(skadellas),
-    [skadellas] = db:cancel_job(JobCId).
-
-db_no_job(_Config) ->
-    TaskWithoutJob = {1, raytracer, split, 'ystads-nisse/pron'},
-    {error, job_not_in_db} = db:add_task(TaskWithoutJob),
-
-    TaskWithoutJob2 = {1, raytracer, reduce, 'ystads-nisse/pron'},
-    {error, job_not_in_db} = db:add_task(TaskWithoutJob2).
-
-db_fetch_task(_Config) ->
-    Job = {raytracer, mapreduce, ystadsnisse, 15},
+db_add_fetch_task(_Config) ->
+    Job = {program, problemtype, user, 1},
     JobId = db:add_job(Job),
 
-    Task = {JobId, raytracer, split, 'ystads-nisse/pron'},
-    {TaskId, []} = db:add_task(Task),
+    %Task definition
+    TaskDef = {JobId, program, split, 'some/path'},
+    %Add task to db, receive task_id
+    {TaskId, []} = db:add_task(TaskDef),
     true = is_integer(TaskId),
 
     %Fetch the task
@@ -112,123 +133,42 @@ db_fetch_task(_Config) ->
     %Try to fetch another task, should receive no_task
     no_task = db:fetch_task(mongomongo).
 
+%% -record(task, {
+%%           task_id,
+%%           job_id,
+%%           program_name,
+%%           type, % i.e. map, reduce, split, finalise
+%%           path,
+%%           state = free
+%%          }). % [free | assigned | done]
+
+db_cancel_job(_Config) ->
+    [] = db:list(job),
+    %Can't check that running tasks are interrupted.
+    %But a user story tests that for us
+    Job = {program1, problemtype, user, 30},
+    JobId = db:add_job(Job),
+    
+    false = ([] == db:list(job)),
+    %TODO: Match!
+    {_TaskID, []} = db:add_task({JobId, program2, split, '/pr/stuff'}),
+    {_TaskIS2, []} = db:fetch_task(skadellas),
+    [skadellas] = db:cancel_job(JobId),
+    [] = db:list(job).
+
+db_no_job(_Config) ->
+    TaskWithoutJob = {1, program, split, 'ystads-nisse/pron'},
+    {error, job_not_in_db} = db:add_task(TaskWithoutJob),
+
+    TaskWithoutJob2 = {1, program, reduce, 'ystads-nisse/pron'},
+    {error, job_not_in_db} = db:add_task(TaskWithoutJob2).
+
 db_incorrect_input_type(_Config) ->
-    Job = {raytracer, mapreduce, ystadsnisse, 15},
-    TaskWithErrorType = {Job, raytracer, non_existing_task_type, 'ystads-nisse/pron'},
+    Job = {program, problemtype, ystadsnisse, 15},
+    TaskWithErrorType = {Job, program, non_existing_task_type, 'ystads-nisse/pron'},
     {error, incorrect_input_type} = db:add_task(TaskWithErrorType).
 
-db_test() ->
-    [{doc, "Test the WHOOOLE database."}].
-db_test(_Config) ->
-    JobAId = 1,
-    JobBId = 2,
-    Task1Id = 1,
-    % Make sure that JobA has its state set to
-    % no_tasks, since it was just added
-    no_tasks = (db:get_job(JobAId))#job.state,
 
-    % Free all tasks associated to JobA and check that
-    % its free
-    db:free_tasks(bongobongo),
-    free = (db:get_job(JobAId))#job.state,
-
-    % Add one more task and try to fetch it
-    Task2 = {JobAId, raytracer, map, 'ystads-nisse/pron'},
-    Task2Id = db:add_task(Task2),
-
-    db:fetch_task(bongobongo),
-    db:fetch_task(bongobongo),
-    db:fetch_task(bongobongo),
-    db:fetch_task(bongobongo),
-    [] = db:list(split_free),
-    [] = db:list(map_free),
-    [_OneSplitAss] = db:list(split_assigned),
-    [_OneMapAss] = db:list(map_assigned),
-
-    Task3 = {JobAId, raytracer, reduce, 'ystads-nisse/pron'},
-    Task4 = {JobAId, raytracer, reduce, 'ystads-nisse/pron'},
-    Task5 = {JobAId, raytracer, finalize, 'ystads-nisse/pron'},
-    Task6 = {JobAId, raytracer, finalize, 'ystads-nisse/pron'},
-    Task7 = {JobAId, ololol, ololol, 'ololol'},
-
-    Task3Id = db:add_task(Task3),
-    db:add_task(Task4),
-    _Task5Id = db:add_task(Task5),
-    db:add_task(Task6),
-    db:add_task(Task7),
-
-    [_OneReduceFree] = db:list(reduce_free),
-    1 = length(db:list(finalize_free)),
-
-    free = (db:get_task(Task3Id))#task.state,
-    no_tasks = (db:get_job(JobBId))#job.state,
-
-    db:pause_job(JobAId),
-    paused = (db:get_job(JobAId))#job.state,
-
-    PausedFetchTask = db:fetch_task(mongomongo),
-    no_task = PausedFetchTask,
-
-    db:resume_job(JobAId),
-    free = (db:get_job(JobAId))#job.state,
-
-    db:stop_job(JobAId),
-    stopped = (db:get_job(JobAId))#job.state,
-
-    db:resume_job(JobAId),
-
-    NoTask1 = db:fetch_task(bongobongo),
-    NoTask2 = db:fetch_task(bongobongo),
-    no_task = NoTask1,
-    no_task = NoTask2,
-
-    db:set_job_path(JobBId, Path = 'fudz/pr0n/lulz'),
-    Path = (db:get_job(JobBId))#job.path,
-
-    db:mark_done(Task1Id),
-    Fetch1 = db:fetch_task(mongobongo),
-    db:mark_done(Task2Id),
-
-    no_task = Fetch1,
-    done = (db:get_task(Task1Id))#task.state,
-    [_OneMapDone] = db:list(map_done),
-
-    Fetch2 = db:fetch_task(mongobongo),
-    Fetch3 = db:fetch_task(mongobongo),
-
-    Fetch2Id = Fetch2#task.task_id,
-
-    true = lists:member(Fetch2Id, db:list(assigned_tasks)),
-    true = lists:member(Fetch2Id, db:list(reduce_assigned)),
-    no_task = Fetch3,
-
-    db:mark_done(Fetch2Id),
-
-    Fetch4 = db:fetch_task(mongobongo),
-    Fetch4Id = Fetch4#task.task_id,
-    true = lists:member(Fetch4Id, db:list(assigned_tasks)),
-    [_OneFinalizeAss] = db:list(finalize_assigned),
-
-    db:mark_done(Fetch4Id),
-
-    db:remove_job(JobAId),
-    db:remove_job(JobBId),
-
-    [] = lists:concat([db:list(split_free),
-				     db:list(split_assigned),
-				     db:list(split_done),
-				     db:list(map_free),
-				     db:list(map_assigned),
-				     db:list(map_done),
-				     db:list(reduce_free),
-				     db:list(reduce_assigned),
-				     db:list(reduce_done),
-				     db:list(finalize_free),
-				     db:list(finalize_assigned),
-				     db:list(finalize_done),
-				     db:list(assigned_tasks),
-				     db:list(task_relations),
-				     db:list(job)]).
 
 
 bg_job_test_tasktypes() ->

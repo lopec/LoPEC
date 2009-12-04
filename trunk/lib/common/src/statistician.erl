@@ -17,11 +17,12 @@
 %%%    * Download network traffic (ditto)
 %%%    * Number of tasks processed
 %%%    * Number of task restarts
-%%%    * Total amount of master node diskspace
-%%%    * % of master node diskspace used
-%%%    * Total amount of master node primary memory
-%%%    * % of master node primary memory used
-%%%    * What process is using the most primary memory, and how much
+%%%    * Total amount of diskspace in cluster
+%%%    * Total amount of diskspace used in cluster
+%%%    * % of diskspace in cluster that is used
+%%%    * Total amount of primary memory in cluster
+%%%    * Total amount of primary memory used in cluster
+%%%    * % of primary memory used in cluster
 %%%</pre>
 %%%
 %%% @end
@@ -726,9 +727,9 @@ handle_info(Info, State) ->
 %%--------------------------------------------------------------------
 terminate(normal, _State) ->
     chronicler:debug("~w:Received normal terminate call.~n"),
-    diskMemHandler:stop(),
-    application:stop(os_mon),
     application:stop(sasl),
+    application:stop(os_mon),
+    diskMemHandler:stop(),
     ok;
 
 %%--------------------------------------------------------------------

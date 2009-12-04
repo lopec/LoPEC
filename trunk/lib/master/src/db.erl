@@ -56,7 +56,8 @@
 	 set_password/3,
 	 set_email/2,
 	 exist_user/1,
-	 task_info_from_job/2]).
+	 task_info_from_job/2,
+	 list_users/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -456,6 +457,17 @@ get_user_from_job(JobId) ->
     Job = get_job(JobId),
     _User = Job#job.owner.
 
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Returns a list of all users with some of their info.
+%%
+%% @spec list_users() -> {ok, List} | {error, Error}
+%%             List = [{Username::string(), Email::string(), Role::atom()}]
+%% @end
+%%--------------------------------------------------------------------
+list_users() ->
+    gen_server:call(?SERVER, {list_users}).
 %%--------------------------------------------------------------------
 %% @doc
 %%
@@ -1189,6 +1201,36 @@ handle_call({set_password, Username, OldPassword, NewPassword}, _From, State) ->
 		    add(user, User#user{password=Password}),
 		    Reply = {ok, password_set}
 	    end
+    end,
+    {reply, Reply, State};
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Returns a list of all users with some of their info.
+%%
+%% @spec handle_call({list_users}, _From, State) -> 
+%%                    {reply, {ok, List}, State} 
+%%                  | {reply, {error, Error}, State}
+%%             List = [{Username::string(), Email::string(), Role::atom()}]
+%% @end
+%%--------------------------------------------------------------------
+handle_call({list_users}, _From, State) ->
+    Extract = fun(Username) ->
+		      User = read(user, Username),
+		      {User#user.user_name, 
+		       User#user.email,
+		       User#user.role}
+	      end,
+    F = fun() ->
+                Users = mnesia:all_keys(user),
+		lists:map(Extract, Users)
+        end,
+    case mnesia:transaction(F) of
+	{atomic, Result} ->
+	    Reply = {ok, Result};
+	{aborted, Reason} ->
+	    Reply = {error, Reason}
     end,
     {reply, Reply, State};
 

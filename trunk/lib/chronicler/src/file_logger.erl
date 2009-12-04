@@ -39,7 +39,9 @@ init(_Args) ->
         log_dir),
     LogFile = LogDir ++ "/" ++ atom_to_list(node()),
 
-    State =  #state{logFile = LogFile},
+    {ok, Log} = file:open(LogFile, [append]),
+
+    State =  #state{logFile = Log},
 
     {ok, State}.
 
@@ -141,10 +143,21 @@ Type =:= lopec_error;
 Type =:= lopec_warning ->
     {time, {{Year,Month,Day},{Hour,Minute,Second}}} = lists:keyfind(time, 1, Msg),
     {message, Message} = lists:keyfind(message, 1, Msg),
-    io:format("~n"
+
+    %Write to file
+    io:format("~p", [State#state.logFile]),
+    io:format(State#state.logFile, "~n"
         "=== ~p === ~B/~B-~B = ~B:~B.~B ==~n",
         [Type, Day, Month, Year, Hour, Minute, Second]),
-    io:format("Message: ~p~n", [Message]),
+    io:format(State#state.logFile, "Message: ~p~n", [Message]),
+
+    %TTY TODO: add filter for this.
+    io:format("~p", [State#state.logFile]),
+    io:format(State#state.logFile, "~n"
+        "=== ~p === ~B/~B-~B = ~B:~B.~B ==~n",
+        [Type, Day, Month, Year, Hour, Minute, Second]),
+    io:format(State#state.logFile, "Message: ~p~n", [Message]),
+
     ok;
 process_message(_, State) -> %Not supported message type, discard it.
     ok.

@@ -4,11 +4,11 @@
 
 %% Todo:
 %% - Fix so the uploaded file is used in the cluster
-%% - Fix validation of the form
-%% - A redirect to a new page when job is started
-%% - Fix ProblemType and ProgramType input
+%% - Fix ProgramName as input
+%% - When the "Next" button is clicked, the flash-message should disappear
 
 main() ->
+    common_web:have_role([role_user, role_admin]),
     common_web:main().
 
 title() ->
@@ -51,7 +51,10 @@ get_jobs([H|T]) ->
             Status = "Stopped",
             Buttons = [#link { body = [#image{ class="controlimage", image = "/images/delete.gif", alt="Cancel job" }], postback={cancel, H}},
                        #link { body = [#image{ class="controlimage", image = "/images/resume.gif", alt="Resume job"}], postback={resume, H}}];
-        _ -> 
+        {ok, no_tasks} -> 
+            Status = "Finished",
+            Buttons = [];
+        _ ->
             Status = "Error.",
             Buttons = []
     end,

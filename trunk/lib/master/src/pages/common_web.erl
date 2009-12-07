@@ -19,6 +19,20 @@ is_logged_in(Do_check) ->
             "You are not logged in."
     end.
 
+have_role(WantedRole) ->
+    case db:get_user(wf:user()) of
+        {user, _Username, _Password, _Email, _, Role} ->
+            ConfirmedRoles = lists:filter(fun(X) -> X == Role end, WantedRole),
+            case length(ConfirmedRoles) of
+                0 ->
+                    wf:redirect("/web/index");
+                _ ->
+                    _T=[]
+            end;
+        _ -> 
+            wf:redirect("/web/index")
+    end.
+
 main() ->
 	#template { file="./wwwroot/template.html"}.
 
@@ -55,11 +69,11 @@ menu() ->
 submenu() ->
     Submenu = [
         #panel{id=menuitem, body=[
-            #link{text="Current jobs"}
+            #link{text="Jobs", url="/web/add/job"}
             ]
         },
         #panel{id=menuitem, body=[
-            #link{text="Add new job", url="/web/add/job"}
+                #link{text="LogViewer", url="/web/log/viewer"}
             ]
         },
         #panel{id=menuitem, body=[
@@ -68,10 +82,6 @@ submenu() ->
         },
         #panel{id=menuitem, body=[
             #link{text="Profile"}
-            ]
-        },
-        #panel{id=menuitem, body=[
-                #link{text="LogViewer", url="/web/log/viewer"}
             ]
         }
     ],

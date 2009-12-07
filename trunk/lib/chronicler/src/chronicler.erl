@@ -21,16 +21,16 @@
 
 %% API
 -export([start_link/0,
-        error/1,
-        info/1,
-        warning/1,
-        debug/1,
-        user_info/1,
         error/2,
-        info/2,
+        info/1,
         warning/2,
-        debug/2,
+        debug/1,
         user_info/2,
+        error/3,
+        info/2,
+        warning/3,
+        debug/2,
+        user_info/3,
         set_logging_level/1
     ]).
 
@@ -61,16 +61,16 @@ start_link() ->
 %% @doc
 %% Logs a error message
 %%
-%% @spec error(Msg) -> ok
+%% @spec error(UserId, Msg) -> ok
 %% @end
 %%--------------------------------------------------------------------
-error(Msg) ->
-    gen_server:cast(?MODULE, {error, Msg}).
-%% @spec error(Format, Args) -> ok
-%% @equiv error(io_lib:format(Format, Args))
-error(Format, Args) ->
+error(UserId, Msg) ->
+    gen_server:cast(?MODULE, {error, UserId, Msg}).
+%% @spec error(UserId, Format, Args) -> ok
+%% @equiv error(UserId, io_lib:format(Format, Args))
+error(UserId, Format, Args) ->
     Msg = lists:flatten(io_lib:format(Format, Args)),
-    error(Msg).
+    error(UserId, Msg).
 
 
 %%--------------------------------------------------------------------
@@ -92,16 +92,16 @@ info(Format, Args) ->
 %% @doc
 %% Logs a warning message
 %%
-%% @spec warning(Msg) -> ok
+%% @spec warning(UserId, Msg) -> ok
 %% @end
 %%--------------------------------------------------------------------
-warning(Msg) ->
-    gen_server:cast(?MODULE, {warning, Msg}).
-%% @spec warning(Format, Args) -> ok
-%% @equiv warning(io_lib:format(Format, Args))
-warning(Format, Args) ->
+warning(UserId, Msg) ->
+    gen_server:cast(?MODULE, {warning, UserId, Msg}).
+%% @spec warning(UserId, Format, Args) -> ok
+%% @equiv warning(UserId, io_lib:format(Format, Args))
+warning(UserId, Format, Args) ->
     Msg = lists:flatten(io_lib:format(Format, Args)),
-    warning(Msg).
+    warning(UserId, Msg).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -124,16 +124,16 @@ debug(Format, Args) ->
 %% Logs a user info message
 %%
 %% @TODO implement using something else than error_logger
-%% @spec user_info(Msg) -> ok
+%% @spec user_info(UserId, Msg) -> ok
 %% @end
 %%--------------------------------------------------------------------
-user_info(Msg) ->
-    gen_server:cast(?MODULE, {user_info, Msg}).
-%% @spec user_info(Format, Args) -> ok
-%% @equiv user_info(io_lib:format(Format, Args))
-user_info(Format, Args) ->
+user_info(UserId, Msg) ->
+    gen_server:cast(?MODULE, {user_info, UserId, Msg}).
+%% @spec user_info(UserId, Format, Args) -> ok
+%% @equiv user_info(UserId, io_lib:format(Format, Args))
+user_info(UserId, Format, Args) ->
     Msg = lists:flatten(io_lib:format(Format, Args)),
-    user_info(Msg).
+    user_info(UserId, Msg).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -181,7 +181,7 @@ init(no_args) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call(Msg, From, State) ->
-    chronicler:warning("~w:Received unexpected handle_call call.~n"
+    chronicler:debug("~w:Received unexpected handle_call call.~n"
         "Message: ~p~n"
         "From: ~p~n",
         [?MODULE, Msg, From]),
@@ -211,7 +211,18 @@ handle_cast({new_level, NewLevel}, State) ->
 handle_cast({Level, Msg}, State) ->
     case is_level_logging_on(Level, State) of
         true ->
-            error_report_message(Level, Msg),
+            error_report_message({Level, Msg}),
+            {noreply, State};
+        false ->
+            {noreply, State}
+    end;
+handle_cast({Level, UserId, Msg}, State) when
+Level =:= user_info;
+Level =:= warnign;
+Level =:= error ->
+    case is_level_logging_on(Level, State) of
+        true ->
+            error_report_message({Level, UserId, Msg}),
             {noreply, State};
         false ->
             {noreply, State}
@@ -219,7 +230,7 @@ handle_cast({Level, Msg}, State) ->
 handle_cast({Level, From, Msg}, State) ->
     case is_level_logging_on(Level, State) of
         true ->
-            error_report_message(Level, [From, Msg]),
+            error_report_message({Level, [From, Msg]}),
             {noreply, State};
         false ->
             {noreply, State}
@@ -233,7 +244,7 @@ handle_cast({Level, From, Msg}, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    chronicler:warning("~w:Received unexpected handle_cast call.~n"
+    chronicler:debug("~w:Received unexpected handle_cast call.~n"
         "Message: ~p~n",
         [?MODULE, Msg]),
     {noreply, State}.
@@ -247,7 +258,7 @@ handle_cast(Msg, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(Info, State) ->
-    chronicler:warning("~w:Received unexpected handle_info call.~n"
+    chronicler:debug("~w:Received unexpected handle_info call.~n"
         "Info: ~p~n",
         [?MODULE, Info]),
     {noreply, State}.
@@ -314,18 +325,18 @@ is_level_logging_on(Level, State) ->
 %% @spec error_report_message(LoggingLevel, Msg) -> ok
 %% @end
 %%--------------------------------------------------------------------
-error_report_message(info, Msg) ->
+error_report_message({info, Msg}) ->
     error_logger:info_report(lopec_info,
         [{time, erlang:localtime()}, {message, Msg}]);
-error_report_message(debug, Msg) ->
+error_report_message({debug, Msg}) ->
     error_logger:info_report(lopec_debug,
         [{time, erlang:localtime()}, {message, Msg}]);
-error_report_message(user_info, Msg) ->
+error_report_message({user_info, UserId, Msg}) ->
     error_logger:info_report(lopec_user_info,
-        [{time, erlang:localtime()}, {message, Msg}]);
-error_report_message(error, Msg) ->
+        [{time, erlang:localtime()}, {user, UserId}, {message, Msg}]);
+error_report_message({error, UserId, Msg}) ->
     error_logger:error_report(lopec_error,
-        [{time, erlang:localtime()}, {message, Msg}]);
-error_report_message(warning, Msg) ->
+        [{time, erlang:localtime()}, {user, UserId}, {message, Msg}]);
+error_report_message({warning, UserId, Msg}) ->
     error_logger:warning_report(lopec_warning,
-        [{time, erlang:localtime()}, {message, Msg}]).
+        [{time, erlang:localtime()}, {user, UserId}, {message, Msg}]).

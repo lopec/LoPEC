@@ -384,7 +384,7 @@ handle_call({cancel_job, JobId}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call(Msg, From, State) ->
-    chronicler:warning("~w : Received unexpected handle_call call.~n"
+    chronicler:debug("~w : Received unexpected handle_call call.~n"
                        "Message: ~p~n"
                        "From: ~p~n",
                        [?MODULE, Msg, From]),
@@ -416,7 +416,7 @@ terminate(Reason, _State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    chronicler:warning("~w : Received unexpected handle_cast call.~n"
+    chronicler:debug("~w : Received unexpected handle_cast call.~n"
                        "Message: ~p~n",
                        [?MODULE, Msg]),
     {noreply, State}.
@@ -431,7 +431,7 @@ handle_cast(Msg, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(Info, State) ->
-    chronicler:warning("~w : Received unexpected handle_info call.~n"
+    chronicler:debug("~w : Received unexpected handle_info call.~n"
                        "Info: ~p~n",
                        [?MODULE, Info]),
     {noreply, State}.

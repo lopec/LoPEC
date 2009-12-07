@@ -489,7 +489,7 @@ handle_call({get_user_stats, User, Flag}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call(Msg, From, State) ->
-    chronicler:warning("~w:Received unexpected handle_call call.~n"
+    chronicler:debug("~w:Received unexpected handle_call call.~n"
                        "Message: ~p~n"
                        "From: ~p~n",
                        [?MODULE, Msg, From]),
@@ -587,7 +587,7 @@ handle_cast(stop, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast({alarm, Node, Type, Alarm}, State) ->
-    chronicler:warning("~w: Alarm at node ~p of type ~p: ~p",
+    chronicler:debug("~w: Alarm at node ~p of type ~p: ~p",
                        [?MODULE, Node, Type, Alarm]),
     {noreply, State};
 
@@ -667,7 +667,7 @@ handle_cast({remove_node, NodeId}, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    chronicler:warning("~w:Received unexpected handle_cast call.~n"
+    chronicler:debug("~w:Received unexpected handle_cast call.~n"
                        "Message: ~p~n",
                        [?MODULE, Msg]),
     {noreply, State}.
@@ -709,7 +709,7 @@ handle_info({job_finished, JobId}, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(Info, State) ->
-    chronicler:warning("~w:Received unexpected handle_info call.~n"
+    chronicler:debug("~w:Received unexpected handle_info call.~n"
                        "Info: ~p~n",
                        [?MODULE, Info]),
     {noreply, State}.
@@ -756,7 +756,7 @@ terminate(Reason, _State) ->
 %% @end
 %%--------------------------------------------------------------------
 code_change(OldVsn, State, Extra) ->
-    chronicler:warning("~w:Received unexpected code_change call.~n"
+    chronicler:debug("~w:Received unexpected code_change call.~n"
                        "Old version: ~p~n"
                        "Extra: ~p~n",
                        [?MODULE, OldVsn, Extra]),

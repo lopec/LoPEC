@@ -8,7 +8,7 @@
 %% @end
 %%--------------------------------------------------------------------
 handle_call(Msg, From, State) ->
-    chronicler:warning("~w:Received unexpected handle_call call.~n"
+    chronicler:debug("~w:Received unexpected handle_call call.~n"
                        "Message: ~p~n"
                        "From: ~p~n",
                        [?MODULE, Msg, From]),
@@ -23,7 +23,7 @@ handle_call(Msg, From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    chronicler:warning("~w:Received unexpected handle_cast call.~n"
+    chronicler:debug("~w:Received unexpected handle_cast call.~n"
                        "Message: ~p~n",
                        [?MODULE, Msg]),
     {noreply, State}.
@@ -37,7 +37,7 @@ handle_cast(Msg, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(Info, State) -> 
-    chronicler:warning("~w:Received unexpected handle_info call.~n"
+    chronicler:debug("~w:Received unexpected handle_info call.~n"
                        "Info: ~p~n",
                        [?MODULE, Info]),
     {noreply, State}.
@@ -53,7 +53,7 @@ handle_info(Info, State) ->
 %% @end
 %%--------------------------------------------------------------------
 code_change(OldVsn, State, Extra) -> 
-    chronicler:warning("~w:Received unexpected code_change call.~n"
+    chronicler:debug("~w:Received unexpected code_change call.~n"
                        "Old version: ~p~n"
                        "Extra: ~p~n",
                        [?MODULE, OldVsn, Extra]),

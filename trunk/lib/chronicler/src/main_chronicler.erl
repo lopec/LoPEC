@@ -105,7 +105,7 @@ handle_call({request, get_everything}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call(Msg, From, State) ->
-    chronicler:warning("~w: Received unexpected handle_call from ~p.~n"
+    chronicler:debug("~w: Received unexpected handle_call from ~p.~n"
         "Msg: ~p~n",
         [?MODULE, From, Msg]),
     {noreply, State}.
@@ -131,7 +131,7 @@ handle_cast(Msg, State) ->
 %% @end
 %%--------------------------------------------------------------------
 %handle_cast(Msg, State) ->
-%    chronicler:warning("~w: Received unexpected handle_cast.~n"
+%    chronicler:debug("~w: Received unexpected handle_cast.~n"
 %                       "Msg: ~p~n",
 %                       [?MODULE, Msg]),
 %    {noreply, State}.
@@ -145,7 +145,7 @@ handle_cast(Msg, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(Info, State) ->
-    chronicler:warning("~w:Received unexpected handle_info.~n"
+    chronicler:debug("~w:Received unexpected handle_info.~n"
         "Info: ~p~n",
         [?MODULE, Info]),
     {noreply, State}.

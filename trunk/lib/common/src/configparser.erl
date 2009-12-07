@@ -13,7 +13,7 @@
 %% @end
 %%--------------------------------------------------------------------
 parse(Key, []) ->
-    chronicler:warning("~w : Could not find the key '~w'~n", [?MODULE, Key]),
+    chronicler:debug("~w : Could not find the key '~w'~n", [?MODULE, Key]),
     {error, not_found};
 parse(Key, [{Key, Value} | _Config]) ->
     {ok, Value};
@@ -23,7 +23,7 @@ parse(Key, [_Other | Config]) ->
 read_config(File, Key) ->
     {Ret, Config} = file:consult(File),
     case Ret of 
-        error -> chronicler:warning("~w : Could not find the configfile '~w'~n",
+        error -> chronicler:debug("~w : Could not find the configfile '~w'~n",
 				    [?MODULE, File]),
                 {error, Config};
         ok -> Value = parse(Key, Config),

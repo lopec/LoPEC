@@ -257,7 +257,7 @@ handle_cast({free_tasks, NodeId}, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    chronicler:warning("~w:Received unexpected handle_cast call.~n"
+    chronicler:debug("~w:Received unexpected handle_cast call.~n"
                        "Message: ~p~n",
                        [?MODULE, Msg]),
     {noreply, State}.
@@ -421,7 +421,7 @@ handle_call({get_user_from_job, JobId}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call(Msg, From, State) ->
-    chronicler:warning("~w:Received unexpected handle_call call.~n"
+    chronicler:debug("~w:Received unexpected handle_call call.~n"
                        "Message: ~p~n"
                        "From: ~p~n",
                        [?MODULE, Msg, From]),
@@ -545,7 +545,7 @@ code_change(OldVsn, State, Extra) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(Info, State) ->
-    chronicler:warning("~w:Received unexpected handle_info call.~n"
+    chronicler:debug("~w:Received unexpected handle_info call.~n"
                        "Info: ~p~n",
                        [?MODULE, Info]),
     {noreply, State}.

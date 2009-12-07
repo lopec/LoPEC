@@ -82,7 +82,7 @@ init(_) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_call(_Request, _From, _State) ->
-    chronicler:warning("~w : Unexpected message in handle_call~n", [?MODULE]),
+    chronicler:debug("~w : Unexpected message in handle_call~n", [?MODULE]),
     {noreply, []}.
 
 %% --------------------------------------------------------------------
@@ -112,7 +112,7 @@ handle_cast({new_node, Node}, _) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(Msg, State) ->
-    chronicler:warning("~w : Received unexpected handle_cast call.~n"
+    chronicler:debug("~w : Received unexpected handle_cast call.~n"
                        "Message: ~p~n",
                        [?MODULE, Msg]),
     {noreply, State}.
@@ -140,7 +140,7 @@ handle_info({nodedown, Node}, _) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info(Info, State) -> 
-    chronicler:warning("~w : Received unexpected handle_info call.~n"
+    chronicler:debug("~w : Received unexpected handle_info call.~n"
                        "Info: ~p~n",
                        [?MODULE, Info]),
     {noreply, State}.

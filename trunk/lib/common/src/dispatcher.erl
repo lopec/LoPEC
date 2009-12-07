@@ -341,7 +341,7 @@ handle_call({add_job, JobSpec}, _From, State) ->
     NewJobId = db:add_job(JobSpec),
     case NewJobId of
         {error, Error} ->
-            chronicler:error(Error),
+            chronicler:error(fix_me_need_user_id, Error),
             {reply, {error, Error}, State};
         _ ->
             examiner:insert(NewJobId),
@@ -383,7 +383,7 @@ handle_call({task_failed, JobId, Node, TaskType}, _From, State) ->
 	    {reply, ok, State};
 	Result >= Max_Restarts ->
 	    db:stop_job(JobId),
-            chronicler:user_info("Job ~p stopped, reason: "
+            chronicler:user_info(fix_me_need_user_id, "Job ~p stopped, reason: "
                                  "Too many task restarts", [JobId]),
             examiner:remove(JobId),
 	    {reply, {ok, stopped}, State}

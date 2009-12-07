@@ -28,7 +28,7 @@ start(_Type, _StartArgs) ->
 	{ok, Pid} ->
 	    {ok, Pid};
 	Error ->
-	    chronicler:error("~w : ECG Application StartUp Error: ~p ~n",
+	    chronicler:error(fix_me_need_user_id, "~w : ECG Application StartUp Error: ~p ~n",
                              [?MODULE, Error]),
 	    Error
     end.

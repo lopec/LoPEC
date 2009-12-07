@@ -230,16 +230,17 @@ handle_info({_Pid, {data, {_Flag, "NEW_REDUCE_RESULT " ++ Data}}},
                          finalize, "/results/"),
     {noreply, State};
 handle_info({_Pid, {data, {_Flag, "ERROR " ++ Data}}}, State) ->
-    chronicler:error("~w : ERROR: ~ts~n", [?MODULE, Data]),
+    chronicler:error(fix_me_need_user_id, "~w : ERROR: ~ts~n", [?MODULE, Data]),
     {noreply, State};
-handle_info({_Pid, {data, {_Flag, "LOG " ++ Data}}}, State) ->
-    chronicler:user_info("~w : LOG: ~ts~n", [?MODULE, Data]),
-    {noreply, State};
+handle_info({_Pid, {data, {_Flag, "LOG " ++ Data}}}, [JobId | State]) ->
+    chronicler:user_info(fix_me_need_user_id, "~w : LOG: ~ts~n",
+        [?MODULE, Data]),
+    {noreply, [JobId | State]};
 handle_info({Pid, {data, {_Flag, "Segmentation fault"}}},
             State = {JobId, TaskId, Time, TaskType, Progname, _StartedPids}) ->
-    chronicler:error("~w : Process ~p exited with reason: Segmentation fault",
+    chronicler:error(fix_me_need_user_id, "~w : Process ~p exited with reason: Segmentation fault",
                      [?MODULE, Pid]),
-    taskFetcher:error({self(), error,
+    taskFetcher:error(fix_me_need_user_id, {self(), error,
                        {JobId, TaskId, Time, TaskType, Progname}}),
     {stop, normal, State};
 handle_info({_Pid, {data, {_Flag, Data}}}, State) ->
@@ -254,9 +255,9 @@ handle_info({Pid, {exit_status, Status}}, State =
     {stop, normal, State};
 handle_info({Pid, {exit_status, Status}},
             State = {JobId, TaskId, Time, TaskType, Progname, _StartedPids}) ->
-    chronicler:error("~w : Process ~p exited with status: ~p~n",
+    chronicler:error(fix_me_need_user_id, "~w : Process ~p exited with status: ~p~n",
                      [?MODULE, Pid, Status]),
-    taskFetcher:error({self(), error,
+    taskFetcher:error(fix_me_need_user_id, {self(), error,
                                {JobId, TaskId, Time, TaskType, Progname}}),
     {stop, normal, State};
 %%--------------------------------------------------------------------

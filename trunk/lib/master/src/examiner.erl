@@ -329,18 +329,21 @@ update_job(JobStats, TaskType, NewTaskState) ->
               end,
     case Event of
         first_assigned ->
-            chronicler:user_info("The first ~p task in job ~p was started.",
+            chronicler:user_info(fix_me_need_user_id,
+                "The first ~p task in job ~p was started.",
                                  [TaskType, JobName]);
         all_done ->
             case {all_previous_done(JobStats, TaskType), TaskType} of
                 {false, _} -> nothing_to_see_here_move_along;
                 {true, finalize} ->
-                    chronicler:user_info("Job ~p is done.",
+                    chronicler:user_info(fix_me_need_user_id,
+                        "Job ~p is done.",
                                          [JobName]),
                     statistician:job_finished(JobId),
                     db:remove_job(JobId);
                 {true, _} ->
-                    chronicler:user_info("All ~p tasks in job ~p are done.",
+                    chronicler:user_info(fix_me_need_user_id,
+                        "All ~p tasks in job ~p are done.",
                                          [TaskType, JobName])
             end;
         nothing -> ok

@@ -246,7 +246,7 @@ add_task({JobId, ProgramName, Type, Path}) when Type == split ; Type == map ->
             call_add(TableName, JobId, ProgramName, Type, Path)
     end;
 add_task({_JobId, _ProgramName, Type, _Path}) ->
-    chronicler:error("~w:add_task failed:~n"
+    chronicler:error(fix_me_need_user_id, "~w:add_task failed:~n"
                      "Incorrect input type: ~p~n", [?MODULE, Type]),
     {error, incorrect_input_type}.
 
@@ -813,7 +813,8 @@ handle_call({stop_job, JobId}, _From, State) ->
     Reply =
         case get_tasks_assigned_in_job(JobId) of
             {ok, AssignedTasks} ->
-                chronicler:user_info("found assigned tasks: ~p", [AssignedTasks]),
+                chronicler:user_info(fix_me_need_user_id,
+                    "found assigned tasks: ~p", [AssignedTasks]),
                 CollectNodes =
                     fun (TaskId, Nodes) ->
                             case read(assigned_tasks, TaskId) of
@@ -1118,7 +1119,7 @@ handle_call({add_user, Username, Email, Password}, _From, State) ->
                 ok ->
                     {ok, user_added};
                 {error, Reason} ->
-                    chronicler:error(
+                    chronicler:error(fix_me_need_user_id, 
                       "~w:Adding user failed!~nUser: ~s aborted.~nReason: ~s~n", 
                       [?MODULE, User, Reason]),
                     {error, Reason}

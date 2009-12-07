@@ -25,31 +25,35 @@ all() ->
 init_per_suite(Config) ->
     % do custom per suite setup here
     error_logger:tty(false),
-    Config.
+
+    ok = application:start(common),
+    ok = application:start(chronicler),
+
+    {ok, LogDir} =
+    configparser:read_config("/etc/clusterbusters.conf",
+        log_dir),
+    LogFile = LogDir ++ "/" ++ atom_to_list(node()),
+
+    {ok, File} = file:open(LogFile, read),
+    [{filePointer, File} | Config].
 
 % required, but can just return Config. this is a suite level tear down function.
+end_per_suite([{filePointer, File}]) -> % do custom per suite cleanup here
+    ok = file:close(File),
+    ok;
 end_per_suite(_Config) ->
+    ok = application:stop(chronicler),
+    ok = application:stop(common),
     ok.
 
 % optional, can do function level setup for all functions,
 % or for individual functions by matching on TestCase.
 init_per_testcase(_TestCase, Config) ->
-    ok = application:start(common),
-    ok = application:start(chronicler),
-    Filename = error_logger:logfile(filename),
-    {ok, File} = file:open(Filename, read),
-    [{filePointer, File} | Config].
+    Config.
 
 % optional, can do function level tear down for all functions,
 % or for individual functions by matching on TestCase.
-end_per_testcase(_TestCase, [{filePointer, File}]) -> % do custom per suite cleanup here
-    ok = file:close(File),
-    ok = application:stop(chronicler),
-    ok = application:stop(common),
-    ok;
 end_per_testcase(_TestCase, _Config) ->
-    ok = application:stop(chronicler),
-    ok = application:stop(common),
     ok.
 
 %%%%%%%%%%%%%%%%

@@ -157,5 +157,5 @@ Type =:= lopec_warning ->
     io:format("Message: ~p~n", [Message]),
 
     ok;
-process_message(_, State) -> %Not supported message type, discard it.
+process_message(_Other, State) -> %Not supported message type, discard it.
     ok.

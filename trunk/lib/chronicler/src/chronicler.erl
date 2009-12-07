@@ -218,7 +218,7 @@ handle_cast({Level, Msg}, State) ->
     end;
 handle_cast({Level, UserId, Msg}, State) when
 Level =:= user_info;
-Level =:= warnign;
+Level =:= warning;
 Level =:= error ->
     case is_level_logging_on(Level, State) of
         true ->

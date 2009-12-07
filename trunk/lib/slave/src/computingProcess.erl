@@ -208,24 +208,24 @@ handle_cast(Msg, State) ->
 %%--------------------------------------------------------------------
 handle_info({_Pid, {data, {_Flag, "MY_PID " ++ Data}}},
             {JobId, TaskId, Time, TaskType, Progname, StartedPids}) ->
-    chronicler:debug("~w : MY_PID ~s Reported~n", [?MODULE, Data]),
+    chronicler:user_info(fix_me, "~w : MY_PID ~s Reported~n", [?MODULE, Data]),
     {noreply, {JobId, TaskId, Time, TaskType, Progname,
         [{pid, Data}|StartedPids]}};
 handle_info({_Pid, {data, {_Flag, "NEW_SPLIT " ++ Data}}},
             State = {JobId, TaskId, Time, TaskType, Progname, _StartedPids}) ->
-    chronicler:debug("~w : SPLIT: New map task: ~ts~n", [?MODULE, Data]),
+    chronicler:user_info(fix_me, "~w : SPLIT: New map task: ~ts~n", [?MODULE, Data]),
     taskFetcher:new_task({JobId, TaskId, Time, TaskType, Progname},
                          map, "/map/" ++ Data),
     {noreply, State};
 handle_info({_Pid, {data, {_Flag, "NEW_REDUCE_TASK " ++ Data}}},
             State = {JobId, TaskId, Time, TaskType, Progname, _StartedPids}) ->
-    chronicler:debug("~w : MAP: New reduce task: ~ts~n", [?MODULE, Data]),
+    chronicler:user_info(fix_me, "~w : MAP: New reduce task: ~ts~n", [?MODULE, Data]),
     taskFetcher:new_task({JobId, TaskId, Time, TaskType, Progname},
                          reduce, "/reduce/" ++ Data),
     {noreply, State};
 handle_info({_Pid, {data, {_Flag, "NEW_REDUCE_RESULT " ++ Data}}},
             State = {JobId, TaskId, Time, TaskType, Progname, _StartedPids}) ->
-    chronicler:debug("~w : REDUCE: New finalize task: ~ts~n", [?MODULE, Data]),
+    chronicler:user_info(fix_me, "~w : REDUCE: New finalize task: ~ts~n", [?MODULE, Data]),
     taskFetcher:new_task({JobId, TaskId, Time, TaskType, Progname},
                          finalize, "/results/"),
     {noreply, State};

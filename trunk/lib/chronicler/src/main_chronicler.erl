@@ -17,8 +17,10 @@
 -record(log_message,
     {
         type,
+        user = anonymous,
         fromNode,
-        message = ""
+        time,
+        message = []
     }).
 
 %% API
@@ -94,7 +96,13 @@ init(no_args) ->
 %%--------------------------------------------------------------------
 handle_call({request, get_everything}, _From, State) ->
     Match = ets:match(log_table,
-        #log_message{type = '$1', fromNode = '$2', message = '$3'}),
+        #log_message{
+            type = '$1',
+            user = '$2',
+            fromNode = '$3',
+            time = '$4',
+            message = '$5'
+        }),
     {reply, Match, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -194,45 +202,31 @@ code_change(OldVsn, State, Extra) ->
 %% @spec process_message(Message) -> ok
 %% @end
 %%--------------------------------------------------------------------
-process_message({_, {Node, _}, {_, lopec_info, Msg}}) ->
+process_message({{Node, From}, {_,_,{_, Type, Msg}}}) when
+Type =:= lopec_info;
+Type =:= lopec_debug;
+Type =:= lopec_user_info;
+Type =:= lopec_error;
+Type =:= lopec_warning ->
+
+    {time, Time} = lists:keyfind(time, 1, Msg),
+
+    User =
+    case lists:keyfind(user, 1, Msg) of
+        false -> anonymous;
+        {user, U} -> U
+    end,
+
+    {message, Message} = lists:keyfind(message, 1, Msg),
+
     ets:insert(?LOG_TABLE,
         #log_message{
-            type = lopec_info,
+            type = Type,
+            user = User,
             fromNode = Node,
-            message = Msg
+            time = Time,
+            message = Message
         }),
     ok;
-process_message({_, {Node, _}, {_, lopec_debug, Msg}}) ->
-    ets:insert(?LOG_TABLE,
-        #log_message{
-            type = lopec_debug,
-            fromNode = Node,
-            message = Msg
-        }),
-    ok;
-process_message({_, {Node, _}, {_, lopec_user_info, Msg}}) ->
-    ets:insert(?LOG_TABLE,
-        #log_message{
-            type = lopec_user_info,
-            fromNode = Node,
-            message = Msg
-        }),
-    ok;
-process_message({_, {Node, _}, {_, lopec_error, Msg}}) ->
-    ets:insert(?LOG_TABLE,
-        #log_message{
-            type = lopec_error,
-            fromNode = Node,
-            message = Msg
-        }),
-    ok;
-process_message({_, {Node, _}, {_, lopec_warning, Msg}}) ->
-    ets:insert(?LOG_TABLE,
-        #log_message{
-            type = lopec_warning,
-            fromNode = Node,
-            message = Msg
-        }),
-    ok;
-process_message(_) ->
+process_message(Msg) ->
     ok.

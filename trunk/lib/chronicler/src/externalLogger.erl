@@ -52,21 +52,9 @@ init(State) ->
 %%                          {ok, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_event({error_report, _From, Msg}, State) ->
-    gen_server:cast({global, ?EXTERNAL_LOGGER},
-        {error, {node(), self()}, Msg}),
-    {ok, State};
-handle_event({info_report, _From, Msg}, State) ->
-    gen_server:cast({global, ?EXTERNAL_LOGGER},
-        {info, {node(), self()}, Msg}),
-    {ok, State};
-handle_event({warning_report, _From, Msg}, State) ->
-    gen_server:cast({global, ?EXTERNAL_LOGGER},
-        {warning, {node(), self()}, Msg}),
-    {ok, State};
 handle_event(Other, State) ->
     gen_server:cast({global, ?EXTERNAL_LOGGER},
-        {other, {node(), self()}, Other}),
+        {{node(), self()}, Other}),
     {ok, State}.
 
 %%--------------------------------------------------------------------

@@ -258,7 +258,9 @@ get_user_stats(User, string) ->
 %% <pre>
 %% The Data variable should look like this tuple:
 %% {{NodeId, JobId, TaskType},
-%%      Power, Time, Upload, Download, NumTasks, Restarts}</pre>
+%%      Power, Time, Upload, Download, NumTasks, Restarts, Disk, Mem}
+%% where Disk and Mem are formatted like calls to
+%% get_node_disk/mem_stats(raw) </pre>
 %%
 %% @spec update(Data) -> ok
 %% @end

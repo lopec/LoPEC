@@ -95,7 +95,8 @@ add_bg_job(ProgramType, ProblemType, Owner, Priority, InputData, Name) ->
                             {new_job, ProgramType, ProblemType, Owner,
                              Priority, InputData, Name, bg});
         _ ->
-            chronicler:user_info("Background jobs has not been enabled in "
+            chronicler:user_info(fix_me_need_user_info,
+                "Background jobs has not been enabled in "
                 "configuration file, add {allow_bg_jobs, yes} to "
                 "configuration file to allow the use of background jobs.", []),
             {error, bg_jobs_not_allowed}
@@ -120,7 +121,8 @@ add_bg_job(ProgramType, ProblemType, Owner, Priority, InputData) ->
 %% @end
 %%------------------------------------------------------------------------------
 pause_job(JobId) ->
-    chronicler:user_info("~w : Paused job with Id=~p~n", [?MODULE, JobId]),
+    chronicler:user_info(db:get_user_from_job(JobId),
+        "~w : Paused job with Id=~p~n", [?MODULE, JobId]),
     gen_server:call(?MODULE, {pause_job, JobId}).
 
 %%------------------------------------------------------------------------------
@@ -131,7 +133,8 @@ pause_job(JobId) ->
 %% @end
 %%------------------------------------------------------------------------------
 resume_job(JobId) ->
-    chronicler:user_info("~w : Resumed job with Id=~p~n", [?MODULE, JobId]),
+    chronicler:user_info(db:get_user_from_job(JobId),
+        "~w : Resumed job with Id=~p~n", [?MODULE, JobId]),
     gen_server:call(?MODULE, {resume_job, JobId}).
 
 %%------------------------------------------------------------------------------
@@ -143,7 +146,8 @@ resume_job(JobId) ->
 %% @end
 %%------------------------------------------------------------------------------
 stop_job(JobId) ->
-    chronicler:user_info("~w : Stopped job with Id=~p~n", [?MODULE, JobId]),
+    chronicler:user_info(db:get_user_from_job(JobId),
+        "~w : Stopped job with Id=~p~n", [?MODULE, JobId]),
     gen_server:call(?MODULE, {stop_job, JobId}).
 
 %%------------------------------------------------------------------------------
@@ -155,7 +159,8 @@ stop_job(JobId) ->
 %% @end
 %%------------------------------------------------------------------------------
 cancel_job(JobId) ->
-    chronicler:user_info("~w : Stopped job with Id=~p~n", [?MODULE, JobId]),
+    chronicler:user_info(db:get_user_from_job(JobId),
+        "~w : Stopped job with Id=~p~n", [?MODULE, JobId]),
     gen_server:call(?MODULE, {cancel_job, JobId}).
 
 %%------------------------------------------------------------------------------
@@ -250,7 +255,7 @@ handle_call({new_job, ProgramType, ProblemType, Owner, Priority, InputData,
             Message =
                 "There is already a job with this name, "
                 "pick another one and try again.",
-            chronicler:user_info(Message),
+            chronicler:user_info(fix_me_need_user_info, Message),
             {reply, {error, Message}, State}
             % 1 Case - END
     end;
@@ -319,7 +324,8 @@ handle_call({remove_job_name, JobId}, _From, State) ->
 handle_call({pause_job, JobId}, _From, State) ->
     case db:get_job(JobId) of
         {error, Reason} ->
-            chronicler:user_info("~w : Could not pause Job ~p. Reason: ~p~n",
+            chronicler:user_info(fix_me_need_user_id,
+                "~w : Could not pause Job ~p. Reason: ~p~n",
                                  [?MODULE, JobId, Reason]),
             {reply, {error, Reason}, State};
         _ ->
@@ -520,15 +526,16 @@ add_new_job(ProgramType, ProblemType, Owner, Priority, InputData, BGorFG) ->
                                                  JobRoot ++"/input/data.dat"}),
                             {ok, JobId};
                         {error, Reason} ->
-                            chronicler:error("Could not copy split data,"
+                            chronicler:error(fix_me_need_user_id, "Could not copy split data,"
                                              " reason: ~p~n", [Reason])
                     end;
                 {error, Reason} ->
-                    chronicler:user_info("~w : Could not add job."
+                    chronicler:user_info(fix_me_need_user_info, "~w : Could not add job."
                                          "Reason: ~p~n", [?MODULE, Reason]),
                     {error, Reason}
             end;
         false ->
-            chronicler:user_info("~w : Could not add job. Reason: No such program~n", [?MODULE]),
+            chronicler:user_info(fix_me_need_user_info,
+                "~w : Could not add job. Reason: No such program~n", [?MODULE]),
             {error, no_such_program}
     end.

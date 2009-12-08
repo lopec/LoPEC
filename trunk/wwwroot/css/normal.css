@@ -196,6 +196,10 @@ input.file {
     color: #FFFFFF;
 }
 
+table.rounded_panel.gray .tablecell .messageCell {
+    background-color: silver;
+}
+
 table.table.progressTable {
     width: 600px;
     border: 1px solid green;

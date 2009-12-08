@@ -69,15 +69,6 @@ print_log_table() ->
                 ]}|parse_log_messages(LogMessages)
         ]}.
 
-%[
-%    [lopec_warning,nisse,slave@localhost,
-%        {{2009,12,8},{11,20,51}},
-%        "burbas är en ko"],
-%    [lopec_warning,nisse2,slave@localhost,
-%        {{2009,12,8},{11,22,11}},
-%        "burbas är en ko2"]
-%         ]
-
 parse_log_messages([]) -> [];
 parse_log_messages([[Type, User, Node, Time, Message]|T]) ->
     [#tablerow { cells=[
@@ -86,7 +77,7 @@ parse_log_messages([[Type, User, Node, Time, Message]|T]) ->
                 #tablecell { text=Node },
                 #tablecell { text=parse_time(Time) }
             ]},
-        #tablerow{ cells=[ #tablecell{ text=Message, colspan=4}]}
+        #tablerow{ cells=[ #tablecell{ class=messageCell, text=Message, colspan=4}]}
         |parse_log_messages(T)].
 
 parse_time({{Year,Month,Day},{Hour,Minute,Second}}) ->

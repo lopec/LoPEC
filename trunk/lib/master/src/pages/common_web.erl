@@ -25,13 +25,14 @@ have_role(WantedRole) ->
             ConfirmedRoles = lists:filter(fun(X) -> X == Role end, WantedRole),
             case length(ConfirmedRoles) of
                 0 ->
-                    wf:redirect("/web/index");
+                    false;
                 _ ->
-                    _T=[]
+                    true
             end;
         _ -> 
-            wf:redirect("/web/index")
+            false
     end.
+
 
 main() ->
 	#template { file="./wwwroot/template.html"}.
@@ -57,10 +58,20 @@ menu() ->
             #link{text="Dashboard", actions=Event#event {actions=#appear{}}}
             ]
         },
-        #panel{id=menuitem, body=[
-            #link{text="Node information", actions=Event#event {actions=#hide{}}}
-            ]
-        }
+        case have_role([role_admin]) of 
+            true ->
+                [
+                #panel{id=menuitem, body=[
+                    #link{text="Node information", 
+                        url="/web/admin/node/info"}
+                    ]
+                },
+                #panel{id=menuitem, body=[
+                    #link{text="Handle Users", url="/web/admin/handle/users" }
+                ]}
+                ];
+            _ -> []
+        end
     ],
     Menu.
 

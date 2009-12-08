@@ -34,7 +34,7 @@ body() ->
     #p {},
     #label {text="End user license agreement?"},
     #panel { id=licensePanel, style="overflow: auto; width: 500px; border: 1px solid black; height: 200px;", body=[get_license()]},
-    #checkbox { text="I agree with the eula", checked=false },
+    #checkbox { id=licenseBox, text="I agree with the eula", checked=false },
     #p {},
     #button {id=registerButton, text="Register", postback=continue}
 
@@ -51,6 +51,7 @@ body() ->
     ]}),
 
     wf:render(Body).
+
 
 username_free(_Tag, Username) ->
     case db:exist_user(Username) of

@@ -21,17 +21,22 @@ submenu() ->
     common_web:submenu().
 
 body() ->
-    [
+    Body = [
         #rounded_panel {
             color=gray,
             body=[
-                #h2{text="LogView"},
+                #h2{text="LogView " ++ wf:user()},
                 #button { text="Filter view", postback=filter_settings },
                 #p{},
-                print_log_table()
+
+
+                #panel{id=logTable, body=[ ]
+                }
             ]
         }
-    ].
+    ],
+    wf:comet(fun() -> log_table() end),
+    wf:render(Body).
 
 event(filter_settings) ->
     %% Flash message
@@ -58,8 +63,13 @@ event(filter_settings) ->
 
 event(_) -> ok.
 
+log_table() ->
+    wf:update(logTable, print_log_table()),
+    wf:comet_flush(),
+    timer:sleep(5000).
+
 print_log_table() ->
-    LogMessages = main_chronicler:get_all_logs(),
+    LogMessages = main_chronicler:get_user_logs(list_to_atom(wf:user())),
     #table { id=logTable ,class="jobtable", rows=[
             #tablerow { cells=[
                     #tableheader { text="Type" },
@@ -70,10 +80,10 @@ print_log_table() ->
         ]}.
 
 parse_log_messages([]) -> [];
-parse_log_messages([[Type, User, Node, Time, Message]|T]) ->
+parse_log_messages([[Type, Node, Time, Message]|T]) ->
     [#tablerow { cells=[
                 #tablecell { text=Type },
-                #tablecell { text=User },
+                #tablecell { text=wf:user() },
                 #tablecell { text=Node },
                 #tablecell { text=parse_time(Time) }
             ]},

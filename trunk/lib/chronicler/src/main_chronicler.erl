@@ -26,7 +26,11 @@
 %% API
 -export([
         start_link/0,
-        get_everything/0
+        get_all_logs/0,
+        get_node_logs/1,
+        get_user_logs/1,
+        get_type_logs/1,
+        get_custom_logs/1
     ]).
 
 %% gen_server callbacks
@@ -54,11 +58,52 @@ start_link() ->
 %%--------------------------------------------------------------------
 %% @doc
 %% Returns all the log messages in the database
-%% @spec get_everything() -> {ok, Match}
+%% @spec get_all_logs() -> {ok, Match}
 %% @end
 %%--------------------------------------------------------------------
-get_everything() ->
+get_all_logs() ->
     Reply = gen_server:call({global, ?MODULE}, {request, get_everything}),
+    Reply.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns all the log messages in the database from user User
+%% @spec get_user_logs(User) -> {ok, Match}
+%% @end
+%%--------------------------------------------------------------------
+get_user_logs(User) ->
+    Reply = gen_server:call({global, ?MODULE}, {request, {get_user, User}}),
+    Reply.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns all the log messages in the database from node Node
+%% @spec get_node_logs(User) -> {ok, Match}
+%% @end
+%%--------------------------------------------------------------------
+get_node_logs(Node) ->
+    Reply = gen_server:call({global, ?MODULE}, {request, {get_node, Node}}),
+    Reply.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns all the log messages in the database with type Type
+%% @spec get_type_logs(Type) -> {ok, Match}
+%% @end
+%%--------------------------------------------------------------------
+get_type_logs(Type) ->
+    Reply = gen_server:call({global, ?MODULE}, {request, {get_type, Type}}),
+    Reply.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns all the log messages that matches the record Record,
+%% It takes a match record that corresponds to the log_message record
+%% @spec get_custom_logs(Type) -> {ok, Match}
+%% @end
+%%--------------------------------------------------------------------
+get_custom_logs(Record) ->
+    Reply = gen_server:call({global, ?MODULE}, {request, {get_custom, Record}}),
     Reply.
 
 %%%===================================================================
@@ -103,6 +148,67 @@ handle_call({request, get_everything}, _From, State) ->
             time = '$4',
             message = '$5'
         }),
+    {reply, Match, State};
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Returns all logs belonging to User
+%% @spec handle_call({request, {get_user, User}}, From, State) -> {reply, Match}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({request, {get_user, User}}, _From, State) ->
+    Match = ets:match(log_table,
+        #log_message{
+            type = '$1',
+            user = User,
+            fromNode = '$3',
+            time = '$4',
+            message = '$5'
+        }),
+    {reply, Match, State};
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Returns all logs belonging to Node
+%% @spec handle_call({request, {get_Node, Node}}, From, State) -> {reply, Match}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({request, {get_node, Node}}, _From, State) ->
+    Match = ets:match(log_table,
+        #log_message{
+            type = '$1',
+            user = '$2',
+            fromNode = Node,
+            time = '$4',
+            message = '$5'
+        }),
+    {reply, Match, State};
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Returns all logs belonging with type Type
+%% @spec handle_call({request, {get_type, Type}}, From, State) -> {reply, Match}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({request, {get_type, Type}}, _From, State) ->
+    Match = ets:match(log_table,
+        #log_message{
+            type = Type,
+            user = '$2',
+            fromNode = '$3',
+            time = '$4',
+            message = '$5'
+        }),
+    {reply, Match, State};
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Returns all logs matching the record Record
+%% @spec handle_call({request, {get_custom, Record}}, From, State) -> {reply, Match}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({request, {get_custom, Record}}, _From, State) ->
+    Match = ets:match(log_table, Record),
     {reply, Match, State};
 %%--------------------------------------------------------------------
 %% @private

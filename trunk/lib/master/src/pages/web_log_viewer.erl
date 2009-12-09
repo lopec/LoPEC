@@ -122,8 +122,6 @@ get_custom_view() ->
         [N] -> list_to_atom(N ++ "@localhost")
     end,
 
-    main_chronicler:print_it(Node),
-
     CustomView = #log_message{
         type = Type,
         user = list_to_atom(wf:user()),

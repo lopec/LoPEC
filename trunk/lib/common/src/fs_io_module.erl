@@ -47,7 +47,7 @@ put(Bucket, Key, Value, State = {fs, Path}) ->
 %% @doc
 %% Gets the value associated with the bucket and the key.
 %%
-%% @spec get(Bucket, Key) -> binary() | {error, Reason}
+%% @spec get(Bucket, Key) -> {ok, binary()} | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
 get(Bucket, Key, State = {fs, Path}) ->

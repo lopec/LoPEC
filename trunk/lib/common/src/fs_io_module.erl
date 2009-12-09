@@ -25,7 +25,7 @@
 %% @spec init(Args::list()) -> {ok, State} |
 %% @end
 %%--------------------------------------------------------------------
-init(Args) ->
+init(_Args) ->
     {ok, Path} = configparser:read_config("/etc/clusterbusters.conf",
                                           cluster_root),
     {ok, {fs, Path}}.
@@ -38,10 +38,10 @@ init(Args) ->
 %% @spec put(Bucket, Key, Val) -> ok | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-put(Bucket, Key, Value, State = {fs, Path}) ->
+put(Bucket, Key, Value, _State = {fs, Path}) ->
     Filename = lists:concat([Path, "tmp/", Bucket, "/", Key]),
     filelib:ensure_dir(Filename),
-    Reply = file:write_file(Filename, Value).
+    file:write_file(Filename, Value).
     
 %%--------------------------------------------------------------------
 %% @doc
@@ -50,6 +50,6 @@ put(Bucket, Key, Value, State = {fs, Path}) ->
 %% @spec get(Bucket, Key) -> {ok, binary()} | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-get(Bucket, Key, State = {fs, Path}) ->
+get(Bucket, Key, _State = {fs, Path}) ->
     Filename = lists:concat([Path, "tmp/", Bucket, "/", Key]),
-    {ok, Data} = file:read_file(Filename).
+    file:read_file(Filename).

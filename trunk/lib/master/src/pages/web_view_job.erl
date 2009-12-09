@@ -41,7 +41,9 @@ body() ->
             wf:state(jobid, string:to_integer(JobId)),
             Body = [
                 #h2 { text="Detailed information" },
-                #table { id=progressTable, class="progressTable" }
+                #table { id=progressTable, class="progressTable" },
+                #p {},
+                #panel { id=statPanel }
             ]
     end,
     wf:comet(fun() -> get_progress() end),
@@ -52,7 +54,7 @@ body() ->
 event(_) -> ok.
 
 
-%% THERE IS A HUGE ERROR HERE WITH THE STYLE!!!!!
+%% LOL @ background-size is parsed out :(((((((
 get_table_cell(Width) ->
     Background = io_lib:format("~.16B", [(Width+155)]), 
     WidthString = lists:concat([Width]),
@@ -74,6 +76,21 @@ get_progress() ->
         db:task_info_from_job(reduce, JobId),
     {ok, {free, FFree}, {assigned, FAssigned}, {done, FDone}} =
         db:task_info_from_job(finalize, JobId),
+    [Power,Time,Upload,Download,Numtasks,Restarts] = 
+        statistician:get_job_stats(JobId, raw),
+
+    Stats = #panel{ id=statPanel, body=[
+        #label { text=lists:concat(["Power spent: ", 
+            erlang:trunc(((Power))/60), "Wh"]) },
+        #label { text=lists:concat(["Time spent: ", erlang:trunc(Time)]) },
+        #label { text=lists:concat(["Uploaded: ", 
+            erlang:trunc(((Upload/1024)/1024)), "MB"]) },
+        #label { text=lists:concat(["Downloaded: ", 
+            erlang:trunc(((Download/1024)/1024)), "MB"]) },
+        #label { text=lists:concat(["Number of tasks: ", Numtasks]) },
+        #label { text=lists:concat(["Number of restarts: ", Restarts]) }
+    ] },
+        
     % Sum the values
     SplitSum = SFree+SAssigned+SDone,
     MapSum = MFree+MAssigned+MDone,
@@ -123,8 +140,12 @@ get_progress() ->
         ]}
     ],
     wf:update(progressTable, Table),
+    wf:update(statPanel, Stats),
     wf:comet_flush(),
     timer:sleep(1000),
-    get_progress().
+    case FinalizeDone of
+        100 -> ok;
+        _ -> get_progress()
+    end.
 
 

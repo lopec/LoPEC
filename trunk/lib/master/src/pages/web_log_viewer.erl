@@ -1,5 +1,6 @@
 -module (web_log_viewer).
 -include_lib("nitrogen/include/wf.inc").
+-include_lib("../../chronicler/include/log_message.hrl").
 -compile(export_all).
 
 main() ->
@@ -21,6 +22,8 @@ submenu() ->
     common_web:submenu().
 
 body() ->
+    wf:session(log_type, ["all"]),
+    wf:session(log_node, ["all"]),
     Body = [
         #rounded_panel {
             color=gray,
@@ -30,8 +33,7 @@ body() ->
                 #p{},
 
 
-                #panel{id=logTable, body=[ ]
-                }
+                #panel{id=logTable, body=[ ] }
             ]
         }
     ],
@@ -44,32 +46,45 @@ event(filter_settings) ->
             #h2{text="Filter view"},
             #p{},
 
-            #label{id=log_type, text="Type"},
-            #checkbox{text="Information", checked=true},
-            #checkbox{text="Warnings", checked=true},
-            #checkbox{text="Errors", checked=true},
+            #label{text="Type"},
+            #radiogroup { id=types, body=[
+                    #radio { id=allType, text="All", value=all, checked=true},
+                    #radio { id=infoType, text="Information", value=info},
+                    #radio { id=errorType, text="Error", value=error},
+                    #radio { id=warningType, text="Warning", value=warning}
+                ]},
             #p{},
 
-            #label{id=log_node, text="Client node"},
-            #dropdown{options= [
-                    #option {text="node1@clusterbusters" ,value=1},
-                    #option {text="node2@clusterbusters" ,value=1},
-                    #option {text="node3@clusterbusters" ,value=1}
+            #label{text="Client node"},
+            #dropdown{id=showNode, value=all, options= [
+                    #option {text="All" ,value=all},
+                    #option {text="slave@localhost", value=slave}
                 ]},
             #p{},
 
             #button { id=continueButton, text="Filter", postback=filter_logs}
         ]);
 
-event(_) -> ok.
+event(filter_logs) ->
+    wf:session(log_type, wf:q(types)),
+    wf:session(log_node, wf:q(showNode)),
+
+    wf:update(logTable, print_log_table()),
+    wf:comet_flush(),
+    ok;
+
+event(_) ->
+    ok.
 
 log_table() ->
     wf:update(logTable, print_log_table()),
     wf:comet_flush(),
-    timer:sleep(5000).
+    timer:sleep(10000),
+    log_table().
 
 print_log_table() ->
-    LogMessages = main_chronicler:get_user_logs(list_to_atom(wf:user())),
+    LogMessages = main_chronicler:get_custom_logs(get_custom_view()),
+
     #table { id=logTable ,class="jobtable", rows=[
             #tablerow { cells=[
                     #tableheader { text="Type" },
@@ -80,15 +95,40 @@ print_log_table() ->
         ]}.
 
 parse_log_messages([]) -> [];
-parse_log_messages([[Type, Node, Time, Message]|T]) ->
+parse_log_messages([Log|T]) ->
     [#tablerow { cells=[
-                #tablecell { text=Type },
-                #tablecell { text=wf:user() },
-                #tablecell { text=Node },
-                #tablecell { text=parse_time(Time) }
+                #tablecell { text=Log#log_message.type },
+                #tablecell { text=Log#log_message.user },
+                #tablecell { text=Log#log_message.fromNode },
+                #tablecell { text=parse_time(Log#log_message.time) }
             ]},
-        #tablerow{ cells=[ #tablecell{ class=messageCell, text=Message, colspan=4}]}
+        #tablerow{ cells=[ #tablecell{ class=messageCell, text=Log#log_message.message, colspan=4}]}
         |parse_log_messages(T)].
 
 parse_time({{Year,Month,Day},{Hour,Minute,Second}}) ->
     lists:concat([Day,"/",Month,"-",Year," ",Hour,":",Minute,".",Second]).
+
+get_custom_view() ->
+    Type = case wf:session(log_type) of
+        ["info"] -> lopec_user_info;
+        ["warning"] -> lopec_warning;
+        ["error"] -> lopec_error;
+        ["all"] -> '_'
+    end,
+
+
+    Node = case wf:session(log_node) of
+        ["all"] -> '_';
+        [N] -> list_to_atom(N ++ "@localhost")
+    end,
+
+    main_chronicler:print_it(Node),
+
+    CustomView = #log_message{
+        type = Type,
+        user = list_to_atom(wf:user()),
+        fromNode = Node,
+        time = '_',
+        message = '_'
+    },
+    CustomView.

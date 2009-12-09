@@ -14,14 +14,8 @@
 -define(LOG_TABLE, log_table).
 
 -record(state, {ets_table}).
--record(log_message,
-    {
-        type,
-        user = anonymous,
-        fromNode,
-        time,
-        message = []
-    }).
+
+-include_lib("../chronicler/include/log_message.hrl").
 
 %% API
 -export([
@@ -30,6 +24,7 @@
         get_node_logs/1,
         get_user_logs/1,
         get_type_logs/1,
+        print_it/1,
         get_custom_logs/1
     ]).
 
@@ -140,7 +135,7 @@ init(no_args) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({request, get_everything}, _From, State) ->
-    Match = ets:match(log_table,
+    Match = ets:match_object(log_table,
         #log_message{
             type = '$1',
             user = '$2',
@@ -157,9 +152,8 @@ handle_call({request, get_everything}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({request, {get_user, User}}, _From, State) ->
-    Match = ets:match(log_table,
-        #log_message{
-            type = '$1',
+    Match = ets:match_object(log_table,
+        #log_message{ type = '$1',
             user = User,
             fromNode = '$3',
             time = '$4',
@@ -174,7 +168,7 @@ handle_call({request, {get_user, User}}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({request, {get_node, Node}}, _From, State) ->
-    Match = ets:match(log_table,
+    Match = ets:match_object(log_table,
         #log_message{
             type = '$1',
             user = '$2',
@@ -191,7 +185,7 @@ handle_call({request, {get_node, Node}}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({request, {get_type, Type}}, _From, State) ->
-    Match = ets:match(log_table,
+    Match = ets:match_object(log_table,
         #log_message{
             type = Type,
             user = '$2',
@@ -208,7 +202,7 @@ handle_call({request, {get_type, Type}}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({request, {get_custom, Record}}, _From, State) ->
-    Match = ets:match(log_table, Record),
+    Match = ets:match_object(log_table, Record),
     {reply, Match, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -308,7 +302,7 @@ code_change(OldVsn, State, Extra) ->
 %% @spec process_message(Message) -> ok
 %% @end
 %%--------------------------------------------------------------------
-process_message({{Node, From}, {_,_,{_, Type, Msg}}}) when
+process_message({{Node, _From}, {_,_,{_, Type, Msg}}}) when
 Type =:= lopec_info;
 Type =:= lopec_debug;
 Type =:= lopec_user_info;
@@ -334,5 +328,8 @@ Type =:= lopec_warning ->
             message = Message
         }),
     ok;
-process_message(Msg) ->
+process_message(_Msg) ->
     ok.
+
+print_it(X) ->
+    io:format("~p~n", [X]).

@@ -10,7 +10,7 @@
 -module(file_logger).
 -behaviour(gen_event).
 
--record(state, {logFile, tty = []}).
+-record(state, {logFile, tty = on}).
 
 -export([init/1,
         handle_event/2,
@@ -59,6 +59,14 @@ init(_Args) ->
 %%                          {ok, State}
 %% @end
 %%--------------------------------------------------------------------
+handle_event({tty, on}, State) ->
+    io:format("turning tty on",[]),
+    NewState = State#state{tty = on},
+    {ok, NewState};
+handle_event({tty, off}, State) ->
+    io:format("turning tty off",[]),
+    NewState = State#state{tty = off},
+    {ok, NewState};
 handle_event(Msg, State) ->
     process_message(Msg, State),
     {ok, State}.
@@ -151,10 +159,13 @@ Type =:= lopec_warning ->
     io:format(State#state.logFile, "Message: ~p~n", [Message]),
 
     %TTY TODO: add filter for this.
-    io:format("~n"
-        "=== ~p === ~B/~B-~B = ~B:~B.~B ==~n",
-        [Type, Day, Month, Year, Hour, Minute, Second]),
-    io:format("Message: ~p~n", [Message]),
+    case State#state.tty of
+        on -> io:format("~n"
+                "=== ~p === ~B/~B-~B = ~B:~B.~B ==~n",
+                [Type, Day, Month, Year, Hour, Minute, Second]),
+            io:format("Message: ~p~n", [Message]);
+        off -> ok
+    end,
 
     ok;
 process_message(_Other, State) -> %Not supported message type, discard it.

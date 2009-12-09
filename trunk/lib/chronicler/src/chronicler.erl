@@ -31,7 +31,8 @@
         warning/3,
         debug/2,
         user_info/3,
-        set_logging_level/1
+        set_logging_level/1,
+        set_tty/1
     ]).
 
 %% gen_server callbacks
@@ -147,6 +148,25 @@ user_info(UserId, Format, Args) ->
 set_logging_level(NewLevel) ->
     gen_server:cast(?MODULE, {new_level, NewLevel}).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Turns on tty logging
+%%
+%% @spec set_tty(on) -> ok
+%% @end
+%%--------------------------------------------------------------------
+set_tty(on) ->
+    gen_server:cast(?MODULE, {tty, on});
+%%--------------------------------------------------------------------
+%% @doc
+%% Turns off tty logging
+%%
+%% @spec set_tty(off) -> ok
+%% @end
+%%--------------------------------------------------------------------
+set_tty(off) ->
+    gen_server:cast(?MODULE, {tty, off}).
+
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -169,7 +189,7 @@ init(no_args) ->
     error_logger:add_report_handler(externalLogger),
     error_logger:add_report_handler(file_logger),
 
-    info("Chronicler application started"),
+    info("~p application started", [?MODULE]),
     {ok, State}.
 
 %%--------------------------------------------------------------------
@@ -198,6 +218,14 @@ handle_call(Msg, From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
+handle_cast({tty, on}, State) ->
+    io:format("notifying logger_manager on", []),
+    gen_event:notify(error_logger, {tty, on}),
+    {noreply, State};
+handle_cast({tty, off}, State) ->
+    io:format("notifying logger_manager off", []),
+    gen_event:notify(error_logger, {tty, off}),
+    {noreply, State};
 handle_cast({new_level, [all]}, State) ->
     NewState = State#state{loggingLevel = [info,
                                            debug,

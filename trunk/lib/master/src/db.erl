@@ -46,7 +46,7 @@
 %% APIs for information
 -export([get_job/1,
          get_task/1,
-	 get_user_from_job/1]).
+	     get_user_from_job/1]).
 
 %% APIs for users
 -export([add_user/3,

@@ -27,7 +27,7 @@
          report_task_done/2,
          report_task_done/1,
          free_tasks/1,
-	 task_failed/2,
+	     task_failed/2,
          get_split_amount/0,
          get_user_from_job/1
         ]).

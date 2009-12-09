@@ -1,6 +1,7 @@
 %%%-------------------------------------------------------------------
 %%% @author Bjorn Dahlman <bjorn.dahlman@gmail.com>
-%%% @copyright (C) 2009, Bjorn Dahlman
+%%% @author Vasilij Savin
+%%% @copyright (C) 2009, Bjorn Dahlman, Vasilij Savin
 %%% @doc
 %%% Deals with the temporary storage in the cluster. Gets a binary
 %%% stream of data to write or returns the binary stream of data.
@@ -13,13 +14,11 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/0, stop/0, put/3, get/2]).
+-export([start_link/2, stop/0, put/3, get/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
-
--define(SERVER, ?MODULE). 
 
 %%%===================================================================
 %%% API
@@ -28,12 +27,13 @@
 %%--------------------------------------------------------------------
 %% @doc
 %% Starts the server
-%%
-%% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
+%% Currently supported storage types = fs_io_module | riak_io_module
+%% @spec start_link(ModuleName::atom(), Args::list()) -> 
+%%                  {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [fs], []).
+start_link(ModuleName, Args) ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, [ModuleName, Args], []).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -43,7 +43,7 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 stop() ->
-    gen_server:cast(?SERVER, stop).
+    gen_server:cast(?MODULE, stop).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -54,7 +54,7 @@ stop() ->
 %% @end
 %%--------------------------------------------------------------------
 put(Bucket, Key, Val) ->
-    gen_server:call(?SERVER, {put, Bucket, Key, Val}).
+    gen_server:call(?MODULE, {put, Bucket, Key, Val}).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -64,7 +64,7 @@ put(Bucket, Key, Val) ->
 %% @end
 %%--------------------------------------------------------------------
 get(Bucket, Key) ->
-    gen_server:call(?SERVER, {get, Bucket, Key}).
+    gen_server:call(?MODULE, {get, Bucket, Key}).
 
 
 %%%===================================================================
@@ -77,53 +77,41 @@ get(Bucket, Key) ->
 %% Initiates the server, storage will be Riak if [riak] is passed
 %% or the file system if [fs] is passed.
 %%
-%% @spec init(Args) -> {ok, State} |
+%% @spec init(Module, Args) -> {ok, State} |
 %%                     {ok, State, Timeout} |
 %%                     ignore |
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([riak]) ->
-    {ok, {riak, C}} = riak:client_connect("riaknode@" ++ os:get_env("MYIP"));
-init([fs]) ->
-    {ok, Path} = configparser:read_config("/etc/clusterbusters.conf",
-                                          cluster_root),
-    {ok, {fs, Path}}.
+init([ModuleName, Args]) ->
+    {ok, Conn} = ModuleName:init(Args),
+    {ok, [ModuleName, Conn]}.
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Handling call messages
+%% Handling call messages. We are not handling any errors here.
+%% If operation fails, either we will pass on error message or crash,
+%% depending on underlying backend implementation.
 %%
 %% @spec handle_call(Request, From, State) ->
 %%                                   {reply, Reply, State} |
-%%                                   {reply, Reply, State, Timeout} |
-%%                                   {noreply, State} |
-%%                                   {noreply, State, Timeout} |
-%%                                   {stop, Reason, Reply, State} |
-%%                                   {stop, Reason, State}
+%%                                   {noreply, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({put, Bucket, Key, Value}, _From, State = {riak, Ref}) ->
-    Object = riak_object:new(Bucket, Key, Value),
-    Reply = Ref:put(Object, 1),
+handle_call({put, Bucket, Key, Value}, _From, State = [ModuleName, Conn]) ->
+    Reply = ModuleName:put(Bucket, Key, Value, Conn),
     {reply, Reply, State};
-handle_call({get, Bucket, Key}, _From, State = {riak, Ref}) ->
-    {ok, Object} = Ref:get(Bucket, Key, 1),
-    Reply = riak_object:get_value(Object),
+handle_call({get, Bucket, Key}, _From, State = [ModuleName, Conn]) ->
+    Reply = ModuleName:get(Bucket, Key, Conn),
     {reply, Reply, State};
-handle_call({get, Bucket, Key}, _From, State = {fs, Path}) ->
-    Filename = lists:concat([Path, "tmp/", Bucket, "/", Key]),
-    {ok, Data} = file:read_file(Filename),
-    {reply, Data, State};
-handle_call({put, Bucket, Key, Value}, _From, State = {fs, Path}) ->
-    Filename = lists:concat([Path, "tmp/", Bucket, "/", Key]),
-    filelib:ensure_dir(Filename),
-    Reply = file:write_file(Filename, Value),
-    {reply, Reply, State};
-handle_call(_Request, _From, State) ->
-    Reply = ok,
-    {reply, Reply, State}.
+handle_call(Request, _From, State) ->
+    chronicler:error("Unexpected request: ~p", [Request]),
+    {noreply, State}.
+
+%%%===================================================================
+%%% Not implemented stuff
+%%%===================================================================
 
 %%--------------------------------------------------------------------
 %% @private

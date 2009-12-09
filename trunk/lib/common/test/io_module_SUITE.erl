@@ -11,7 +11,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 all() ->
-    [iotest].
+    [fs_io_test].
 
 init_per_suite(Config) ->
     error_logger:tty(false),
@@ -20,8 +20,10 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
-init_per_testcase(_TestCase, Config) ->
-    io_module:start_link(),
+init_per_testcase(fs_io_test, Config) ->
+    io_module:start_link(fs_io_module, []),
+    Config;
+init_per_testcase(riak_io_test, Config) ->
     Config.
 
 end_per_testcase(_TestCase, _Config) ->
@@ -32,10 +34,14 @@ end_per_testcase(_TestCase, _Config) ->
 %% test cases %%
 %%%%%%%%%%%%%%%%
 
-iotest(_Config) ->
-    
+fs_io_test(_Config) ->
     InputData = <<"Ni hao">>,
     ok = io_module:put(123465789, 9876543210, InputData),
-    InputData = io_module:get(123465789, 9876543210),
+    {ok, InputData} = io_module:get(123465789, 9876543210),
     ok.
 
+riak_io_test(_Config) ->
+    InputData = <<"Ni hao">>,
+    ok = io_module:put(123465789, 9876543210, InputData),
+    {ok, InputData} = io_module:get(123465789, 9876543210),
+    ok.

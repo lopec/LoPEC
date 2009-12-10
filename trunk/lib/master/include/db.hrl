@@ -49,6 +49,7 @@
 	  user_name,
 	  password,
 	  email,
+      receive_email,
 	  real_name,
 	  role
 	 }).

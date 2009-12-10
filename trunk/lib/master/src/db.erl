@@ -55,6 +55,7 @@
 	 set_role/2,
 	 set_password/3,
 	 set_email/2,
+     set_email_notification/2,
 	 exist_user/1,
 	 task_info_from_job/2,
 	 list_users/0,
@@ -385,6 +386,25 @@ set_email(Username, NewEmail) ->
 	    {ok, email_set}
     end.
 
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Changes the email notification field of a specific user.
+%%
+%% @spec set_email_notification(Username::atom(), EmailNotify::boolean()) 
+%%                                 -> {ok, email_notice_set} | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+set_email_notification(Username, EmailNotify) ->
+    User = get_user(Username),
+    case User of 
+    {error, Reason} ->
+        {error, Reason};
+    _ ->
+        NewUser = User#user{receive_email=EmailNotify},
+        gen_server:call(?SERVER, {modify_user, NewUser}),
+        {ok, email_notice_set}
+    end.
 %%--------------------------------------------------------------------
 %% @doc
 %%
@@ -1114,7 +1134,7 @@ handle_call({exists_path, TableName, JobId, Path}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({add_user, Username, Email, Password}, _From, State) ->
     PasswordDigest = crypto:sha(Password),
-    User = #user{user_name=Username, email=Email, password=PasswordDigest},
+    User = #user{user_name=Username, email=Email, receive_email=false, password=PasswordDigest},
     Reply = case add(user, User) of
                 ok ->
                     {ok, user_added};

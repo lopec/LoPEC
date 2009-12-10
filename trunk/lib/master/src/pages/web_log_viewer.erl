@@ -126,7 +126,6 @@ get_custom_view() ->
         time = '_',
         message = '_'
     },
-    main_chronicler:print_it(CustomView),
     CustomView.
 
 generate_node_dropdown_list() ->

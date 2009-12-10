@@ -56,10 +56,7 @@ event(filter_settings) ->
             #p{},
 
             #label{text="Client node"},
-            #dropdown{id=showNode, value=all, options= [
-                    #option {text="All" ,value=all},
-                    #option {text="slave@localhost", value=slave}
-                ]},
+            #dropdown{id=showNode, value=all, options= generate_node_dropdown_list()},
             #p{},
 
             #button { id=continueButton, text="Filter", postback=filter_logs}
@@ -129,4 +126,12 @@ get_custom_view() ->
         time = '_',
         message = '_'
     },
+    main_chronicler:print_it(CustomView),
     CustomView.
+
+generate_node_dropdown_list() ->
+    Nodes = [ #option{text=atom_to_list(N),
+            value=list_to_atom(lists:takewhile(fun(X)->X /= $@ end, atom_to_list(N)))}
+        || N <- nodes(known)],
+    Reply  = [#option{text="All" ,value=all} | Nodes],
+    Reply.

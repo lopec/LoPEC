@@ -21,7 +21,7 @@ is_logged_in(Do_check) ->
 
 have_role(WantedRole) ->
     case db:get_user(wf:user()) of
-        {user, _Username, _Password, _Email, _, Role} ->
+        {user, _Username, _Password, _Email, _EmailNotification, _, Role} ->
             ConfirmedRoles = lists:filter(fun(X) -> X == Role end, WantedRole),
             case length(ConfirmedRoles) of
                 0 ->
@@ -92,7 +92,7 @@ submenu() ->
             ]
         },
         #panel{id=menuitem, body=[
-            #link{text="Profile"}
+            #link{text="Profile", url="/web/profile"}
             ]
         }
     ],

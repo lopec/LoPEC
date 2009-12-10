@@ -76,5 +76,8 @@ event({change_role, Username}) ->
         {error, _} -> 
             wf:flash(wf:f("Could not update " ++ Username ++ " role. Try again"))
     end;
+event(logout) ->
+    wf:clear_user(),
+    wf:redirect("/web/login"); 
 event(_) -> ok.
 

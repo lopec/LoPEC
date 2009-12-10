@@ -186,7 +186,9 @@ event({confirm_resume, JobId}) ->
     listener:resume_job(JobId),
     wf:flash(wf:f("Resumed job with Id: ~w", [JobId])),
     wf:update(jobTable, get_job_table());
-
+event(logout) ->
+    wf:clear_user(),
+    wf:redirect("/web/login");
 %%%%%%%%%%%%
 % Basecase %
 %%%%%%%%%%%%

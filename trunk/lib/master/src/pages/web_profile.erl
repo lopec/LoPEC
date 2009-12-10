@@ -23,6 +23,9 @@ menu() ->
 submenu() ->
     common_web:submenu().
 
+user_status() ->
+    common_web:is_logged_in(true).
+
 body() ->
     {user, Username, _Password, Email, EmailNotification, _Something, _Role} = 
         db:get_user(wf:user()),
@@ -49,4 +52,7 @@ event(updateInfo) ->
     db:set_email(wf:user(), Email),
     db:set_email_notification(wf:user(), ReceiveEmail),
     wf:flash(wf:f("Your changes have been saved"));
+event(logout) ->
+    wf:clear_user(),
+    wf:redirect("/web/login");
 event(_) -> ok.

@@ -51,6 +51,9 @@ body() ->
 
 
 
+event(logout) ->
+    wf:clear_user(),
+    wf:redirect("/web/login");
 event(_) -> ok.
 
 

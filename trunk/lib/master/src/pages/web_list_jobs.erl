@@ -3,13 +3,6 @@
 -compile(export_all).
 
 
-%% TODO:
-%% - Fix a comet-process so the jobTable is updated in intervals
-%% - A nice rounded panel
-%% - Some nicer table perhaps?
-%% - Pause/Resume buttons
-%% - Hyperlink on the JobId so the user could see more information
-
 main() ->
     common_web:main().
 
@@ -74,4 +67,7 @@ event({confirm_delete, JobId}) ->
     listener:cancel_job(JobId),
     wf:flash(wf:f("Removed job with Id: ~w", [JobId])),
     wf:update(jobTable, get_job_table());
+event(logout) ->
+    wf:clear_user(),
+    wf:redirect("/web/login");
 event(_) -> ok.

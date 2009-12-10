@@ -21,6 +21,9 @@ menu() ->
 submenu() ->
     common_web:submenu().
 
+user_status() ->
+    common_web:is_logged_in(true).
+
 body() ->
     wf:session(log_type, ["all"]),
     wf:session(log_node, ["all"]),
@@ -70,6 +73,9 @@ event(filter_logs) ->
     wf:comet_flush(),
     ok;
 
+event(logout) ->
+    wf:clear_user(),
+    wf:redirect("/web/login");
 event(_) ->
     ok.
 

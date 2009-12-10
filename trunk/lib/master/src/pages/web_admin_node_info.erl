@@ -47,5 +47,7 @@ body() ->
     ],
     wf:render(Body).
 
-
+event(logout) ->
+    wf:clear_user(),
+    wf:redirect("/web/index");
 event(_) -> ok.

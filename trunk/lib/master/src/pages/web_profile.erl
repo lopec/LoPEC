@@ -3,6 +3,10 @@
 -compile(export_all).
 
 main() -> 
+    case common_web:have_role([role_user, role_admin]) of
+        true -> [];
+        _ -> wf:redirect("/web/index")
+    end,
     common_web:main().
 
 title() ->

@@ -8,7 +8,10 @@
 %% - When the "Next" button is clicked, the flash-message should disappear
 
 main() ->
-    common_web:have_role([role_user, role_admin]),
+    case common_web:have_role([role_user, role_admin]) of
+        true -> [];
+        _ -> wf:redirect("/web/index")
+    end,
     common_web:main().
 
 title() ->

@@ -6,9 +6,9 @@
 main() ->
     %% Only admins are supposed to see this page
     case common_web:have_role([role_admin]) of
-        false ->
-            wf:redirect("/web/index");
-        _ -> []
+        true -> [];
+        _ ->
+            wf:redirect("/web/index")
     end,
     common_web:main().
 

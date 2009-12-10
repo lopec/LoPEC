@@ -10,7 +10,7 @@
 -module(file_logger).
 -behaviour(gen_event).
 
--record(state, {logFile, tty = on}).
+-record(state, {logFile, logging_level = [lopec_user_info, lopec_warning, loper_error]}).
 
 -export([init/1,
         handle_event/2,
@@ -59,13 +59,8 @@ init(_Args) ->
 %%                          {ok, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_event({tty, on}, State) ->
-    io:format("turning tty on",[]),
-    NewState = State#state{tty = on},
-    {ok, NewState};
-handle_event({tty, off}, State) ->
-    io:format("turning tty off",[]),
-    NewState = State#state{tty = off},
+handle_event({tty, Level}, State) ->
+    NewState = State#state{logging_level = Level},
     {ok, NewState};
 handle_event(Msg, State) ->
     process_message(Msg, State),
@@ -139,6 +134,17 @@ code_change(_OldVsn, State, _Extra) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
+%% Checks to see if logging is turned on for Level
+%%
+%% @spec is_level_logging_on(Level, State) -> false | true
+%% @end
+%%--------------------------------------------------------------------
+is_level_logging_on(Level, State) ->
+    lists:member(Level, State#state.logging_level).
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
 %% Prints the message to the logfile in State
 %% @spec process_message(Message, State) -> ok
 %% @end
@@ -158,15 +164,17 @@ Type =:= lopec_warning ->
         [Type, Day, Month, Year, Hour, Minute, Second]),
     io:format(State#state.logFile, "Message: ~p~n", [Message]),
 
-    %TTY TODO: add filter for this.
-    case State#state.tty of
-        on -> io:format("~n"
+    case is_level_logging_on(Type, State) of
+        true ->
+            %TTY TODO: add filter for this.
+            io:format("~n"
                 "=== ~p === ~B/~B-~B = ~B:~B.~B ==~n",
                 [Type, Day, Month, Year, Hour, Minute, Second]),
             io:format("Message: ~p~n", [Message]);
-        off -> ok
+        false ->
+            ok
     end,
 
     ok;
-process_message(_Other, State) -> %Not supported message type, discard it.
+process_message(_Other, _State) -> %Not supported message type, discard it.
     ok.

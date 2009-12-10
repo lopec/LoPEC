@@ -218,51 +218,30 @@ handle_call(Msg, From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({tty, on}, State) ->
-    io:format("notifying logger_manager on", []),
-    gen_event:notify(error_logger, {tty, on}),
-    {noreply, State};
-handle_cast({tty, off}, State) ->
-    io:format("notifying logger_manager off", []),
-    gen_event:notify(error_logger, {tty, off}),
-    {noreply, State};
 handle_cast({new_level, [all]}, State) ->
-    NewState = State#state{loggingLevel = [info,
-                                           debug,
-                                           user_info,
-                                           warning,
-                                           error]},
-    {noreply, NewState};
+    gen_event:notify(error_logger, {tty, [
+                lopec_info,
+                lopec_debug,
+                lopec_user_info,
+                lopec_warning,
+                lopec_error
+            ]}),
+    {noreply, State};
 handle_cast({new_level, NewLevel}, State) ->
-    NewState = State#state{loggingLevel = NewLevel},
-    {noreply, NewState};
+    gen_event:notify(error_logger, {tty, NewLevel}),
+    {noreply, State};
 handle_cast({Level, Msg}, State) ->
-    case is_level_logging_on(Level, State) of
-        true ->
-            error_report_message({Level, Msg}),
-            {noreply, State};
-        false ->
-            {noreply, State}
-    end;
+    error_report_message({Level, Msg}),
+    {noreply, State};
 handle_cast({Level, UserId, Msg}, State) when
 Level =:= user_info;
 Level =:= warning;
 Level =:= error ->
-    case is_level_logging_on(Level, State) of
-        true ->
-            error_report_message({Level, UserId, Msg}),
-            {noreply, State};
-        false ->
-            {noreply, State}
-    end;
+    error_report_message({Level, UserId, Msg}),
+    {noreply, State};
 handle_cast({Level, From, Msg}, State) ->
-    case is_level_logging_on(Level, State) of
-        true ->
-            error_report_message({Level, [From, Msg]}),
-            {noreply, State};
-        false ->
-            {noreply, State}
-    end;
+    error_report_message({Level, [From, Msg]}),
+    {noreply, State};
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -333,16 +312,6 @@ code_change(OldVsn, State, Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%% Checks to see if logging is turned on for Level
-%%
-%% @spec is_level_logging_on(Level, State) -> false | true
-%% @end
-%%--------------------------------------------------------------------
-is_level_logging_on(Level, State) ->
-    lists:member(Level, State#state.loggingLevel).
 
 %%--------------------------------------------------------------------
 %% @private

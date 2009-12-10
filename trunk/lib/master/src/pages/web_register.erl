@@ -30,11 +30,13 @@ body() ->
     #password {id=password2, next=email},
     #p {},
     #label {text="Email adress: "},
-    #textbox {id=email, next=registerButton},
+    #textbox {id=email, next=licenseBox},
     #p {},
     #label {text="End user license agreement?"},
     #panel { id=licensePanel, style="overflow: auto; width: 500px; border: 1px solid black; height: 200px;", body=[get_license()]},
-    #checkbox { id=licenseBox, text="I agree with the eula", checked=false },
+    #textbox { id=licenseBox, next=registerButton },
+    #br {},
+    #span { text="To agree with the license, write 'I agree' in the textbox" },
     #p {},
     #button {id=registerButton, text="Register", postback=continue}
 
@@ -49,9 +51,15 @@ body() ->
     wf:wire(registerButton, email, #validate { validators=[
         #is_email { text="Not a valid email address."}
     ]}),
+    wf:wire(registerButton, licenseBox, #validate { validators=[
+        #custom { text="You will comply!", function=fun is_checked/2, tag=checked },
+        #is_required { text="You will comply!" }
+    ]}),
 
     wf:render(Body).
 
+is_checked(_Tag, Text) ->
+    string:to_upper(Text) == "I AGREE".
 
 username_free(_Tag, Username) ->
     case db:exist_user(Username) of

@@ -12,7 +12,7 @@
 -module(riak_io_module).
 
 %% API
--export([init/0, put/4, get/3]).
+-export([init/1, put/4, get/3]).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -22,8 +22,12 @@
 %% @spec init(Args::list()) -> {ok, State}
 %% @end
 %%--------------------------------------------------------------------
-init() ->
-    {ok, {riak, C}} = riak:client_connect("riaknode@" ++ os:get_env("MYIP")).
+init(Args) ->
+    case proplists:lookup(riak_node, Args) of
+        {riak_node, RiakNode} ->
+            {ok, C} = riak:client_connect(RiakNode),
+            {ok, {riak, C}}
+    end.
 
 %%%===================================================================
 %%% API
@@ -39,7 +43,7 @@ init() ->
 %%--------------------------------------------------------------------
 put(Bucket, Key, Value, State = {riak, Ref}) ->
     Object = riak_object:new(Bucket, Key, Value),
-    Reply = Ref:put(Object, 1).
+    _Reply = Ref:put(Object, 1).
     
 %%--------------------------------------------------------------------
 %% @doc
@@ -50,5 +54,5 @@ put(Bucket, Key, Value, State = {riak, Ref}) ->
 %%--------------------------------------------------------------------
 get(Bucket, Key, State = {riak, Ref}) ->
     {ok, Object} = Ref:get(Bucket, Key, 1),
-    Reply = riak_object:get_value(Object).
+    _Reply = {ok, riak_object:get_value(Object)}.
 

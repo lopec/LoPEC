@@ -53,8 +53,15 @@ init(no_args) ->
 	 [child(dynamicSupervisor, supervisor, no_args),
           child(statistician, worker, [slave]),
 	  child(taskFetcher, worker, []),
-          % @todo make the io module configurable instead of hard coded
-          child(io_module, worker, [fs_io_module, no_args])
+          child(io_module, worker,
+                case configparser:read_config("/etc/clusterbusters.conf",
+                                              storage_backend) of
+                         {ok, fs} -> [fs_io_module, no_args];
+                         {ok, riak} -> [riak_io_module,
+                                        [{riak_node,
+                                          list_to_atom("riak@"
+                                                       ++ os:getenv("MYIP"))}]]
+                end)
 	 ]
 	}
     }.

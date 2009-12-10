@@ -56,7 +56,15 @@ init(no_args) ->
     Statistician = child(statistician, worker, [master]),
     Examiner = child(examiner, worker, no_args),
     % @todo make the io module configurable instead of hard coded
-    IoModule = child(io_module, worker, [fs_io_module, no_args]),
+    IoModule = child(io_module, worker,
+                     case configparser:read_config("/etc/clusterbusters.conf",
+                                                   storage_backend) of
+                         {ok, fs} -> [fs_io_module, no_args];
+                         {ok, riak} -> [riak_io_module,
+                                        [{riak_node,
+                                          list_to_atom("riak@"
+                                                       ++ os:getenv("MYIP"))}]]
+                     end),
     % Returning supervisor specification
     {ok,{{one_for_one,1,60},
          [Dispatcher, DbDaemon, IoModule, Listener, Examiner, Statistician]}}.

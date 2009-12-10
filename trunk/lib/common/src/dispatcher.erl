@@ -18,8 +18,7 @@
 
 %% API
 -export([start_link/0,
-         add_job/1,
-         add_bg_job/1,
+         add_job/2,
          add_task/1,
          stop_job/1,
          cancel_job/1,
@@ -91,8 +90,6 @@ stop_job(JobId) ->
     chronicler:debug("~w : Stopping job~n", [?MODULE]),
     gen_server:call({global, ?MODULE}, {stop_job, JobId}).
 
-
-
 %%--------------------------------------------------------------------
 %% @doc
 %% Cancels a job. Its the same as for stop_job/1 but the job will also
@@ -107,7 +104,8 @@ cancel_job(JobId) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Adds specified job to the database job list.
+%% Adds specified job to the database job list, add it to the bg job
+%% list instead iff IsBGJob.
 %% <pre>
 %% JobSpec is a tuple:
 %% {
@@ -117,28 +115,12 @@ cancel_job(JobId) ->
 %%      Priority - not implemented at the moment
 %% }
 %% </pre>
-%% @spec add_job(JobSpec) -> JobID
+%% @spec add_job(JobSpec, IsBGJob) -> JobID
 %% @end
 %%--------------------------------------------------------------------
-add_job(JobSpec) ->
-    gen_server:call({global, ?MODULE}, {add_job, JobSpec}).
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Adds specified background job to the database job list.
-%% <pre>
-%% JobSpec is a tuple:
-%% {
-%%      ProgramName,
-%%      ProblemType (map reduce only accepted now)
-%%      Owner
-%%      Priority - not implemented at the moment
-%% }
-%% </pre>
-%% @spec add_bg_job(JobSpec) -> JobID
-%% @end
-%%--------------------------------------------------------------------
-add_bg_job(JobSpec) ->
+add_job(JobSpec, false) ->
+    gen_server:call({global, ?MODULE}, {add_job, JobSpec});
+add_job(JobSpec, true) ->
     gen_server:call({global, ?MODULE}, {add_bg_job, JobSpec}).
 
 %%--------------------------------------------------------------------
@@ -220,9 +202,8 @@ get_user_from_job(JobId) ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
-    application:start(chronicler),
-    chronicler:info("~p: Application started~n", [?MODULE]),
-    {ok, []}.
+    chronicler:info("~p: Server started~n", [?MODULE]),
+    {ok, no_state}.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -273,6 +254,7 @@ handle_cast(Msg, State) ->
 handle_call({task_done, TaskId, no_task}, _From, State) ->
     mark_done(TaskId),
     {reply, ok, State};
+
 %%--------------------------------------------------------------------
 %% @doc
 %% Marks a specified task as done in the database and adds a
@@ -284,9 +266,10 @@ handle_call({task_done, TaskId, no_task}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({task_done, TaskId, TaskSpec}, _From, State) ->
     chronicler:debug("?MODULE: TaskSpec: ~p", [TaskSpec]),
-    NewTaskId = create_task(TaskSpec),
     mark_done(TaskId),
-    {reply, NewTaskId, State};
+    Reply = create_task(TaskSpec),
+    {reply, Reply, State};
+
 %%--------------------------------------------------------------------
 %% @doc
 %% Adds a specified task to the database
@@ -296,8 +279,8 @@ handle_call({task_done, TaskId, TaskSpec}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({add_task, TaskSpec}, _From, State) ->
-    NewTaskId = create_task(TaskSpec),
-    {reply, NewTaskId, State};
+    Reply = create_task(TaskSpec),
+    {reply, Reply, State};
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -309,9 +292,7 @@ handle_call({add_task, TaskSpec}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({stop_job, JobId}, _From, State) ->
     NodeList = db:stop_job(JobId),
-    %% This sends a message "stop" to all nodes. This message will be
-    %% caught in taskFetcher on the slave-side. 
-    lists:foreach(fun (X) -> global:send(X, stop_job) end, NodeList),
+    stop_nodes(NodeList),
     {reply, ok, State};
 
 %%--------------------------------------------------------------------
@@ -358,8 +339,14 @@ handle_call({add_job, JobSpec}, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({add_bg_job, JobSpec}, _From, State) ->
     NewJobId = db:add_bg_job(JobSpec),
-    examiner:insert(NewJobId),
-    {reply, NewJobId, State};
+    case NewJobId of
+        {error, Error} ->
+            chronicler:error(Error),
+            {reply, {error, Error}, State};
+        _ ->
+            examiner:insert(NewJobId),
+            {reply, NewJobId, State}
+    end;
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -452,7 +439,14 @@ find_task(RequesterPID, NodeId) ->
             stop_nodes(NodesToKill),
             chronicler:debug("~p: Found task ~p.~n",
                              [?MODULE, Task#task.task_id]),
-            RequesterPID ! {task_response, Task},
+            {Bucket, _Key} = Task#task.path,
+            {ok, Keys} = db:list_keys(Bucket),
+            TaskResponse = {Task#task.task_id,
+                            Task#task.job_id,
+                            Task#task.program_name,
+                            Task#task.type,
+                            {Bucket, Keys}},
+            RequesterPID ! {task_response, TaskResponse},
             ecg_server:accept_message({new_node, NodeId}),
             chronicler:debug("Examiner in find_task: ~p",
                              [examiner:get_progress(Task#task.job_id)]),
@@ -461,10 +455,8 @@ find_task(RequesterPID, NodeId) ->
 
 mark_done(TaskId) ->
     db:mark_done(TaskId),
-    db:get_task(TaskId).
-    %chronicler:debug("Examiner in mark_done: ~p",
-    %                 [examiner:get_progress(Task#task.job_id)]),
-    %examiner:report_done(Task#task.job_id, Task#task.type).
+    Task = db:get_task(TaskId),
+    examiner:report_done(Task#task.job_id, Task#task.type).
 
 create_task(TaskSpec) ->
     chronicler:debug("TaskSpec: ~p", [TaskSpec]),
@@ -472,13 +464,13 @@ create_task(TaskSpec) ->
         {error, job_not_in_db} ->
             chronicler:debug("?MODULE: Job does not exist in DB", []),
             {error, job_not_in_db};
-        {error, task_not_added} ->
+        {ok, task_exists} ->
             chronicler:debug("?MODULE: Duplicate task was not created", []),
-            {error, tried_to_create_duplicate_task};
-        {NewTaskId, NodesToKill} ->
+            {ok, task_exists};
+        {ok, {NewTaskId, NodeToKill}} ->
             Task = db:get_task(NewTaskId),
             examiner:report_created(Task#task.job_id, Task#task.type),
-            stop_nodes(NodesToKill),
+            stop_nodes(NodeToKill),
             NewTaskId
     end.
 
@@ -493,10 +485,12 @@ create_task(TaskSpec) ->
 %%--------------------------------------------------------------------
 stop_nodes(NodeList) ->
     chronicler:debug("~w: Killing nodes ~p", [?MODULE, NodeList]),
+    % @todo Why do we free tasks here and in the db?
+    % Only for the list to examiner?
     lists:foreach(fun (Node) -> global:send(Node, stop_job),
                                 TaskList = db:free_tasks(Node),
-                                examiner:report_free(TaskList) end, NodeList).
-
+                                examiner:report_free(TaskList) end,
+                  NodeList).
 
 %%%===================================================================
 %%% Not implemented stuff

@@ -14,7 +14,7 @@
 -export([start_link/0,
          task_done/1,
          error/1,
-         new_task/3]).
+         new_task/5]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -49,12 +49,13 @@ start_link() ->
 %% @doc
 %% Queries the dispatcher to create a new task.
 %%
-%% @spec new_task(Data, Type, Path) -> Task | {error, Error}
+%% @spec new_task(JobId, ProgName, Type, Bucket, Key) -> Task | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-new_task(Data, Type, Path) ->
+new_task(JobId, ProgName, Type, Bucket, Key) ->
     chronicler:info("~w : called new_task of type ~w", [?MODULE, Type]),
-    gen_server:call({global, node()}, {request, new_task, Data, Type, Path}).
+    gen_server:call({global, node()},
+                    {request, new_task, JobId, ProgName, Type, Bucket, Key}).
 
 task_done(Data) ->
     gen_server:cast({global, node()}, Data).
@@ -100,8 +101,9 @@ init(no_args) ->
 handle_call({request, task}, _From, State) ->
     request_task(),
     {reply, State, State};
-handle_call({request, new_task, Data, Type, Path}, _From, State) ->
-    Reply = give_task(Data, Type, Path),
+handle_call({request, new_task, JobId, ProgName, Type, Bucket, Key},
+            _From, State) ->
+    Reply = create_task(JobId, ProgName, Type, Bucket, Key),
     {reply, Reply, State};
 %%--------------------------------------------------------------------
 %% @private
@@ -136,7 +138,7 @@ handle_cast({_Pid, done, {JobId, TaskId, Time, TaskType, _Progname}},
     {NewUp, NewDown} = netMonitor:get_net_stats(),
     Disk = statistician:get_node_disk_usage(raw),
     Mem = statistician:get_node_mem_usage(raw),
-    statistician:update({{node(), JobId, list_to_atom(TaskType), no_user},
+    statistician:update({{node(), JobId, TaskType, no_user},
                          Power, Diff, NewUp - OldUp, NewDown - OldDown, 1, 0,
                          Disk, Mem}),
 
@@ -293,26 +295,26 @@ request_task() ->
 %% @doc
 %% Tells the dispatcher to create a new task
 %%
-%% @spec give_task(Id, Type, Path) -> {Task, NewState}
+%% @spec create_task(JobId, ProgName, Type, TaskKey, DataKey) -> {Task, NewState}
 %% @end
 %%--------------------------------------------------------------------
-give_task({JobId, _TaskId, _Time, _OldType, Progname}, Type, Path) ->
-    dispatcher:add_task({JobId, Progname, Type,
-                            "tmp/" ++ integer_to_list(JobId) ++ Path}).
+create_task(JobId, ProgName, Type, Bucket, Key) ->
+    StorageKey = {Bucket, Key},
+    dispatcher:add_task({JobId, ProgName, Type, StorageKey}).
 
 %%--------------------------------------------------------------------
 %% @doc
 %% Starts an already fetched task on the node.
 %%
-%% @spec start_task({TaskId, JobId, Op, Path, Name}) -> ChildSpec
+%% @spec start_task({TaskId, JobId, ProgName, TaskType, StorageKeys}) ->
+%%           ChildSpec
 %% @end
 %%--------------------------------------------------------------------
-
-start_task({_Lool, TaskId, JobId, Name, Op, Path, _OLOLOL}) ->
+start_task({TaskId, JobId, ProgName, TaskType, StorageKeys}) ->
     ChildSpec = {?WORKER,
                  {?WORKER,
                   start_link,
-                  [Name, Op, JobId, Path, TaskId]},
+                  [ProgName, TaskType, JobId, StorageKeys, TaskId]},
                  temporary,
                  1,
                  worker,

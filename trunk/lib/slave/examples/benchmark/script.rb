@@ -14,144 +14,136 @@ require 'fileutils'
 # reduce   $REDUCETIME $REDUCESIZE
 # finalize $FINALIZETIME $FINALIZESIZE
 
-def split(input, output, count)
-  puts "MY_PID #{Process.pid}"
-  File.open(input, 'r') do |input_file|
-    case input_file.gets.strip
-    when /split (\d+) (\d+) (\d+)/i
-      split_time  = $1.to_i
-      split_size  = $2.to_i
-      split_count = $3.to_i
-      before = Time.now
-      begin
-        map_line = input_file.gets
-        reduce_line = input_file.gets
-        finalize_line = input_file.gets
-      rescue
-        puts "ERROR incorrect map/reduce/finalize lines in split input"
-      end
-      (1..split_count).each do |i|
-        File.open("#{output}/split#{i}", 'w') do |output_file|
-          output_file.puts map_line
-          output_file.puts reduce_line
-          output_file.puts finalize_line
-          (1..split_size).each do |b|
-            output_file.write('s')
-          end
-        end
-      end
-      while (Time.now < before + split_time) do
-      end
-      (1..split_count).each do |i|
-        puts "NEW_SPLIT split#{i}"
-      end
-    else
-      puts "ERROR incorrect input line for split task"
-    end
+def send(message)
+  header = [message.length].pack("N")
+  $stdout.print(header, message)
+  $stdout.flush
+end
+
+def receive()
+  size = $stdin.read(4).unpack("N").pop
+  case $stdin.read(5)
+  when "SOME\n"
+    $stdin.read(size - 5)
+  when "NONE\n"
+    nil
   end
 end
 
-def map(input, output)
-  puts "MY_PID #{Process.pid}"
-  File.open(input, 'r') do |input_file|
-    case input_file.gets.strip
-    when /map (\d+) (\d+)/i
-      map_time = $1.to_i
-      map_size = $2.to_i
-      before = Time.now
-      begin
-        reduce_line = input_file.gets
-        finalize_line = input_file.gets
-      rescue
-        puts "ERROR incorrect reduce/finalize lines in map input"
+def split(task_key, count)
+  send("NEW_PID #{Process.pid}")
+  send("GET_DATA")
+  data = receive()
+  lines = data.split("\n")
+  case lines.shift
+  when /split (\d+) (\d+) (\d+)/i
+    split_time  = $1.to_i
+    split_size  = $2.to_i
+    split_count = $3.to_i
+    before = Time.now
+    map_input = []
+    (1..split_count).each do |i|
+      map_input[i] = lines.join("\n") << "\n"
+      (1..split_size).each do |b|
+        map_input[i] << 's'
       end
-      id = input.split('/').last
-      File.open("#{output}/#{id}", 'w') do |output_file|
-        output_file.puts reduce_line
-        output_file.puts finalize_line
-        (1..map_size).each do |b|
-          output_file.write('m')
-        end
-      end
-      while (Time.now < before + map_time) do
-      end
-      puts "NEW_REDUCE_TASK #{id}"
-    else
-      puts "ERROR incorrect input line for map task"
     end
+    while (Time.now < before + split_time) do
+    end
+    (1..split_count).each do |i|
+      send("NEW_MAP split#{i} key\n#{map_input[i]}")
+    end
+  else
+    send("ERROR incorrect input line for split task")
   end
 end
 
-def reduce(input, output)
-  puts "MY_PID #{Process.pid}"
-  File.open(input, 'r') do |input_file|
-    case input_file.gets.strip
-    when /reduce (\d+) (\d+)/i
-      reduce_time = $1.to_i
-      reduce_size = $2.to_i
-      before = Time.now
-      begin
-        finalize_line = input_file.gets
-      rescue
-        puts "ERROR incorrect finalize line in reduce input"
-      end
-      id = input.split('/').last
-      File.open("#{output}/#{id}", 'w') do |output_file|
-        output_file.puts finalize_line
-        (1..reduce_size).each do |b|
-          output_file.write('r')
-        end
-      end
-      while (Time.now < before + reduce_time) do
-      end
-      puts("NEW_REDUCE_RESULT #{output}")
-    else
-      puts "ERROR incorrect input line for reduce task"
+def map(task_key)
+  send("NEW_PID #{Process.pid}")
+  send("GET_DATA")
+  data = receive()
+  lines = data.split("\n")
+  case lines.shift
+  when /map (\d+) (\d+)/i
+    map_time = $1.to_i
+    map_size = $2.to_i
+    before = Time.now
+    reduce_input = lines[0,lines.length-1].join("\n") << "\n"
+    (1..map_size).each do |b|
+      reduce_input << 'm'
     end
+    while (Time.now < before + map_time) do
+    end
+    send("NEW_REDUCE #{task_key} key\n#{reduce_input}")
+  else
+    puts "ERROR incorrect input line for map task"
   end
 end
 
-def finalize(input, output)
-  puts "MY_PID #{Process.pid}"
-  File.open("#{input}/split1", 'r') do |input_file|
-    case input_file.gets.strip
-    when /finalize (\d+) (\d+)/i
-      finalize_time = $1.to_i
-      finalize_size = $2.to_i
-      before = Time.now
-      File.open("#{output}/finalized", "w") do | output_file |
-        output_file.puts("Nothing to see here, move along.")
-      end
-      while (Time.now < before + finalize_time) do
-      end
-      puts("FINALIZING_DONE")
-    else
-      puts "ERROR incorrect input line for map task"
+def reduce(task_key)
+  send("NEW_PID #{Process.pid}")
+  send("GET_DATA")
+  data = receive()
+  lines = data.split("\n")
+  case lines.shift
+  when /reduce (\d+) (\d+)/i
+    reduce_time = $1.to_i
+    reduce_size = $2.to_i
+    before = Time.now
+    finalize_input = lines[0,lines.length-1].join("\n") << "\n"
+    (1..reduce_size).each do |b|
+      finalize_input << 'r'
     end
+    while (Time.now < before + reduce_time) do
+    end
+    send("NEW_RESULT #{task_key}\n#{finalize_input}")
+  else
+    send("ERROR incorrect input line for reduce task")
+  end
+end
+
+def finalize(task_key)
+  send("NEW_PID #{Process.pid}")
+  send("GET_DATA")
+  data = receive()
+  lines = data.split("\n")
+  case lines.shift
+  when /finalize (\d+) (\d+)/i
+    finalize_time = $1.to_i
+    finalize_size = $2.to_i
+    before = Time.now
+    result = ""
+    (1..finalize_size).each do |b|
+      result << 'f'
+    end
+    while (Time.now < before + finalize_time) do
+    end
+    send("NEW_FINAL_RESULT #{task_key}\n#{result}")
+  else
+    send("ERROR incorrect input line for finalize task")
   end
 end
 
 # = Start working!
 
 command = ARGV[0]
-input   = ARGV[1]
-output  = ARGV[2]
+task_key = ARGV[1]
 
-puts "LOG I will #{command} from #{input} to #{output}"
+send("LOG I will #{command} \o/")
 
 begin
   case command
   when "split"
-    split(input, output, ARGV[4].to_i)
+    split(task_key, ARGV[3].to_i)
   when "map"
-    map(input, output)
+    map(task_key)
   when "reduce"
-    reduce(input, output)
+    reduce(task_key)
   when "finalize"
-    finalize(input, output)
+    finalize(task_key)
   else
-    puts("ERROR I can only split, map, reduce, and finalize!")
+    send("ERROR I can only split, map, reduce, and finalize!")
   end
 rescue Exception => e
-  puts("ERROR #{e}\nBacktrace:\n#{e.backtrace}")
+  send("ERROR #{e}\nBacktrace:\n#{e.backtrace}")
 end

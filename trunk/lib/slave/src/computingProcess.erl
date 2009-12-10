@@ -10,18 +10,30 @@
 %%%-------------------------------------------------------------------
 
 -module(computingProcess).
+
 -include("../include/env.hrl").
 
 -behaviour(gen_server).
 
 %% API
--export([start_link/5, stop/0, stop_job/0]).
+-export([start_link/5,
+         stop/0,
+         stop_job/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
 -define(SERVER, ?MODULE).
+
+-record(state, {job_id,
+                task_id,
+                started,
+                task_type,
+                prog_name,
+                pids_to_kill = [],
+                storage_keys,
+                port}).
 
 kill_all_procs([]) ->
     chronicler:info("~w : No moar PIDs to keel.", [?MODULE]),
@@ -46,34 +58,14 @@ kill_all_procs([H|T]) ->
 %% argument. So the os call will look like "Path Op Arg1 Arg2".
 %% The TaskId is there for the statistician.
 %%
-%% @spec start_link(Path, Op, Arg1, Arg2, TaskId) ->
+%% @spec start_link(ProgName, TaskType, JobId, StorageKeys, TaskId) ->
 %%           {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(Path, Op, JobId, InputPath, TaskId) ->
+start_link(ProgName, TaskType, JobId, StorageKeys, TaskId) ->
     chronicler:info("~w : application starting~n", [?MODULE]),
-    StringId = integer_to_list(JobId),
-    {ok, Root} = configparser:read_config(?CONFIGFILE, cluster_root),
-    {ok, Platform} = configparser:read_config(?CONFIGFILE, platform),
-    Prog = lists:concat([Root, "programs/", Path, "/script.", Platform]),
-    LoadPath = Root ++ InputPath,
-    SavePath = Root ++
-        case Op of
-            split -> "tmp/" ++ StringId ++ "/map/";
-            map -> "tmp/" ++ StringId ++ "/reduce/";
-            reduce -> "tmp/" ++ StringId ++ "/results/";
-            finalize ->
-                Dir = Root ++ "results/" ++ StringId ++ "/",
-                filelib:ensure_dir(Dir),
-                file:change_mode(Dir, 8#777),
-                "results/" ++ StringId
-        end,
-    PidPath = Root ++ "tmp/" ++ StringId ++ "/pid/"++ atom_to_list(node()) ++ "/",
-    filelib:ensure_dir(PidPath),
-    file:change_mode(PidPath, 8#777),
     gen_server:start_link({local, ?SERVER},?MODULE,
-                          [Path, Prog, atom_to_list(Op),
-                           LoadPath, SavePath, JobId, TaskId, PidPath], []).
+                          [ProgName, TaskType, JobId, TaskId, StorageKeys], []).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -114,23 +106,30 @@ stop_job() ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([Progname, Path, "split", LoadPath, SavePath, JobId, TaskId, PidPath]) ->
-    Splits = dispatcher:get_split_amount(),
-    chronicler:debug("~w : Path: ~ts~nOperation: ~ts~nLoadpath:"
-                     " ~ts~nSavepath: ~ts~nJobId: ~p~n",
-                     [?MODULE, Path, "split", LoadPath, SavePath, JobId]),
-    open_port({spawn_executable, Path},
-              [use_stdio, stderr_to_stdout, exit_status, {line, 512},
-               {args, ["split", LoadPath, SavePath, PidPath, integer_to_list(Splits)]}]),
-    {ok, {JobId, TaskId, now(), "split", Progname, []}};
-init([Progname, Path, Op, LoadPath, SavePath, JobId, TaskId, PidPath]) ->
-    chronicler:debug("~w : Path: ~ts~nOperation: ~ts~nLoadpath:"
-                     " ~ts~nSavepath: ~ts~nJobId: ~p~n",
-                     [?MODULE, Path, Op, LoadPath, SavePath, JobId]),
-    open_port({spawn_executable, Path},
-              [use_stdio, stderr_to_stdout, exit_status, {line, 512},
-               {args, [Op, LoadPath, SavePath, PidPath]}]),
-    {ok, {JobId, TaskId, now(), Op, Progname, []}}.
+init([ProgName, TaskType, JobId, TaskId, StorageKeys]) ->
+    {ok, Root} = configparser:read_config(?CONFIGFILE, cluster_root),
+    {ok, Platform} = configparser:read_config(?CONFIGFILE, platform),
+    ProgPath = lists:concat([Root, "programs/", ProgName, "/script.", Platform]),
+    JobRoot = lists:concat([Root, "tmp/", JobId, "/"]),
+    PidPath = lists:concat([JobRoot, "pid/", node(), "/"]),
+    Workspace = lists:concat([JobRoot, "workspace/", TaskType, "/"]),
+    lists:foreach(fun (Path) -> filelib:ensure_dir(Path),
+                                file:change_mode(Path, 8#777) end,
+                  [PidPath, Workspace]),
+    NodeCount = integer_to_list(length(nodes())),
+    % Add the number of nodes to the arg list if the task is a split
+    {Bucket, _Keys} = StorageKeys,
+    TaskKey = lists:last(string:tokens(binary_to_list(Bucket), "/")),
+    ArgList = [atom_to_list(TaskType), TaskKey, PidPath]
+              ++ case TaskType of
+                     split -> [NodeCount];
+                     _ -> [] end,
+    Port = open_port({spawn_executable, ProgPath},
+                     [binary, {packet, 4}, use_stdio, stderr_to_stdout,
+                      exit_status, {args, ArgList}]),
+    {ok, #state{job_id = JobId, task_id = TaskId, started = now(),
+                task_type = TaskType, prog_name = ProgName,
+                port = Port, storage_keys = StorageKeys}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -142,13 +141,14 @@ init([Progname, Path, Op, LoadPath, SavePath, JobId, TaskId, PidPath]) ->
 %%--------------------------------------------------------------------
 %% HERE IS THE EVUL PRÅBLEM
 handle_call(stop_job, _From,
-            State = {JobId, _TaskId, _Time, _TaskType, _Progname, StartedPids}) ->
-    {ok, Root} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
-    chronicler:info("~w: About to kill ~p", [?MODULE, StartedPids]),
+            State = #state{job_id = JobId, pids_to_kill = Pids}) ->
+    {ok, Root} = configparser:read_config("/etc/clusterbusters.conf",
+                                          cluster_root),
+    chronicler:info("~w: About to kill ~p", [?MODULE, Pids]),
     PidPath = lists:concat([Root, "/tmp/", JobId, "/pid/", node(), "/*.pid"]),
     PidFiles = filelib:wildcard(PidPath),
     chronicler:info("~w: About to kill ~p", [?MODULE, PidFiles]),
-    kill_all_procs(StartedPids),
+    kill_all_procs(Pids),
     kill_all_procs(PidFiles),
 
     {reply, job_stopped, State};
@@ -206,60 +206,53 @@ handle_cast(Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info({_Pid, {data, {_Flag, "MY_PID " ++ Data}}},
-            {JobId, TaskId, Time, TaskType, Progname, StartedPids}) ->
-    chronicler:user_info(fix_me, "~w : MY_PID ~s Reported~n", [?MODULE, Data]),
-    {noreply, {JobId, TaskId, Time, TaskType, Progname,
-        [{pid, Data}|StartedPids]}};
-handle_info({_Pid, {data, {_Flag, "NEW_SPLIT " ++ Data}}},
-            State = {JobId, TaskId, Time, TaskType, Progname, _StartedPids}) ->
-    chronicler:user_info(fix_me, "~w : SPLIT: New map task: ~ts~n", [?MODULE, Data]),
-    taskFetcher:new_task({JobId, TaskId, Time, TaskType, Progname},
-                         map, "/map/" ++ Data),
+handle_info({_Pid, {data, <<"NEW_PID ", Pid/binary>>}}, State) ->
+    NewPids = [Pid | State#state.pids_to_kill],
+    {noreply, State#state{pids_to_kill = NewPids}};
+handle_info({_Pid, {data, <<"GET_DATA">>}},State) ->
+    NewState = get_next_input(State),
+    {noreply, NewState};
+handle_info({_Pid, {data, <<"NEW_MAP ", KeysAndData/binary>>}},State) ->
+    add_task(map, KeysAndData, State),
     {noreply, State};
-handle_info({_Pid, {data, {_Flag, "NEW_REDUCE_TASK " ++ Data}}},
-            State = {JobId, TaskId, Time, TaskType, Progname, _StartedPids}) ->
-    chronicler:user_info(fix_me, "~w : MAP: New reduce task: ~ts~n", [?MODULE, Data]),
-    taskFetcher:new_task({JobId, TaskId, Time, TaskType, Progname},
-                         reduce, "/reduce/" ++ Data),
+handle_info({_Pid, {data, <<"NEW_REDUCE ", KeysAndData/binary>>}}, State) ->
+    add_task(reduce, KeysAndData, State),
     {noreply, State};
-handle_info({_Pid, {data, {_Flag, "NEW_REDUCE_RESULT " ++ Data}}},
-            State = {JobId, TaskId, Time, TaskType, Progname, _StartedPids}) ->
-    chronicler:user_info(fix_me, "~w : REDUCE: New finalize task: ~ts~n", [?MODULE, Data]),
-    taskFetcher:new_task({JobId, TaskId, Time, TaskType, Progname},
-                         finalize, "/results/"),
+handle_info({_Pid, {data, <<"NEW_RESULT ", KeysAndData/binary>>}}, State) ->
+    add_finalize(KeysAndData, State),
     {noreply, State};
-handle_info({_Pid, {data, {_Flag, "ERROR " ++ Data}}}, State) ->
-    chronicler:error(fix_me_need_user_id, "~w : ERROR: ~ts~n", [?MODULE, Data]),
+handle_info({_Pid,
+             {data, <<"NEW_FINAL_RESULT ", KeyAndData/binary>>}}, State) ->
+    add_final_result(KeyAndData, State),
     {noreply, State};
-handle_info({_Pid, {data, {_Flag, "LOG " ++ Data}}}, [JobId | State]) ->
-    chronicler:user_info(fix_me_need_user_id, "~w : LOG: ~ts~n",
-        [?MODULE, Data]),
-    {noreply, [JobId | State]};
-handle_info({Pid, {data, {_Flag, "Segmentation fault"}}},
-            State = {JobId, TaskId, Time, TaskType, Progname, _StartedPids}) ->
-    chronicler:error(fix_me_need_user_id, "~w : Process ~p exited with reason: Segmentation fault",
-                     [?MODULE, Pid]),
-    taskFetcher:error(fix_me_need_user_id, {self(), error,
-                       {JobId, TaskId, Time, TaskType, Progname}}),
+handle_info({_Pid, {data, <<"NO_FINALIZING_PLZ">>}}, State) ->
+    no_finalize(State),
+    {noreply, State};
+handle_info({_Pid, {data, <<"ERROR ", Message/binary>>}}, State) ->
+    chronicler:error(fix_me, "~w : ERROR: ~ts~n", [?MODULE, Message]),
+    {noreply, State};
+handle_info({_Pid, {data, <<"LOG ", Message/binary>>}}, State) ->
+    chronicler:user_info(fix_me, "~w : LOG: ~ts~n", [?MODULE, Message]),
+    {noreply, State};
+handle_info({Pid, {data, <<Message/binary>>}}, State) ->
+    chronicler:error(fix_me, "~w : Task failed, unrecognized output: ~ts~nfrom ~w",
+                     [?MODULE, Message, Pid]),
+    fail_task(State),
     {stop, normal, State};
-handle_info({_Pid, {data, {_Flag, Data}}}, State) ->
-    chronicler:info(io_lib:format("~w : PORT PRINTOUT: ~ts~n",[?MODULE, Data])),
-    {noreply, State};
-handle_info({Pid, {exit_status, Status}}, State =
-            {JobId, TaskId, Time, TaskType, Progname, _StartedPids})
+handle_info({Pid, {exit_status, Status}},
+            State = #state{job_id = JobId, task_id = TaskId, started = Time,
+                           task_type = TaskType, prog_name = ProgName})
   when Status == 0 ->
     chronicler:debug("~w : Process ~p exited normally~n", [?MODULE, Pid]),
     taskFetcher:task_done({self(), done,
-                               {JobId, TaskId, Time, TaskType, Progname}}),
+                           {JobId, TaskId, Time, TaskType, ProgName}}),
     {stop, normal, State};
-handle_info({Pid, {exit_status, Status}},
-            State = {JobId, TaskId, Time, TaskType, Progname, _StartedPids}) ->
-    chronicler:error(fix_me_need_user_id, "~w : Process ~p exited with status: ~p~n",
+handle_info({Pid, {exit_status, Status}}, State) ->
+    chronicler:error(fix_me, "~w : Process ~p exited with status: ~p~n",
                      [?MODULE, Pid, Status]),
-    taskFetcher:error(fix_me_need_user_id, {self(), error,
-                               {JobId, TaskId, Time, TaskType, Progname}}),
+    fail_task(State),
     {stop, normal, State};
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -306,3 +299,94 @@ code_change(OldVsn, State, Extra) ->
                      "Extra: ~p~n",
                      [?MODULE, OldVsn, Extra]),
     {ok, State}.
+
+fail_task(#state{job_id = JobId, task_id = TaskId, started = Time,
+                 task_type = TaskType, prog_name = ProgName}) ->
+    taskFetcher:error({self(), error,
+                       {JobId, TaskId, Time, TaskType, ProgName}}).
+
+get_next_input(State = #state{port = Port, storage_keys = {Bucket, Keys}}) ->
+    case Keys of
+        [] ->
+            port_command(Port, <<"NONE">>),
+            State;
+        [Key | Moar] ->
+            {ok, Data} = io_module:get(Bucket, Key),
+            port_command(Port, <<"SOME\n", Data/binary>>),
+            _NewState = State#state{storage_keys = {Bucket, Moar}}
+    end.
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Stores the given data under the given key and bucket and creates a
+%% new task via taskFetcher.
+%%
+%% @spec add_task(TaskType, KeysAndData, State) -> ok | {error, Reason}
+%% @end
+%%--------------------------------------------------------------------
+add_task(TaskType, KeysAndData, #state{job_id = JobId,prog_name = ProgName}) ->
+    {TaskKey, DataKey, Data} = unpack(KeysAndData),
+    Bucket =
+        list_to_binary(lists:concat([JobId,"/",TaskType,"/",TaskKey,"/"])),
+    io_module:put(Bucket, DataKey, Data),
+    taskFetcher:new_task(JobId, ProgName, TaskType, Bucket, DataKey).
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Stores the given data under the given key and bucket.
+%%
+%% @spec add_finalize(KeyAndData, State) -> ok | {error, Reason}
+%% @end
+%%--------------------------------------------------------------------
+add_finalize(KeyAndData, #state{job_id = JobId, prog_name = ProgName}) ->
+    {_TaskKey, DataKey, Data} = unpack(KeyAndData, "", <<>>), %% ZOMGHAX
+    Bucket = list_to_binary(lists:concat([JobId,"/finalize/"])),
+    io_module:put(Bucket, DataKey, Data),
+    taskFetcher:new_task(JobId, ProgName, finalize, Bucket, DataKey).
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Stores the given data under the given key and bucket.
+%%
+%% @spec add_final_result(KeyAndData, State) -> ok | {error, Reason}
+%% @end
+%%--------------------------------------------------------------------
+add_final_result(KeyAndData, #state{job_id = JobId}) ->
+    {_TaskKey, DataKey, Data} = unpack(KeyAndData, "", <<>>), %% ZOMGHAX
+    Bucket = list_to_binary(lists:concat([JobId,"/results/"])),
+    io_module:put(Bucket, DataKey, Data).
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% not implemented
+%% @todo implement me!
+%%
+%% @spec no_finalize(State) -> todo
+%% @end
+%%--------------------------------------------------------------------
+no_finalize(State) ->
+    todo.
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Unpacks the given Keys and Data from <<"TaskKey DataKey\n", Data>>
+%% to {"TaskKey", <<"DataKey">>, <<Data>>}.
+%%
+%% @spec unpack(KeysAndData) -> {TaskKey, DataKey, Data}
+%% @end
+%%--------------------------------------------------------------------
+unpack(KeysAndData) ->
+    unpack(KeysAndData, "").
+unpack(<<" ", Rest/binary>>, TaskKey) ->
+    unpack(Rest, TaskKey, <<>>);
+unpack(<<C:8, Rest/binary>>, TaskKey) ->
+    unpack(Rest, TaskKey ++ [C]).
+unpack(<<"\n", Rest/binary>>, TaskKey, DataKey) ->
+    {TaskKey, DataKey, Rest};
+unpack(<<C:8, Rest/binary>>, TaskKey, DataKey) ->
+    unpack(Rest, TaskKey, <<DataKey/binary, C:8>>).

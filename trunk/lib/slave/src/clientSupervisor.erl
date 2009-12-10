@@ -52,7 +52,9 @@ init(no_args) ->
     {ok,{{one_for_one, 1, 60},
 	 [child(dynamicSupervisor, supervisor, no_args),
           child(statistician, worker, [slave]),
-	  child(taskFetcher, worker, [])
+	  child(taskFetcher, worker, []),
+          % @todo make the io module configurable instead of hard coded
+          child(io_module, worker, [fs_io_module, no_args])
 	 ]
 	}
     }.

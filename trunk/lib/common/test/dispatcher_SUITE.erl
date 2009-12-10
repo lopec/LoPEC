@@ -38,7 +38,7 @@ end_per_suite(_Config) ->
     ok.
 
 init_per_testcase(_TestCase, Config) ->
-    JobId = dispatcher:add_job({raytracer, mapreduce, chabbrik, 0}),
+    JobId = dispatcher:add_job({raytracer, mapreduce, chabbrik, 0}, false),
     [{job, JobId} | Config].
 
 end_per_testcase(_TestCase, Config) ->
@@ -61,16 +61,17 @@ task_allocation([{job, JobId} | Config]) ->
     after 1000 ->
             ct:fail(timeout)
     end,
-    
-    TaskSpec = {JobId, raytracer, split, "input_path"},
+    Bucket = list_to_binary(lists:concat([JobId, "/split/"])),
+    Key = <<"key">>,
+    TaskSpec = {JobId, raytracer, split, {Bucket, Key}},
     TaskId   = dispatcher:add_task(TaskSpec),
     case TaskId of
         {error, Reason} ->
             ct:fail(Reason);
         _ ->
-            ok    
+            ok
     end,
-    
+
     dispatcher:fetch_task(node(), self()),
     receive
         {task_response, no_task} ->
@@ -78,7 +79,8 @@ task_allocation([{job, JobId} | Config]) ->
         {task_response, Task} ->
             TaskId = Task#task.task_id,
             split  = Task#task.type,
-            JobId  = Task#task.job_id
+            JobId  = Task#task.job_id,
+            {Bucket, [Key]} = Task#task.path
     after 1000 ->
             ct:fail(timeout)
     end,
@@ -107,8 +109,10 @@ task_completed([{job, JobId} | Config]) ->
     after 1000 ->
             ct:fail(timeout)
     end,
-    
-    dispatcher:add_task({JobId, raytracer, split, "/input/data.dat"}),
+
+    TaskSpec = {JobId, raytracer, split,
+                {list_to_binary(lists:concat([JobId, "/split/"])), <<"key">>}},
+    dispatcher:add_task(TaskSpec),
     dispatcher:fetch_task(node(), self()),
     receive
         {task_response, no_task} ->
@@ -117,11 +121,15 @@ task_completed([{job, JobId} | Config]) ->
             split = Task#task.type,
             JobId = Task#task.job_id,
             assigned = (db:get_task(Task#task.task_id))#task.state,
-            MapTaskSpec = {JobId, raytracer, map, "input data"},
+            MapTaskSpec = {JobId, raytracer, map,
+                           {list_to_binary(lists:concat([JobId, "/map1/"])),
+                            <<"key">>}},
             dispatcher:report_task_done(Task#task.task_id, MapTaskSpec),
             DoneTask = db:get_task(Task#task.task_id),
             done = DoneTask#task.state,
-            AssignedTask = {JobId, raytracer, map, "input data"},
+            AssignedTask = {JobId, raytracer, map,
+                            {list_to_binary(lists:concat([JobId, "/map2/"])),
+                             <<"key">>}},
             AId = dispatcher:add_task(AssignedTask),
             free = (db:get_task(AId))#task.state
     after 1000 ->
@@ -139,8 +147,11 @@ free_tasks([{job, JobId} | Config]) ->
     after 1000 ->
             ct:fail(timeout)
     end,
-    
-    TaskId = dispatcher:add_task({JobId, raytracer, split, "/input/data.dat"}),
+
+    TaskId =
+        dispatcher:add_task({JobId, raytracer, split,
+                             {list_to_binary(lists:concat([JobId, "/split/"])),
+                              <<"key">>}}),
     ok = dispatcher:fetch_task(node(), self()),
     receive
         {task_response, no_task} ->
@@ -159,7 +170,9 @@ free_tasks([{job, JobId} | Config]) ->
     Config.
 
 assigned_test([{job, JobId} | Config]) ->
-    MapTask1 = {JobId, raytracer, map, "input data1"},
+    MapTask1 = {JobId, raytracer, map,
+                {list_to_binary(lists:concat([JobId, "/map/"])),
+                 <<"key">>}},
     TaskId = dispatcher:add_task(MapTask1),
 
     %Expecting to get added tasks back,
@@ -171,7 +184,6 @@ assigned_test([{job, JobId} | Config]) ->
     JobId         = NewTask#task.job_id,
     raytracer     = NewTask#task.program_name,
     map           = NewTask#task.type,
-    "input data1" = NewTask#task.path,
     free          = NewTask#task.state,
 
     examiner:report_created(NewTask#task.job_id, NewTask#task.type),
@@ -186,7 +198,8 @@ assigned_test([{job, JobId} | Config]) ->
             true = AssignedTask#task.job_id  == RetrievedTask#task.job_id,
             assigned = RetrievedTask#task.state,
 
-            examiner:report_assigned(AssignedTask#task.job_id, AssignedTask#task.type)
+            examiner:report_assigned(AssignedTask#task.job_id,
+                                     AssignedTask#task.type)
     after 1000 ->
             ct:fail(timeout)
     end,

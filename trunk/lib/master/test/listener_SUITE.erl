@@ -68,7 +68,7 @@ end_per_testcase(_TestCase, Config) ->
 input_error(Config) ->
     {error, inputdata_dont_exist} =
         listener:add_job(wordcount, mapreduce, kalle, 5,
-        "This_File_Should_Never_Exist_Because_The_World_Will_Fall_If_It_Does"),
+                         "This_File_Should_Never_Exist_Because_The_World_Will_Fall_If_It_Does"),
     Config.
 
 pause_resume_test(Config) ->

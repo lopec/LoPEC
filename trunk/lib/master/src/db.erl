@@ -41,6 +41,7 @@
          fetch_task/1,
          mark_done/1,
          free_tasks/1,
+         list_keys/1,
          list/1]).
 
 %% APIs for information
@@ -203,14 +204,6 @@ remove_job(JobId) ->
 fetch_task(NodeId) ->
     gen_server:call(?SERVER, {fetch_task, NodeId}).
 
-%% @private helper for add_task/1
-call_add(TableName, JobId, ProgramName, Type, Path) ->
-    gen_server:call(?SERVER, {add_task, TableName,
-                              #task{job_id = JobId,
-                                    program_name = ProgramName,
-                                    type = Type,
-                                    path = Path}}).
-
 %%--------------------------------------------------------------------
 %% @doc
 %%
@@ -220,32 +213,18 @@ call_add(TableName, JobId, ProgramName, Type, Path) ->
 %% the NFS root.
 %%
 %% @spec add_task({JobId::integer(), ProgramName::atom(),
-%%                 Type::atom(), Path::atom()}) -> TaskId::integer()
+%%                 Type::atom(), {Bucket::binary(), Key::binary()}}) ->
+%%           {ok, TaskId::integer()} | {error, Reason} | {ok, task_exists}
 %%           Type = split | map | reduce | finalize
 %% @end
 %%--------------------------------------------------------------------
-add_task({JobId, ProgramName, Type, Path})
-  when Type == reduce ; Type == finalize ->
-    TableName = list_to_atom(lists:concat([Type, '_free'])),
-    case gen_server:call(?SERVER, {exists_path, TableName, JobId, Path}) of
-        false ->
-            case read(job, JobId) of
-                {error, _Reason} ->
-                    {error, job_not_in_db};
-                _ ->
-                    call_add(TableName, JobId, ProgramName, Type, Path)
-            end;
-        _ ->
-            {error, task_not_added}
-    end;
-add_task({JobId, ProgramName, Type, Path}) when Type == split ; Type == map ->
-    TableName = list_to_atom(lists:concat([Type, '_free'])),
-    case read(job, JobId) of
-        {error, _Reason} ->
-            {error, job_not_in_db};
-        _ ->
-            call_add(TableName, JobId, ProgramName, Type, Path)
-    end;
+add_task({JobId, ProgramName, Type, StorageKey})
+  when Type == split ; Type == map ; Type == reduce ; Type == finalize ->
+    gen_server:call(?SERVER,
+                    {add_task, #task{job_id = JobId,
+                                     program_name = ProgramName,
+                                     type = Type,
+                                     path = StorageKey}});
 add_task({_JobId, _ProgramName, Type, _Path}) ->
     chronicler:error(fix_me_need_user_id, "~w:add_task failed:~n"
                      "Incorrect input type: ~p~n", [?MODULE, Type]),
@@ -297,7 +276,7 @@ job_status(JobId) ->
 		    {ok, State}
 	    end
     end.
-		
+
 %%--------------------------------------------------------------------
 %% @doc
 %%
@@ -662,6 +641,17 @@ list_node_tasks(NodeId) ->
     gen_server:call(?SERVER, {list_node_tasks, NodeId}).
 
 %%--------------------------------------------------------------------
+%% @doc
+%%
+%% Lists all keys pertaining to Bucket in the db.
+%%
+%% @spec list_keys(Bucket::binary()) -> Keys::[binary()]
+%% @end
+%%--------------------------------------------------------------------
+list_keys(Bucket) ->
+    gen_server:call(?SERVER, {list_keys, Bucket}).
+
+%%--------------------------------------------------------------------
 %% @private
 %% @doc
 %%
@@ -699,9 +689,9 @@ init(_Args) ->
 %% @private
 %% @doc
 %%
-%% Creates the necessary tables for the database.
-%% Should only be called once for initialization if ram_copies is not
-%% supplied as the StorageType argument.
+%% Creates the necessary tables for the database. Should only be
+%% called once for initialization if ram_copies is not supplied as the
+%% StorageType argument.
 %%
 %% @spec handle_call({create_tables, StorageType::atom()},
 %%                    _From, State) ->
@@ -717,45 +707,57 @@ handle_call({create_tables, StorageType}, _From, State) ->
             [{attributes, record_info(fields, job)}|Opts]) of
         {atomic, ok} ->
             {atomic, ok} =
-            mnesia:create_table(bg_job,
-                [{attributes, record_info(fields, bg_job)}|Opts]),
+                mnesia:create_table(bg_job,
+                                    [{attributes,
+                                      record_info(fields, bg_job)}|Opts]),
 
             % Create all the task tables
             TaskTableNames =
-            [list_to_atom(lists:concat([TaskType, '_', TaskState]))
-                || TaskType <- [split, map, reduce, finalize],
-                TaskState <- [free, assigned, done]],
-            [{atomic, ok} = mnesia:create_table(TableName,
-                    [{record_name, task},
-                        {attributes,
-                            record_info(fields, task)}|Opts])
-                || TableName <- TaskTableNames],
+                [list_to_atom(lists:concat([TaskType, '_', TaskState]))
+                 || TaskType <- [split, map, reduce, finalize],
+                    TaskState <- [free, assigned, done]],
+            [{atomic, ok} =
+                 mnesia:create_table(TableName,
+                                     [{record_name, task},
+                                      {attributes,
+                                       record_info(fields, task)}|Opts])
+             || TableName <- TaskTableNames],
             {atomic, ok} =
-            mnesia:create_table(assigned_tasks,
-                [{record_name, assigned_tasks},
-                    {attributes,
-                        record_info(fields, assigned_tasks)}|Opts]),
+                mnesia:create_table(assigned_tasks,
+                                    [{record_name, assigned_tasks},
+                                     {attributes,
+                                      record_info(fields,
+                                                  assigned_tasks)}|Opts]),
             {atomic, ok} =
-            mnesia:create_table(task_relations,
-                [{record_name, task_relations},
-                    {attributes,
-                        record_info(fields, task_relations)}|Opts]),
+                mnesia:create_table(task_relations,
+                                    [{record_name, task_relations},
+                                     {attributes,
+                                      record_info(fields,
+                                                  task_relations)}|Opts]),
 
 	    % Create the user table
 	    mnesia:create_table(user,
 				[{record_name, user},
 				 {attributes,
-				 record_info(fields, user)}|Opts]),
+                                  record_info(fields, user)}|Opts]),
+
+            % Create the storage key table
+            % change the type of the table in Opts to bag to allow for
+            % several keys in the same bucket.
+            BagOpts = [{type, bag} | proplists:delete(type, Opts)],
+	    mnesia:create_table(storage_key,
+				[{attributes,
+                                  record_info(fields, storage_key)}|BagOpts]),
 
             % Add secondary keys to some of the tables
             mnesia:add_table_index(assigned_task, job_id),
             mnesia:add_table_index(assigned_task, node_id),
             [mnesia:add_table_index(TableName, job_id)
-                || TableName <- TaskTableNames],
+             || TableName <- TaskTableNames],
             {reply, tables_created, State};
         ERROR ->
-            chronicler:debug("?MODULE: Table had already been created "
-                             "ERROR: ~w", [ERROR]),
+            chronicler:debug("~w: Table had already been created "
+                             "ERROR: ~w", [?MODULE, ERROR]),
             {reply, {error, tables_existed}, State}
     end;
 
@@ -959,50 +961,51 @@ handle_call({fetch_task, NodeId}, _From, State) ->
 %%
 %% Adds a task to the database.
 %%
-%% @spec handle_call({add_task, TableName::atom(), Task},
-%%                    _From, State) ->
-%%                                 {reply, TaskId::integer(), State}
+%% @spec handle_call({add_task, Task}, _From, State) ->
+%%           {reply, Reply, State}
+%%           Reply = {ok, {TaskId::integer(), NodeToKill::list()}}
+%%                 | {error, Reason} | {ok, task_exists}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({add_task, TableName, Task}, _From, State) ->
-    TaskId = generate_id(),
-    add(TableName, Task#task{task_id = TaskId}),
-    TaskRelation =
-        #task_relations{task_id    = TaskId,
-                        job_id     = Task#task.job_id,
-                        table_name = TableName},
-    add(task_relations, TaskRelation),
+handle_call({add_task, Task}, _From, State) ->
     Reply =
         case read(job, Task#task.job_id) of
-            {error, _} ->
-                {error, job_not_found};
+            {error, Reason} ->
+                {error, lists:concat(["Job not found: ", Reason])};
             Job ->
-                case Job#job.state of
-                    no_tasks ->
-                        set_job_state_internal(Task#task.job_id, free);
-                    _ ->
-                        ok
-                end,
+                {Bucket, Key} = Task#task.path,
+                case exists_bucket(Bucket) of
+                    true ->
+                        add(storage_key,
+                            #storage_key{bucket = Bucket, key = Key}),
+                        {ok, task_exists};
+                    false ->
+                        TableName =
+                            list_to_atom(lists:concat([Task#task.type, '_free'])),
+                        TaskId = generate_id(),
+                        add(TableName, Task#task{task_id = TaskId}),
+                        TaskRelation =
+                            #task_relations{task_id    = TaskId,
+                                            job_id     = Task#task.job_id,
+                                            table_name = TableName},
+                        add(task_relations, TaskRelation),
 
-                NodesToKill =
-                    case Task#task.type of
-                        Type when Type == split ; Type == map ->
-                            case Job#job.is_bg of
-                                true  -> [];
-                                false -> kill_one()
-                            end;
-                        _ ->
-                            []
-                    end,
+                        make_job_available(Job),
 
-                chronicler:debug("~w:Added task.~nTaskId:~p~n"
-                                 "JobId:~p~nType:~p~n",
-                                 [?MODULE, TaskId, Task#task.job_id,
-                                  Task#task.type]),
-                {TaskId, NodesToKill}
+                        NodeToKill = find_node_to_kill(Task, Job),
+
+                        add(storage_key,
+                            #storage_key{bucket = Bucket, key = Key}),
+
+                        chronicler:debug("~w:Added task.~nTaskId:~p~n"
+                                         "JobId:~p~nType:~p~n"
+                                         "kill ~p~n",
+                                         [?MODULE, TaskId, Task#task.job_id,
+                                          Task#task.type, NodeToKill]),
+                        {ok, {TaskId, NodeToKill}}
+                end
         end,
     {reply, Reply, State};
-
 
 %%--------------------------------------------------------------------
 %% @private
@@ -1135,15 +1138,15 @@ handle_call({exists_path, TableName, JobId, Path}, _From, State) ->
 handle_call({add_user, Username, Email, Password}, _From, State) ->
     PasswordDigest = crypto:sha(Password),
     User = #user{user_name=Username, email=Email, receive_email=false, password=PasswordDigest},
-    Reply = case add(user, User) of
-                ok ->
-                    {ok, user_added};
-                {error, Reason} ->
-                    chronicler:error(fix_me_need_user_id, 
-                      "~w:Adding user failed!~nUser: ~s aborted.~nReason: ~s~n", 
-                      [?MODULE, User, Reason]),
-                    {error, Reason}
-            end,
+    case add(user, User) of
+	ok ->
+	    Reply = {ok, user_added};
+	{error, Reason} ->
+	    chronicler:error(fix_me,
+	      "~w:Adding user failed!~nUser: ~s aborted.~nReason: ~s~n",
+	      [?MODULE, User, Reason]),
+	    Reply = {error, Reason}
+    end,
     {reply, Reply, State};
 
 %%--------------------------------------------------------------------
@@ -1162,15 +1165,15 @@ handle_call({validate_user, Username, Password}, _From, State) ->
     PasswordDigest = crypto:sha(Password),
     User = read(user, Username),
     Reply = case User of
-                {error, Reason} ->	
-                    {error, Reason};
-                _ ->
-                    case (User#user.password) of
+	        {error, Reason} ->
+	            {error, Reason};
+	        _ ->
+	            case (User#user.password) of
                         PasswordDigest ->
-                            {ok, user_validated};
+		            {ok, user_validated};
                         _->
-                            {error, invalid}
-                    end
+		            {error, invalid}
+	            end
             end,
     {reply, Reply, State};
 
@@ -1349,6 +1352,33 @@ handle_call({list_active_jobs}, _From, State) ->
         end,
     {atomic, Result} = mnesia:transaction(F),
     {reply, Result, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% All keys associated with Bucket in the db.
+%%
+%% @spec handle_call({list_keys, Bucket}, _From, State) ->
+%%           {reply, Reply, State}
+%%           Reply = {ok, Keys} | {error, Error} | {aborted, Reason}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({list_keys, Bucket}, _From, State) ->
+    FindKeys =
+        fun () ->
+                MatchHead = #storage_key{bucket = '$1', key = '$2', _ = '_'},
+                Guard = {'==', '$1', Bucket},
+                Result = '$2',
+                mnesia:select(storage_key, [{MatchHead, [Guard], [Result]}])
+        end,
+
+    Reply =
+        case mnesia:transaction(FindKeys) of
+            {atomic, Keys} -> {ok, Keys};
+            Error -> Error
+        end,
+    {reply, Reply, State};
+
 
 %%--------------------------------------------------------------------
 %% @private
@@ -1808,9 +1838,9 @@ set_task_state(TaskId, NewState) ->
 %%--------------------------------------------------------------------
 set_job_state_internal(JobId, NewState) ->
     Job = read(job, JobId),
-    remove(job, JobId),
+    ok = remove(job, JobId),
     NewJob = Job#job{state = NewState},
-    add(job, NewJob).
+    ok = add(job, NewJob).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -1858,21 +1888,6 @@ exists_path(TableName, JobId, Path) ->
         List ->
             List
     end.
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%%
-%% Returns a list with one node to be killed if there is some assigned
-%% task in a bg job on it.
-%%
-%% @todo Assumes no node is called 'not_killed'
-%%
-%% @spec kill_one() -> NodesToKill::list()
-%% @end
-%%--------------------------------------------------------------------
-kill_one() ->
-    take_bg_nodes(1).
 
 %%--------------------------------------------------------------------
 %% @private
@@ -1929,34 +1944,22 @@ take_bg_nodes(NeededNodes) ->
         end,
     {atomic, JobIds} = mnesia:transaction(ListBgJobs),
     CollectWithIds =
-        fun (#assigned_tasks{node_id = NodeId, job_id = JobId},
-             Acc) ->
+        fun (#assigned_tasks{node_id = NodeId, job_id = JobId}, Acc) ->
                 case lists:member(JobId, JobIds) of
                     true -> [NodeId | Acc];
                     _    -> Acc
                 end
         end,
+    FindAssignedBGNodes =
+        fun () ->
+                mnesia:foldr(CollectWithIds, [], assigned_tasks)
+        end,
     AssignedNodes =
-        case mnesia:transaction(fun () -> mnesia:foldr(CollectWithIds, [], assigned_tasks) end) of
+        case mnesia:transaction(FindAssignedBGNodes) of
             {atomic, Nodes} -> Nodes;
             _ -> []
         end,
     lists:sublist(AssignedNodes, 1, NeededNodes).
-
-%%--------------------------------------------------------------------
-%% @private
-%% @doc
-%%
-%% Returns true iff JobID is in the job table
-%%
-%% @spec job_exists(JobID) -> bool()
-%% @end
-%%--------------------------------------------------------------------
-job_exists(JobID) ->
-    case read(job, JobID) of
-        {error, _} -> false;
-        _          -> true
-    end.
 
 get_tasks_assigned_in_job(JobId) ->
     FindTasks =
@@ -1971,4 +1974,59 @@ get_tasks_assigned_in_job(JobId) ->
     case mnesia:transaction(FindTasks) of
         {atomic, TaskIds} -> {ok, TaskIds};
         _ -> {error, could_not_find_assigned_tasks}
+    end.
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Makes Job free iff it had no available tasks prior.
+%%
+%% @spec make_job_available(Job) -> {ok, changed} | {ok, not_changed}
+%% @end
+%%--------------------------------------------------------------------
+
+make_job_available(#job{job_id = JobId, state = no_tasks}) ->
+    set_job_state_internal(JobId, free),
+    {ok, changed};
+make_job_available(_Job) ->
+    {ok, not_changed}.
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Returns L, where L = [Node] if Node is working on a task in a
+%% background job and Task is of type split or map and Job is not
+%% a background job, otherwise L = [].
+%%
+%% @spec find_node_to_kill(Task, Job) -> list()
+%% @end
+%%--------------------------------------------------------------------
+
+find_node_to_kill(#task{type = Type}, #job{is_bg = false})
+  when Type == split ; Type == map ->
+    take_bg_nodes(1);
+find_node_to_kill(_Task, _Job) ->
+    [].
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% true iff some key in Bucket already exists in db
+%%
+%% @spec exists_bucket(Bucket) -> bool()
+%% @end
+%%--------------------------------------------------------------------
+exists_bucket(Bucket) ->
+    FindBuckets =
+        fun () ->
+                MatchHead = #storage_key{bucket = '$1', _ = '_'},
+                Guard = {'==', '$1', Bucket},
+                Result = '$1',
+                mnesia:select(storage_key, [{MatchHead, [Guard], [Result]}], 1,
+                              read)
+        end,
+
+    case mnesia:transaction(FindBuckets) of
+        {atomic, {[Bucket], _}} -> true;
+        {atomic, _} -> false
     end.

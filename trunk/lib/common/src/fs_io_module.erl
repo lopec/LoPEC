@@ -39,7 +39,8 @@ init(_Args) ->
 %% @end
 %%--------------------------------------------------------------------
 put(Bucket, Key, Value, _State = {fs, Path}) ->
-    Filename = lists:concat([Path, "tmp/", Bucket, "/", Key]),
+    Filename = lists:concat([Path, "tmp/", binary_to_list(Bucket), "/",
+                             binary_to_list(Key)]),
     filelib:ensure_dir(Filename),
     file:write_file(Filename, Value).
     
@@ -51,5 +52,6 @@ put(Bucket, Key, Value, _State = {fs, Path}) ->
 %% @end
 %%--------------------------------------------------------------------
 get(Bucket, Key, _State = {fs, Path}) ->
-    Filename = lists:concat([Path, "tmp/", Bucket, "/", Key]),
+    Filename = lists:concat([Path, "tmp/", binary_to_list(Bucket), "/",
+                             binary_to_list(Key)]),
     file:read_file(Filename).

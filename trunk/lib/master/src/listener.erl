@@ -61,7 +61,7 @@ add_job(ProgramType, ProblemType, Owner, Priority, InputData, Name) ->
     chronicler:info("~w : called new_job with a name=~w~n", [?MODULE, Name]),
     gen_server:call(?MODULE,
                     {new_job, ProgramType, ProblemType, Owner, Priority,
-                     InputData, Name, fg}).
+                     InputData, Name, false}).
 
 %%------------------------------------------------------------------------------
 %% @doc
@@ -93,7 +93,7 @@ add_bg_job(ProgramType, ProblemType, Owner, Priority, InputData, Name) ->
         {ok, yes} ->
             gen_server:call(?MODULE,
                             {new_job, ProgramType, ProblemType, Owner,
-                             Priority, InputData, Name, bg});
+                             Priority, InputData, Name, true});
         _ ->
             chronicler:user_info(fix_me_need_user_info,
                 "Background jobs has not been enabled in "
@@ -209,7 +209,7 @@ remove_job_name(JobId) ->
 %% @doc
 %% Initializes the server.
 %%
-%% @spec init(Args) -> {ok, State} 
+%% @spec init(Args) -> {ok, State}
 %% @end
 %%------------------------------------------------------------------------------
 init(_Args) ->
@@ -225,7 +225,7 @@ init(_Args) ->
 %% @end
 %%------------------------------------------------------------------------------
 handle_call({new_job, ProgramType, ProblemType, Owner, Priority, InputData,
-             Name, BGorFG},
+             Name, IsBGJob},
             _From, State) ->
     JobsWithThisName = dict:filter(fun (_Id, JobName) -> JobName == Name end,
                                    State#state.active_jobs),
@@ -234,7 +234,7 @@ handle_call({new_job, ProgramType, ProblemType, Owner, Priority, InputData,
         0 ->
             % 2 Case
             case add_new_job(ProgramType, ProblemType, Owner, Priority,
-                             InputData, BGorFG) of
+                             InputData, IsBGJob) of
                 {ok, JobId} ->
                     % 3 Case
                     NewState =
@@ -471,64 +471,32 @@ is_valid_jobtype(JobType) ->
     ProgramDir = lists:concat([Root, "programs/", JobType]),
     filelib:is_dir(ProgramDir).
 
-
-is_valid_inputfile(Path) ->
-    case filelib:is_regular(Path) of
-        true -> {ok};
-        false -> {error, inputdata_dont_exist}
-    end.
-
 %%------------------------------------------------------------------------------
 %% @private
 %% @doc
-%% Adds a new job to the database. It copys the inputdata to the correct path
-%% and starts the job.
+%% Adds a new job to the database, if IsBGJob is true, the job is added as
+%% a background job.
+%% The input data is copied to storage.
 %%
-%% @spec add_new_job(ProgramType, ProblemType, Owner, Priority, InputData, BGorFG) ->
-%%        {ok, JobId} |
-%%        {error, Reason}
+%% @spec add_new_job(ProgramType, ProblemType, Owner, Priority, InputData,
+%%                   IsBGJob) ->
+%%        {ok, JobId} | {error, Reason}
 %% @end
 %%------------------------------------------------------------------------------
-add_new_job(ProgramType, ProblemType, Owner, Priority, InputData, BGorFG) ->
+add_new_job(ProgramType, ProblemType, Owner, Priority, InputData, IsBGJob) ->
     case is_valid_jobtype(ProgramType) of
         true ->
-            case is_valid_inputfile(InputData) of
-                {ok} ->
-                    JobId =
-                        case BGorFG of
-                            fg ->
-                                dispatcher:add_job({ProgramType, ProblemType,
-                                                    Owner, Priority});
-                            bg ->
-                                dispatcher:add_bg_job({ProgramType, ProblemType,
-                                                       Owner, Priority})
-                        end,
-                    % Read the structurepath from configfile
-                    {ok, Root} =
-                        configparser:read_config(?CONFIGFILE, cluster_root),
-                    JobRoot =
-                        lists:concat(["/tmp/", JobId, "/"]),
-                    % Make the directory-structure
-                    Dirs = ["map/", "reduce/", "input/", "results/"],
-                    [begin Dir = Root ++ JobRoot ++ SubDir,
-                           filelib:ensure_dir(Dir),
-                           file:change_mode(Dir, 8#777)
-                     end
-                     || SubDir <- Dirs],
-                    % Move the files to the right thing
-                    NewInputPath =
-                        lists:concat([Root, JobRoot, "/input/data.dat"]),
-                    case file:copy(InputData, NewInputPath) of
-                        {ok, BytesCopied} ->
-                            chronicler:info("Split data copied, size: ~p~n",
-                                            [BytesCopied]),
-                            dispatcher:add_task({JobId, ProgramType, split,
-                                                 JobRoot ++"/input/data.dat"}),
-                            {ok, JobId};
-                        {error, Reason} ->
-                            chronicler:error(fix_me_need_user_id, "Could not copy split data,"
-                                             " reason: ~p~n", [Reason])
-                    end;
+            JobId =
+                dispatcher:add_job({ProgramType, ProblemType, Owner, Priority},
+                                   IsBGJob),
+            Bucket = list_to_binary(lists:concat([JobId, "/split/"])),
+            Key = list_to_binary(filename:basename(InputData)),
+            case file:read_file(InputData) of
+                {ok, Value} ->
+                    io_module:put(Bucket, Key, Value),
+                    dispatcher:add_task({JobId, ProgramType, split,
+                                         {Bucket, Key}}),
+                    {ok, JobId};
                 {error, Reason} ->
                     chronicler:user_info(fix_me_need_user_info, "~w : Could not add job."
                                          "Reason: ~p~n", [?MODULE, Reason]),

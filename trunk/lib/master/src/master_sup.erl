@@ -55,9 +55,11 @@ init(no_args) ->
     DbDaemon = child(db, worker, ?DB_START_VAL()),
     Statistician = child(statistician, worker, [master]),
     Examiner = child(examiner, worker, no_args),
+    % @todo make the io module configurable instead of hard coded
+    IoModule = child(io_module, worker, [fs_io_module, no_args]),
     % Returning supervisor specification
     {ok,{{one_for_one,1,60},
-         [Dispatcher, DbDaemon, Listener, Examiner, Statistician]}}.
+         [Dispatcher, DbDaemon, IoModule, Listener, Examiner, Statistician]}}.
 
 %%%===================================================================
 %%% Internal functions

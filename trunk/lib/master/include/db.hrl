@@ -53,3 +53,9 @@
 	  real_name,
 	  role
 	 }).
+
+%% The record describing a key in a bucket in the storage
+-record(storage_key, {
+          bucket,
+          key
+         }).

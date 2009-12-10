@@ -31,6 +31,7 @@ end_per_testcase(_TestCase, _Config) ->
 
 all() ->
     [
+     db_storage_keys,
      db_add_get_remove_jobs,
      db_user_jobs,
      db_add_fetch_task,
@@ -88,7 +89,7 @@ db_user_jobs(_Config) ->
     JobAId2 = db:add_job(JobA2),
     JobBId1 = db:add_job(JobB1),
     JobBId2 = db:add_job(JobB2),
-    
+
     case db:get_user_jobs(user1) of
         [JobAId1, JobAId2] ->
             ok;
@@ -168,9 +169,6 @@ db_incorrect_input_type(_Config) ->
     TaskWithErrorType = {Job, program, non_existing_task_type, 'ystads-nisse/pron'},
     {error, incorrect_input_type} = db:add_task(TaskWithErrorType).
 
-
-
-
 bg_job_test_tasktypes() ->
     [{doc, "Test adding split/map/reduce/finalize when there are background jobs."}].
 bg_job_test_tasktypes(_Config) ->
@@ -216,4 +214,23 @@ bg_job_test_tasktypes(_Config) ->
             true = (BGTaskId1 /= TaskId2 andalso BGTaskId2 /= TaskId2)
     end,
 	
+    ok.
+
+db_storage_keys() ->
+    [{doc, "Test the storage key functions in db.erl"}].
+db_storage_keys(_Config) ->
+    JobId = db:add_job({raytracer2, mapreduce, pwner, 9001}),
+    true = is_integer(JobId),
+    Bucket = list_to_binary(lists:concat([JobId, "/split/split1/"])),
+    Key = <<"foo">>,
+    {ok, {_TaskId, []}} =
+        db:add_task({JobId, raytracer2, split, {Bucket, Key}}),
+    {ok, [Key]} = db:list_keys(Bucket),
+    Key2 = <<"bar">>,
+    {ok, task_exists} =
+        db:add_task({JobId, raytracer2, split, {Bucket, Key2}}),
+    case db:list_keys(Bucket) of
+        {ok, [Key, Key2]} -> ok;
+        {ok, [Key2, Key]} -> ok
+    end,
     ok.

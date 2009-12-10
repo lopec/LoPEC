@@ -40,6 +40,7 @@ def split(task_key, count)
     split_time  = $1.to_i
     split_size  = $2.to_i
     split_count = $3.to_i
+    send("LOG Creating #{split_count} splits of #{split_size} bytes in #{split_time} seconds.")
     before = Time.now
     map_input = []
     (1..split_count).each do |i|
@@ -67,6 +68,7 @@ def map(task_key)
   when /map (\d+) (\d+)/i
     map_time = $1.to_i
     map_size = $2.to_i
+    send("LOG #{task_key} mapping #{map_size} bytes in #{map_time} seconds.")
     before = Time.now
     reduce_input = lines[0,lines.length-1].join("\n") << "\n"
     (1..map_size).each do |b|
@@ -89,6 +91,7 @@ def reduce(task_key)
   when /reduce (\d+) (\d+)/i
     reduce_time = $1.to_i
     reduce_size = $2.to_i
+    send("LOG #{task_key} reducing #{reduce_size} bytes in #{reduce_time} seconds.")
     before = Time.now
     finalize_input = lines[0,lines.length-1].join("\n") << "\n"
     (1..reduce_size).each do |b|
@@ -111,6 +114,7 @@ def finalize(task_key)
   when /finalize (\d+) (\d+)/i
     finalize_time = $1.to_i
     finalize_size = $2.to_i
+    send("LOG #{task_key} finalizing #{finalize_size} bytes in #{finalize_time} seconds.")
     before = Time.now
     result = ""
     (1..finalize_size).each do |b|
@@ -129,7 +133,7 @@ end
 command = ARGV[0]
 task_key = ARGV[1]
 
-send("LOG I will #{command} \o/")
+send("LOG I will #{command} \\o/")
 
 begin
   case command

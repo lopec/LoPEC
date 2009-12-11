@@ -319,7 +319,7 @@ code_change(OldVsn, State, Extra) ->
 %% Calls the correct error_logger reoport function depending on Level.
 %% Also adds the localtime to the message.
 %%
-%% @spec error_report_message(LoggingLevel, Msg) -> ok
+%% @spec error_report_message({LoggingLevel, Msg}) -> ok
 %% @end
 %%--------------------------------------------------------------------
 error_report_message({info, Msg}) ->

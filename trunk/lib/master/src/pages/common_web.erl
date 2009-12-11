@@ -67,6 +67,10 @@ menu() ->
                     ]
                 },
                 #panel{id=menuitem, body=[
+                    #link{text="Cluster information", url="/web/admin/cluster/info"}
+                    ]
+                },
+                #panel{id=menuitem, body=[
                     #link{text="Handle Users", url="/web/admin/handle/users" }
                 ]}
                 ];

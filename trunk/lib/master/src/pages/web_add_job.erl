@@ -2,11 +2,6 @@
 -include_lib ("nitrogen/include/wf.inc").
 -compile(export_all).
 
-%% Todo:
-%% - Fix so the uploaded file is used in the cluster
-%% - Fix ProgramName as input
-%% - When the "Next" button is clicked, the flash-message should disappear
-
 main() ->
     case common_web:have_role([role_user, role_admin]) of
         true -> [];
@@ -102,62 +97,8 @@ body() ->
 % EVENTS 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%%%%%%%%%%%%%%%%%%%%%%
-%% Add Job-Box event %
-%%%%%%%%%%%%%%%%%%%%%%
 event(add_job_box) ->
-    %% Setting up Program Types
-    {ok, Path} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
-    ProgramFiles = lists:filter(
-        fun(X) -> filelib:is_dir(X) end, filelib:wildcard(Path ++ "/programs/*")),
-    ProgramTypes = lists:map(fun(T) -> #option {text=T,value=T} end, ProgramFiles),
-
-    %% Flash message
-    wf:flash([
-        #h2{text="Add job"},
-        #p{},
-        #label { id=programType, text="Program type:" },
-        #dropdown { options=
-            ProgramTypes
-        },
-        #p{},
-        #label { text="Priority:"},
-        #textbox { id=priorityTextBox, next=continueButton },
-        #p{},
-        #label { text="Programfile:" },
-        #upload { tag=programupload, show_button=true },
-        #p{},  
-        #button { id=continueButton, text="Next", postback=add_job }
-    ]),
-
-    %% Validators
-    wf:wire(continueButton, priorityTextBox, #validate { validators=[
-        #is_required { text="Required." },
-        #is_integer { text="Must be an integer."}
-    ]});
-%%%%%%%%%%%%%%%%%%%%%%%%
-%% When a job is added %
-%%%%%%%%%%%%%%%%%%%%%%%%
-event(add_job) ->
-    User = wf:user(),
-    [Priority] = wf:q(priorityTextBox),
-    InputData = wf:state(inputdata),
-    case InputData of 
-        "" ->
-            wf:flash(wf:f("You must give an inputfile"));
-        _ ->
-            ProblemType = "mapreduce",
-            ProgramType = "raytracer2",
-            case listener:add_job(list_to_atom(ProgramType), list_to_atom(ProblemType), User, list_to_integer(Priority), InputData) of
-                {ok, JobId} -> 
-                    wf:flash(wf:f("Added a new job with id: ~w", [JobId])),
-                    wf:update(jobTable, get_job_table());
-                {error, Reason} -> 
-                    wf:flash(wf:f("Could not add job. Reason: ~w", [Reason]))
-            end
-        end,
-    wf:clear_state(),
-    ok;
+    wf:redirect("/web/add/job2");
 %%%%%%%%%%%%%%%%%%%
 %% Controls a job %
 %%%%%%%%%%%%%%%%%%%
@@ -196,20 +137,6 @@ event(logout) ->
 % Basecase %
 %%%%%%%%%%%%
 event(_) -> ok.
-
-%%%%%%%%%%%%%%%%%%%%%%
-%% Upload file event %
-%%%%%%%%%%%%%%%%%%%%%%
-upload_event(_Tag, undefined, _) ->
-  wf:flash("Please select a file."),
-  ok;
-
-upload_event(_Tag, FileName, LocalFileData) ->
-    FileSize = filelib:file_size(LocalFileData),
-    wf:state(inputdata, "/storage/test/rayscene2048"),
-    wf:flash(wf:f("FIX THIS WHEN I/O MODULE IS WORKING! Uploaded file: ~s (~p bytes)", [FileName, FileSize])),
-    {ok, LocalFileData}.
-
 
 %%%%%%%%%%%%%%%%%
 % COMET PROCESS %

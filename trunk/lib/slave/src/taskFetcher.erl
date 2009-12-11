@@ -171,12 +171,12 @@ handle_cast({_Pid, error,  {JobId, _TaskId, Time, TaskType, _Progname}},
     {NewUp, NewDown} = netMonitor:get_net_stats(),
     Disk = statistician:get_node_disk_usage(raw),
     Mem = statistician:get_node_mem_usage(raw),
-    statistician:update({{node(), JobId, list_to_atom(TaskType), no_user},
+    statistician:update({{node(), JobId, TaskType, no_user},
                          Power, Diff, NewUp - OldUp, NewDown - OldDown, 0, 1,
                          Disk, Mem}),
 
     %% Free task that has been given to node
-    dispatcher:task_failed(JobId, list_to_atom(TaskType)),
+    dispatcher:task_failed(JobId, TaskType),
 
     %% Kill and remove computingProcess spec from dynamic supervisor
     supervisor:terminate_child(?DYNSUP, ?WORKER),

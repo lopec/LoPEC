@@ -77,7 +77,7 @@ get(Bucket, Key) ->
 %% Initiates the server, storage will be Riak if [riak] is passed
 %% or the file system if [fs] is passed.
 %%
-%% @spec init(Module, Args) -> {ok, State} |
+%% @spec init(ModuleAndArgsList) -> {ok, State} |
 %%                     {ok, State, Timeout} |
 %%                     ignore |
 %%                     {stop, Reason}

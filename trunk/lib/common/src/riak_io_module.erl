@@ -38,7 +38,7 @@ init(Args) ->
 %% Puts a value to the storage, either the file system or riak
 %% depending on how the server was started.
 %%
-%% @spec put(Bucket, Key, Val) -> ok | {error, Reason}
+%% @spec put(Bucket, Key, Val, State) -> ok | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
 put(Bucket, Key, Value, State = {riak, Ref}) ->
@@ -49,7 +49,7 @@ put(Bucket, Key, Value, State = {riak, Ref}) ->
 %% @doc
 %% Gets the value associated with the bucket and the key.
 %%
-%% @spec get(Bucket, Key) -> binary() | {error, Reason}
+%% @spec get(Bucket, Key, State) -> binary() | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
 get(Bucket, Key, State = {riak, Ref}) ->

@@ -23,6 +23,9 @@
 %% Initiates the storage. Loads path where data will be stored.
 %%
 %% @spec init(Args::list()) -> {ok, State} |
+%%                     {ok, State, Timeout} |
+%%                     ignore |
+%%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
 init(_Args) ->
@@ -35,7 +38,7 @@ init(_Args) ->
 %% Puts a value to the storage, either the file system or riak
 %% depending on how the server was started.
 %%
-%% @spec put(Bucket, Key, Val) -> ok | {error, Reason}
+%% @spec put(Bucket, Key, Val, State) -> ok | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
 put(Bucket, Key, Value, _State = {fs, Path}) ->
@@ -48,7 +51,7 @@ put(Bucket, Key, Value, _State = {fs, Path}) ->
 %% @doc
 %% Gets the value associated with the bucket and the key.
 %%
-%% @spec get(Bucket, Key) -> {ok, binary()} | {error, Reason}
+%% @spec get(Bucket, Key, State) -> {ok, binary()} | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
 get(Bucket, Key, _State = {fs, Path}) ->

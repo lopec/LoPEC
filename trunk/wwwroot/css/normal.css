@@ -41,6 +41,7 @@ div#userinfo
 }
 div#header div#info_bulb
 {
+    display: none;
     padding-left: 100%;
     position: absolute;
     margin-left: -200px;
@@ -54,6 +55,7 @@ div#header div#info_bulb img
 
 div#header div#warning_bulb
 {
+    display: none;
     padding-left: 100%;
     position: absolute;
     margin-left: -170px;
@@ -67,6 +69,7 @@ div#header div#warning_bulb img
 
 div#header div#error_bulb
 {
+    display: none;
     padding-left: 100%;
     position: absolute;
     margin-left: -140px;

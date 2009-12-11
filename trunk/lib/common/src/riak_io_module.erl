@@ -14,6 +14,8 @@
 %% API
 -export([init/1, put/4, get/3]).
 
+-record(state, {client, reads = 1, wreqs = 1, writes = 1}).
+
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
@@ -26,7 +28,15 @@ init(Args) ->
     case proplists:lookup(riak_node, Args) of
         {riak_node, RiakNode} ->
             {ok, C} = riak:client_connect(RiakNode),
-            {ok, {riak, C}}
+            case [proplists:lookup(Setting, Args)
+                  || Setting <- [riak_reads, riak_wreqs, riak_writes]] of
+                [{riak_reads, Reads},
+                 {riak_wreqs, WRequests}, {riak_writes, Writes}] ->
+                    {ok, {riak, #state{client = C, reads = Reads,
+                                       wreqs = WRequests, writes = Writes}}};
+                _ ->
+                    {ok, {riak, #state{client = C}}}
+            end
     end.
 
 %%%===================================================================
@@ -41,9 +51,10 @@ init(Args) ->
 %% @spec put(Bucket, Key, Val, State) -> ok | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-put(Bucket, Key, Value, State = {riak, Ref}) ->
+put(Bucket, Key, Value,
+    {riak, #state{client = Client, wreqs = WRequests, writes = Writes}}) ->
     Object = riak_object:new(Bucket, Key, Value),
-    _Reply = Ref:put(Object, 1).
+    _Reply = Client:put(Object, WRequests, Writes).
     
 %%--------------------------------------------------------------------
 %% @doc
@@ -52,7 +63,7 @@ put(Bucket, Key, Value, State = {riak, Ref}) ->
 %% @spec get(Bucket, Key, State) -> binary() | {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-get(Bucket, Key, State = {riak, Ref}) ->
-    {ok, Object} = Ref:get(Bucket, Key, 1),
+get(Bucket, Key,
+    {riak, #state{client = Client, reads = Reads}}) ->
+    {ok, Object} = Client:get(Bucket, Key, Reads),
     _Reply = {ok, riak_object:get_value(Object)}.
-

@@ -374,8 +374,10 @@ no_finalize(State) ->
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Unpacks the given Keys and Data from <<"TaskKey DataKey\n", Data>>
-%% to {"TaskKey", <<"DataKey">>, <<Data>>}.
+%% Unpacks the given Keys and Data
+%% from path given by binaries "TaskKey DataKey\n", Data
+%% to a path defined by {"TaskKey", "DataKey", Data}.
+%% 
 %%
 %% @spec unpack(KeysAndData) -> {TaskKey, DataKey, Data}
 %% @end

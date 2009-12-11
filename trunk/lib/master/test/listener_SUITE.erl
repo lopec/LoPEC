@@ -31,7 +31,6 @@ all() ->
     ].
 
 init_per_suite(Config) ->
-    % do custom per suite setup here
     ok = application:start(common),
     ok = application:start(chronicler),
     ok = application:start(ecg),
@@ -39,40 +38,40 @@ init_per_suite(Config) ->
     error_logger:tty(false),
     Config.
 
-% required, but can just return Config. this is a suite level tear down function.
 end_per_suite(_Config) ->
+    ok = application:stop(master),
     ok = application:stop(ecg),
     ok = application:stop(common),
-    ok = application:stop(chronicler),
-    ok = application:stop(master).
+    ok = application:stop(chronicler).
 
-% optional, can do function level setup for all functions,
-% or for individual functions by matching on TestCase.
+
+
 init_per_testcase(pause_resume_test, Config) ->
-    {ok, JobId} = listener:add_job(wordcount, mapreduce, kalle, 5, "/storage/test/lol.txt"),
+    {ok, JobId} = listener:add_job(wordcount, mapreduce, kalle, 5,
+                                   "/storage/test/lol.txt"),
     [{pause_id, JobId} | Config];
 init_per_testcase(_TestCase, Config) ->
     Config.
 
-% optional, can do function level tear down for all functions,
-% or for individual functions by matching on TestCase.
-end_per_testcase(_TestCase, Config) ->
-    {pause_id, JobId} = lists:keyfind(pause_id, 1, Config),
+end_per_testcase(pause_resume_test, [{pause_id, JobId} | _Config]) ->
     db:remove_job(JobId),
-    [] = db:list(job).
+    [] = db:list(job);
+end_per_testcase(_TestCase, _Config) ->
+    ok.
+
+
 
 %%%%%%%%%%%%%%%%
 %% test cases %%
 %%%%%%%%%%%%%%%%
 
 input_error(Config) ->
-    {error, inputdata_dont_exist} =
+    {error, enoent} =
         listener:add_job(wordcount, mapreduce, kalle, 5,
-                         "This_File_Should_Never_Exist_Because_The_World_Will_Fall_If_It_Does"),
+                         "This_File_Should_Not_Exist"),
     Config.
 
-pause_resume_test(Config) ->
-    {pause_id, JobId} = lists:keyfind(pause_id, 1, Config),
+pause_resume_test([{pause_id, JobId} | Config]) ->
     ok = listener:pause_job(JobId),
     Job = db:get_job(JobId),
     paused = Job#job.state,

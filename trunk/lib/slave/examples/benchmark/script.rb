@@ -133,7 +133,7 @@ end
 command = ARGV[0]
 task_key = ARGV[1]
 
-send("LOG I will #{command} \\o/")
+#send("LOG I will #{command} \\o/")
 
 begin
   case command

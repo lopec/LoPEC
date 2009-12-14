@@ -40,7 +40,7 @@ kill_all_procs([]) ->
     [];
 kill_all_procs([{pid, Pid}|T]) ->
     chronicler:info("~w : Killing PID = ~p~n", [?MODULE, Pid]),
-    os:cmd("kill -9 " ++ Pid),
+    os:cmd("kill -9 " ++ binary_to_list(Pid)),
     kill_all_procs(T);
 kill_all_procs([H|T]) ->
     chronicler:info("~w : Killing PID (thru pid-file) = ~p~n", [?MODULE, H]),

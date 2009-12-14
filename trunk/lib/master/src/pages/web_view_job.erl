@@ -96,8 +96,9 @@ get_progress() ->
         [Power,Time,Upload,Download,Numtasks,Restarts] ->
             Stats = #panel{ id=statPanel, body=[
             #label { text=lists:concat(["Power spent: ", 
-                erlang:trunc(((Power))/60), "Wh"]) },
-            #label { text=lists:concat(["Time spent: ", erlang:trunc(Time)]) },
+                erlang:trunc(((Power))/3600), "Wh"]) },
+            #label { text=lists:concat(["Time spent: ", erlang:trunc(Time),
+                                        " s"]) },
             #label { text=lists:concat(["Uploaded: ", 
                 erlang:trunc(((Upload/1024)/1024)), "MB"]) },
             #label { text=lists:concat(["Downloaded: ", 

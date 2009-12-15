@@ -308,7 +308,7 @@ fail_task(#state{job_id = JobId, task_id = TaskId, started = Time,
 get_next_input(State = #state{port = Port, storage_keys = {Bucket, Keys}}) ->
     case Keys of
         [] ->
-            port_command(Port, <<"NONE">>),
+            port_command(Port, <<"NONE\n">>),
             State;
         [Key | Moar] ->
             {ok, Data} = io_module:get(Bucket, Key),

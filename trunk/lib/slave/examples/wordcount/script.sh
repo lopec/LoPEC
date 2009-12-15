@@ -1,97 +1,106 @@
 #!/usr/bin/env ruby
 
-require 'fileutils'
+def send(message)
+  # cast the length of the message to four bytes representing
+  # a network endian int
+  header = [message.length].pack("N")
+  $stdout.print(header, message)
+  $stdout.flush
+end
 
-def split(input, output, split_count)
-  split_files = []
-  (0..(split_count.to_i-1)).each do | i |
-    split_files[i] = File.open(output + "/split#{i}", "w")
+def receive()
+  send("GET_DATA")
+  # read four network endian bytes,
+  # cast them to an array with an int, pop the int
+  size = $stdin.read(4).unpack("N").pop
+  case $stdin.read(5)
+  when "SOME\n"
+    data = $stdin.read(size - 5)
+    # Extract the key and value from the given <<Key, "\n", Value>> binary
+    i = data.index("\n")
+    key = data[0,i]
+    value = data[i+1,data.length]
+    [key, value]
+  when "NONE\n"
+    nil
   end
+end
+
+def split(task_key, node_count)
+  split_count = node_count * 2
+  map_inputs = []
+  (0..(split_count-1)).each do | i |
+    map_inputs[i] = ""
+  end
+  key, data = receive()
   i = -1
-  File.new(input, "r").each_line do | line |
-    if i >= split_count.to_i - 1 then
+  data.each_line do | line |
+    if i >= split_count - 1 then
       i = 0
     else
       i += 1
     end
-    split_files[i].puts("#{line}")
+    map_inputs[i] << line
   end
-  split_files.each_index do | i |
-    split_files[i].close
-    puts("NEW_SPLIT split#{i}")
+  map_inputs.each_index do |i|
+    send("NEW_MAP split#{i} #{task_key}\n#{map_inputs[i]}")
   end
 end
 
-def map(input, output)
-  split_id = input.split("/").last
+def map(task_key)
+  key, input = receive()
   word_count = Hash.new
-  File.new(input, "r").each_line do | line |
+  input.each_line do | line |
     line.split.each do | word |
       normalized = word.gsub(/[\W]/, '').downcase
       word_count[normalized] = word_count[normalized].to_i+1
     end
   end
-  word_count.each_pair do | key, value |
-    word_path = output + "/" + key
-    FileUtils.mkdir_p(word_path)
-    File.open(word_path + "/" + split_id, "a") do | word_file |
-      word_file.puts("#{value}")
-    end
-    puts("NEW_REDUCE_TASK #{key}")
+  word_count.each_pair do | word, count |
+    send("NEW_REDUCE #{word} #{task_key}\n#{count}")
   end
 end
 
-def reduce(input, output)
-  word = input.split("/").last
+def reduce(word)
   word_count = 0
-  Dir.foreach(input) do | task |
-    if task != "." and task != ".." then
-      File.new(input + "/" + task, "r").each_line do | count_line |
-        word_count += count_line.to_i
-      end
-    end
+  map_key, count = receive()
+  while (map_key) do
+    send("LOG #{word} + #{count}")
+    word_count += count.to_i
+    map_key, count = receive()
   end
-  File.open(output + "/" + word, "w") do | output_file |
-    output_file.puts("#{word_count}")
-    puts("NEW_REDUCE_RESULT #{word}")
-  end
+  send("NEW_RESULT #{word}\n#{word_count}")
 end
 
-def finalize(input, output)
-  File.open(output + "/word_count", "w") do | output_file |
-    Dir.foreach(input) do | word_file |
-      if word_file != "." and word_file != ".." then
-        File.open(input + "/" + word_file, "r") do | input_file |
-          count = input_file.gets
-          output_file.puts("#{word_file}: #{count}")
-        end
-      end
-    end
+def finalize(task_key)
+  results = ""
+  word, count = receive()
+  while (word) do
+    results << "#{word}: #{count}" << "\n"
+    word, count = receive()
   end
-  puts("FINALIZING_DONE")
+  send("NEW_FINAL_RESULT #{task_key}\n#{results}")
 end
 
 command = ARGV[0]
-input   = ARGV[1]
-output  = ARGV[2]
+task_key = ARGV[1]
 
-puts("LOG I will #{command} #{input} to #{output} now kthxbye.")
+send("LOG I will #{command}")
 
 begin
-
-case command
-when "split"
-  split(input, output, ARGV[3])
-when "map"
-  map(input, output)
-when "reduce"
-  reduce(input, output)
-when "finalize"
-  finalize(input, output)
-else
-  puts("ERROR I can only split, map, reduce, and finalize!")
-end
-
-rescue
-  puts("ERROR #{$!}")
+  case command
+  when "split"
+    split(task_key, ARGV[3].to_i)
+  when "map"
+    map(task_key)
+  when "reduce"
+    reduce(task_key)
+  when "finalize"
+    finalize(task_key)
+  else
+    send("ERROR I can only split, map, reduce, and finalize!")
+  end
+  send("LOG #{command} #{task_key} done")
+rescue Exception => e
+  send("ERROR #{e}\nBacktrace:\n#{e.backtrace}")
 end

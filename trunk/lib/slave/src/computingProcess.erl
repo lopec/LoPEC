@@ -312,7 +312,7 @@ get_next_input(State = #state{port = Port, storage_keys = {Bucket, Keys}}) ->
             State;
         [Key | Moar] ->
             {ok, Data} = io_module:get(Bucket, Key),
-            port_command(Port, <<"SOME\n", Data/binary>>),
+            port_command(Port, <<"SOME\n", Key/binary, "\n", Data/binary>>),
             _NewState = State#state{storage_keys = {Bucket, Moar}}
     end.
 

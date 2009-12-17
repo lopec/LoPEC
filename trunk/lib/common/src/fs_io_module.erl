@@ -30,9 +30,9 @@
 %%--------------------------------------------------------------------
 init(_Args) ->
     {ok, Path} = configparser:read_config("/etc/clusterbusters.conf",
-                                          cluster_root),
+                                          fs_backend_root),
     {ok, {fs, Path}}.
-    
+
 %%--------------------------------------------------------------------
 %% @doc
 %% Puts a value to the storage, either the file system or riak
@@ -46,7 +46,7 @@ put(Bucket, Key, Value, _State = {fs, Path}) ->
                              binary_to_list(Key)]),
     filelib:ensure_dir(Filename),
     file:write_file(Filename, Value).
-    
+
 %%--------------------------------------------------------------------
 %% @doc
 %% Gets the value associated with the bucket and the key.

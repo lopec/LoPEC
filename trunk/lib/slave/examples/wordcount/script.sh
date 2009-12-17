@@ -18,6 +18,7 @@ def receive()
     data = $stdin.read(size - 5)
     # Extract the key and value from the given <<Key, "\n", Value>> binary
     i = data.index("\n")
+    send("ERROR borkened data: [#{data}]") unless i
     key = data[0,i]
     value = data[i+1,data.length]
     [key, value]
@@ -65,7 +66,6 @@ def reduce(word)
   word_count = 0
   map_key, count = receive()
   while (map_key) do
-    send("LOG #{word} + #{count}")
     word_count += count.to_i
     map_key, count = receive()
   end
@@ -85,8 +85,6 @@ end
 command = ARGV[0]
 task_key = ARGV[1]
 
-send("LOG I will #{command}")
-
 begin
   case command
   when "split"
@@ -100,7 +98,6 @@ begin
   else
     send("ERROR I can only split, map, reduce, and finalize!")
   end
-  send("LOG #{command} #{task_key} done")
 rescue Exception => e
   send("ERROR #{e}\nBacktrace:\n#{e.backtrace}")
 end

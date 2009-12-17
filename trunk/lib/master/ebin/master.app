@@ -4,6 +4,6 @@
     {vsn, "0.2"},
     {modules, [master_node, master_sup, listener, examiner, db]},
     {registered, [listener, examiner, db_server]},
-    {applications, [kernel, stdlib, chronicler, ecg, common]},
+    {applications, [kernel, stdlib, chronicler, ecg, mainChronicler, common]},
     {mod, {master_node, []}}
     ]}.

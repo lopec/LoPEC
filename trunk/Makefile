@@ -22,6 +22,7 @@ master:
 	$(MAKE) -C lib/ecg build
 	$(MAKE) -C lib/common build
 	$(MAKE) -C lib/chronicler build
+	$(MAKE) -C lib/mainChronicler build
 
 slave:
 	$(MAKE) -C lib/slave build
@@ -30,7 +31,7 @@ slave:
 
 master_script: master
 	erl -pa lib/master/ebin -pa lib/ecg/ebin -pa lib/chronicler/ebin \
-	    -pa lib/common/ebin \
+	    -pa lib/common/ebin -pa lib/mainChronicler/ebin \
 	    -eval "systools:make_script(\"releases/master/start_master\", [local])" \
 	    -s init stop
 
@@ -41,7 +42,7 @@ slave_script: slave
 
 master_tar: master_script
 	erl -pa lib/master/ebin -pa lib/ecg/ebin -pa lib/chronicler/ebin \
-	    -pa lib/common/ebin \
+	    -pa lib/common/ebin -pa lib/mainChronicler/ebin \
 	    -eval "systools:make_tar(\"releases/master/start_master\")" \
 	    -s init stop
 

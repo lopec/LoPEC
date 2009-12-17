@@ -132,7 +132,7 @@ get_progress() ->
         case ReduceSum of
             0 -> ReduceDone = 0;
             _ when RDone /= 0 ->
-                ReduceDone = erlang:trunc(100*((100/MapSum)/(100/RDone)));
+                ReduceDone = erlang:trunc(100*((100/ReduceSum)/(100/RDone)));
             _ -> ReduceDone = 0
         end,
         case FinalizeSum of

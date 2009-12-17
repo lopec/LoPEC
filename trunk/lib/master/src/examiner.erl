@@ -81,8 +81,9 @@ report_assigned(JobId, TaskType) ->
 %% @spec report_done(JobId, TaskType) -> ok
 %% @end
 report_done(JobId, TaskType) ->
-    gen_server:cast({global, ?MODULE},
-                    {update_entry, JobId, TaskType, done}).
+    %gen_server:cast({global, ?MODULE},
+    %                {update_entry, JobId, TaskType, done}).
+    ok.
 
 %% @doc
 %% Report that all tasks ({JobId, TaskType}) in Tasks were freed.

@@ -109,7 +109,8 @@ stop_job() ->
 init([ProgName, TaskType, JobId, TaskId, StorageKeys]) ->
     {ok, Root} = configparser:read_config(?CONFIGFILE, cluster_root),
     {ok, Platform} = configparser:read_config(?CONFIGFILE, platform),
-    ProgPath = lists:concat([Root, "programs/", ProgName, "/script.", Platform]),
+    ProgRoot = lists:concat([Root, "programs/", ProgName, "/"]),
+    ProgPath = lists:concat([ProgRoot, "script.", Platform]),
     JobRoot = lists:concat([Root, "tmp/", JobId, "/"]),
     PidPath = lists:concat([JobRoot, "pid/", node(), "/"]),
     Workspace = lists:concat([JobRoot, "workspace/", TaskType, "/"]),
@@ -126,7 +127,7 @@ init([ProgName, TaskType, JobId, TaskId, StorageKeys]) ->
                      _ -> [] end,
     Port = open_port({spawn_executable, ProgPath},
                      [binary, {packet, 4}, use_stdio, stderr_to_stdout,
-                      exit_status, {args, ArgList}]),
+                      exit_status, {cd, ProgRoot}, {args, ArgList}]),
     {ok, #state{job_id = JobId, task_id = TaskId, started = now(),
                 task_type = TaskType, prog_name = ProgName,
                 port = Port, storage_keys = StorageKeys}}.

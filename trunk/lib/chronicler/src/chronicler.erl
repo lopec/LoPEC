@@ -184,12 +184,15 @@ set_tty(off) ->
 %%--------------------------------------------------------------------
 init(no_args) ->
     %TODO add module information logging level
-    State = #state{loggingLevel = [lopec_error, lopec_info, lopec_user_info, lopec_warning]},
+    set_logging_level([lopec_error, lopec_info, lopec_user_info, lopec_warning]),
 
     error_logger:add_report_handler(externalLogger),
     error_logger:add_report_handler(file_logger),
 
     info("~p application started", [?MODULE]),
+
+    %TODO REMOVE STATE
+    State = #state{},
     {ok, State}.
 
 %%--------------------------------------------------------------------

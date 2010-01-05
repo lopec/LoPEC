@@ -3,8 +3,8 @@
 %%% @copyright (C) 2009, Fredrik Andersson
 %%% @doc
 %%% main_chronicler is responsible for keeping a database over the logging
-%%% messages passed to the system. It runs on the node logger only and
-%%% should only be runned once since it is globaly registered.
+%%% messages passed to the system. It only be runned once since it is globaly
+%%% registered.
 %%% @end
 %%% Created : 02 Dec 2009 by Fredrik Andersson <sedrik@consbox.se>
 %%%-------------------------------------------------------------------
@@ -52,7 +52,8 @@ start_link() ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Returns all the log messages in the database
+%% Returns all the log messages in the database, Match will be empty if there
+%% are no logs available
 %% @spec get_all_logs() -> {ok, Match}
 %% @end
 %%--------------------------------------------------------------------
@@ -330,6 +331,6 @@ Type =:= lopec_warning ->
     ok;
 process_message(_Msg) ->
     ok.
-
+%% @private
 print_it(X) ->
     io:format("~p~n", [X]).

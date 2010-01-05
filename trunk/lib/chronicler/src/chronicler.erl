@@ -3,14 +3,8 @@
 %%% @copyright (C) 2009, Fredrik Andersson
 %%% @doc
 %%%
-%%% logger holds an API for logging messages on the server.  It uses
-%%% error_logger for info, warning and error messages. Don't use
-%%% it for debugging messages, if needed a debugging function can be
-%%% added to the API later on. Currently no nice formatting of the
-%%% message is done it's simply treated as single whole message and
-%%% will be printed that way.
-%%% See also http://www.erlang.org/doc/man/error_logger.html
-%%%
+%%% logger holds an API for logging messages on the server. It registers two
+%%% event handlers (externalLogger and fileLogger) for its logging purposes.
 %%% @end
 %%% Created : 29 Sep 2009 by Fredrik Andersson <sedrik@consbox.se>
 %%%-------------------------------------------------------------------
@@ -139,7 +133,7 @@ user_info(UserId, Format, Args) ->
 %%--------------------------------------------------------------------
 %% @doc
 %% Changes the logging level of the logger, available levels are
-%% info, user_info, error, warning and debug
+%% lopec_info, lopec_user_info, lopec_error, lopec_warning and lopec_debug
 %%
 %% @spec set_logging_level(NewLevel) -> ok
 %%  NewLevel = list()
@@ -147,25 +141,6 @@ user_info(UserId, Format, Args) ->
 %%--------------------------------------------------------------------
 set_logging_level(NewLevel) ->
     gen_server:cast(?MODULE, {new_level, NewLevel}).
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Turns on tty logging
-%%
-%% @spec set_tty(on) -> ok
-%% @end
-%%--------------------------------------------------------------------
-set_tty(on) ->
-    gen_server:cast(?MODULE, {tty, on});
-%%--------------------------------------------------------------------
-%% @doc
-%% Turns off tty logging
-%%
-%% @spec set_tty(off) -> ok
-%% @end
-%%--------------------------------------------------------------------
-set_tty(off) ->
-    gen_server:cast(?MODULE, {tty, off}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -186,8 +161,8 @@ init(no_args) ->
     %TODO add module information logging level
     set_logging_level([lopec_error, lopec_info, lopec_user_info, lopec_warning]),
 
-    error_logger:add_report_handler(externalLogger),
-    error_logger:add_report_handler(file_logger),
+    ok = error_logger:add_report_handler(externalLogger),
+    ok = error_logger:add_report_handler(file_logger),
 
     info("~p application started", [?MODULE]),
 

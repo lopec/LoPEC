@@ -1,0 +1,33 @@
+*LoPEC**************************
+*Low Power Erlang-based Cluster*
+*Image filter Application*******
+********************************
+
+--How to Compile-- 
+Run the Makefile 
+
+--How to run--
+to run the program type
+
+> ./filter 
+
+you will then get the following on your screen. 
+
+usage: ./filter <filter type| (s)harpness | (b)lur | (g)rayscale | (e)mboss> <input.ppm>
+
+This shows the usage of the program first you choose which filter type you want and then your input file. So if you want to apply a sharpness filter 
+on your file Car.ppm and want the result in Car2.ppm simply do.
+
+>./filter s Car.ppm > Car2.ppm 
+
+And to add blur do 
+
+>./filter b Car.ppm > Car2.ppm 
+
+And so on...
+
+
+--Known issues-- 
+
+The program will crash if there is comments in the input file. 
+  

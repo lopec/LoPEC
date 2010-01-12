@@ -56,6 +56,7 @@
 
 %% The record describing a key in a bucket in the storage
 -record(storage_key, {
+          job,
           bucket,
           key
          }).

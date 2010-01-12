@@ -25,8 +25,7 @@
         warning/3,
         debug/2,
         user_info/3,
-        set_logging_level/1,
-        set_tty/1
+        set_logging_level/1
     ]).
 
 %% gen_server callbacks

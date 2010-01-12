@@ -1,0 +1,35 @@
+*LoPEC ***************************
+*Low Power Erlang-based Cluster*** 
+*Example Program.***************** 
+*OpenCL Filter Application README*
+**********************************
+
+--How to Compile--
+First Of all make sure you have installed the OpenCL enabled drivers.
+
+Second make sure you have installed NVIDIA_GPU_Computing_SDK. 
+
+Third make sure that you have the path to NVIDIA_GPU_Computing_SDK/ exported to OPENCL_HOME (the path could be /home/user/NVIDIA_GPU_Computing_SDK/OpenCL)
+
+Forth run the Makefile. 
+
+Done. 
+
+--How to run--
+
+run the application by typeing 
+>./filter s input_file.ppm > result_file.ppm
+
+if you run just 
+>./filter 
+
+you will get the options of this program. 
+
+usage:filter <type|(s)harpen (b)lur (g)rayscale (e)mboss> <input_image_filename>
+
+Unfortuneatly it is only the s option that is implemented in this version. 
+So running with another option will not give any valueable result.
+
+--Known Issues---
+
+The Input image files may not contain comments.  

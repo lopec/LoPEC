@@ -1,0 +1,14 @@
+/*main.h */ 
+#include <CL/cl.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <iostream>
+#include <string.h>
+#include <limits>
+#include <cmath>
+#include <list>
+#include <fstream>
+#include <sys/wait.h>
+#include <sys/types.h>
+#include "color.h" 

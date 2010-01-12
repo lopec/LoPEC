@@ -109,25 +109,25 @@ stop_job() ->
 init([ProgName, TaskType, JobId, TaskId, StorageKeys]) ->
     {ok, Root} = configparser:read_config(?CONFIGFILE, cluster_root),
     {ok, Platform} = configparser:read_config(?CONFIGFILE, platform),
-    ProgRoot = lists:concat([Root, "programs/", ProgName, "/"]),
-    ProgPath = lists:concat([ProgRoot, "script.", Platform]),
-    JobRoot = lists:concat([Root, "tmp/", JobId, "/"]),
-    PidPath = lists:concat([JobRoot, "pid/", node(), "/"]),
-    Workspace = lists:concat([JobRoot, "workspace/", TaskType, "/"]),
+    ProgRoot = lists:concat([Root, "/programs/", ProgName, "/"]),
+    ProgPath = lists:concat([ProgRoot, "/script.", Platform]),
+    JobRoot = lists:concat([Root, "/tmp/", JobId, "/"]),
+    PidPath = lists:concat([JobRoot, "/pid/", node(), "/"]),
     lists:foreach(fun (Path) -> filelib:ensure_dir(Path),
                                 file:change_mode(Path, 8#777) end,
-                  [PidPath, Workspace]),
+                  [PidPath]),
     NodeCount = integer_to_list(length(nodes())),
-    % Add the number of nodes to the arg list if the task is a split
     {Bucket, _Keys} = StorageKeys,
     TaskKey = lists:last(string:tokens(binary_to_list(Bucket), "/")),
     ArgList = [atom_to_list(TaskType), TaskKey, PidPath]
+    % Add the number of nodes to the arg list if the task is a split
               ++ case TaskType of
                      split -> [NodeCount];
                      _ -> [] end,
-    Port = open_port({spawn_executable, ProgPath},
-                     [binary, {packet, 4}, use_stdio, stderr_to_stdout,
-                      exit_status, {cd, ProgRoot}, {args, ArgList}]),
+    PortArgs = [binary, {packet, 4}, use_stdio, stderr_to_stdout,
+                exit_status, {cd, ProgRoot}, {args, ArgList}],
+    chronicler:debug("~w : starting ~s", [?MODULE, ProgPath]),
+    Port = open_port({spawn_executable, ProgPath}, PortArgs),
     {ok, #state{job_id = JobId, task_id = TaskId, started = now(),
                 task_type = TaskType, prog_name = ProgName,
                 port = Port, storage_keys = StorageKeys}}.
@@ -208,25 +208,32 @@ handle_cast(Msg, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_info({_Pid, {data, <<"NEW_PID ", Pid/binary>>}}, State) ->
+    chronicler:debug("~w : new pid ~p", [?MODULE, Pid]),
     NewPids = [Pid | State#state.pids_to_kill],
     {noreply, State#state{pids_to_kill = NewPids}};
 handle_info({_Pid, {data, <<"GET_DATA">>}},State) ->
+    chronicler:debug("~w : got data request", [?MODULE]),
     NewState = get_next_input(State),
     {noreply, NewState};
 handle_info({_Pid, {data, <<"NEW_MAP ", KeysAndData/binary>>}},State) ->
+    chronicler:debug("~w : got map", [?MODULE]),
     add_task(map, KeysAndData, State),
     {noreply, State};
 handle_info({_Pid, {data, <<"NEW_REDUCE ", KeysAndData/binary>>}}, State) ->
+    chronicler:debug("~w : got reduce", [?MODULE]),
     add_task(reduce, KeysAndData, State),
     {noreply, State};
 handle_info({_Pid, {data, <<"NEW_RESULT ", KeysAndData/binary>>}}, State) ->
+    chronicler:debug("~w : got result", [?MODULE]),
     add_finalize(KeysAndData, State),
     {noreply, State};
 handle_info({_Pid,
              {data, <<"NEW_FINAL_RESULT ", KeyAndData/binary>>}}, State) ->
+    chronicler:debug("~w : got final result", [?MODULE]),
     add_final_result(KeyAndData, State),
     {noreply, State};
 handle_info({_Pid, {data, <<"NO_FINALIZING_PLZ">>}}, State) ->
+    chronicler:debug("~w : no finalizing requested", [?MODULE]),
     no_finalize(State),
     {noreply, State};
 handle_info({_Pid, {data, <<"ERROR ", Message/binary>>}}, State) ->

@@ -1,0 +1,21 @@
+*LoPEC *************************
+*Low Power Erlang-based Cluster* 
+*Adding echo to wave file*******
+********************************
+
+--How to compile-- 
+run the Makefile  
+
+
+--How to run-- 
+run the program by typing 
+> ./echo inputfile.wav 
+the output you will receive is a new file 
+called out.wav  
+
+---This is just made for research purpose--- 
+
+This application was ment to be ported to OpenCL 
+But we just did not have the time to do that in the scope
+of this project.  
+

@@ -20,6 +20,7 @@
 -export([start_link/0,
          add_job/2,
          add_task/1,
+         add_storage_key/3,
          stop_job/1,
          cancel_job/1,
          fetch_task/2,
@@ -188,6 +189,17 @@ get_split_amount() ->
 %%--------------------------------------------------------------------
 get_user_from_job(JobId) ->
     gen_server:call({global, ?MODULE}, {get_user_from_job, JobId}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
+%% Add Key to Bucket in the storage key table in the db
+%%
+%% @spec add_storage_key(Job, Bucket::binary(), Key::binary()) -> ok | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+add_storage_key(Job, Bucket, Key) ->
+    gen_server:call({global, ?MODULE}, {add_storage_key, Job, Bucket, Key}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -398,6 +410,19 @@ handle_call(get_split_amount, _From, State) ->
 %%--------------------------------------------------------------------
 handle_call({get_user_from_job, JobId}, _From, State) ->
     {reply, db:get_user_from_job(JobId), State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Adds Key to Bucket in the storage_key table in db
+%%
+%% @spec handle_call({add_storage_key, Bucket, Key}, _From, State) ->
+%%           {reply, Reply, State}
+%%           Reply = ok | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({add_storage_key, Job, Bucket, Key}, _From, State) ->
+    {reply, db:add_storage_key(Job, Bucket, Key), State};
 
 %%--------------------------------------------------------------------
 %% @private

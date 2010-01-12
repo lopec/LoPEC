@@ -41,6 +41,7 @@
          fetch_task/1,
          mark_done/1,
          free_tasks/1,
+         add_storage_key/3,
          list_keys/1,
          list/1]).
 
@@ -643,6 +644,17 @@ list_node_tasks(NodeId) ->
 %%--------------------------------------------------------------------
 %% @doc
 %%
+%% Add Key to Bucket in the storage key table
+%%
+%% @spec add_storage_key(Job, Bucket::binary(), Key::binary()) -> ok | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+add_storage_key(Job, Bucket, Key) ->
+    gen_server:call(?SERVER, {add_storage_key, Job, Bucket, Key}).
+
+%%--------------------------------------------------------------------
+%% @doc
+%%
 %% Lists all keys pertaining to Bucket in the db.
 %%
 %% @spec list_keys(Bucket::binary()) -> Keys::[binary()]
@@ -977,7 +989,7 @@ handle_call({add_task, Task}, _From, State) ->
                 case exists_bucket(Bucket) of
                     true ->
                         add(storage_key,
-                            #storage_key{bucket = Bucket, key = Key}),
+                            #storage_key{job = Job, bucket = Bucket, key = Key}),
                         {ok, task_exists};
                     false ->
                         TableName =
@@ -995,7 +1007,7 @@ handle_call({add_task, Task}, _From, State) ->
                         NodeToKill = find_node_to_kill(Task, Job),
 
                         add(storage_key,
-                            #storage_key{bucket = Bucket, key = Key}),
+                            #storage_key{job = Job, bucket = Bucket, key = Key}),
 
                         chronicler:debug("~w:Added task.~nTaskId:~p~n"
                                          "JobId:~p~nType:~p~n"
@@ -1352,6 +1364,20 @@ handle_call({list_active_jobs}, _From, State) ->
         end,
     {atomic, Result} = mnesia:transaction(F),
     {reply, Result, State};
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Adds Key to Bucket in the storage_key table
+%%
+%% @spec handle_call({add_storage_key, Job, Bucket, Key}, _From, State) ->
+%%           {reply, Reply, State}
+%%           Reply = ok | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
+handle_call({add_storage_key, Job, Bucket, Key}, _From, State) ->
+    Reply = add(storage_key, #storage_key{job = Job, bucket = Bucket, key = Key}),
+    {reply, Reply, State};
 
 %%--------------------------------------------------------------------
 %% @private

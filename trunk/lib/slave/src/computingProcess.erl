@@ -365,7 +365,8 @@ add_finalize(KeyAndData, #state{job_id = JobId, prog_name = ProgName}) ->
 add_final_result(KeyAndData, #state{job_id = JobId}) ->
     {_TaskKey, DataKey, Data} = unpack(KeyAndData, "", <<>>), %% ZOMGHAX
     Bucket = list_to_binary(lists:concat([JobId,"/results/"])),
-    io_module:put(Bucket, DataKey, Data).
+    io_module:put(Bucket, DataKey, Data),
+    dispatcher:add_storage_key(JobId, Bucket, DataKey).
 
 %%--------------------------------------------------------------------
 %% @private

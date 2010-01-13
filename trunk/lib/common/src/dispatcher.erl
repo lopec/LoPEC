@@ -470,7 +470,7 @@ find_task(RequesterPID, NodeId) ->
                             Task#task.job_id,
                             Task#task.program_name,
                             Task#task.type,
-                            {Bucket, Keys}},
+                            {Bucket, lists:sort(Keys)}},
             RequesterPID ! {task_response, TaskResponse},
             ecg_server:accept_message({new_node, NodeId}),
             chronicler:debug("Examiner in find_task: ~p",

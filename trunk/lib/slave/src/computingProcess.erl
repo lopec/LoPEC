@@ -115,7 +115,7 @@ init([ProgName, TaskType, JobId, TaskId, StorageKeys]) ->
     PidPath = lists:concat([JobRoot, "/pid/", node(), "/"]),
     lists:foreach(fun (Path) -> filelib:ensure_dir(Path),
                                 file:change_mode(Path, 8#777) end,
-                  [PidPath]),
+                  [JobRoot, JobRoot ++ "/pid", PidPath]),
     NodeCount = integer_to_list(length(nodes())),
     {Bucket, _Keys} = StorageKeys,
     TaskKey = lists:last(string:tokens(binary_to_list(Bucket), "/")),

@@ -1,0 +1,101 @@
+***************LoPEC ****************
+*Low Power Erlang-based Cluster****** 
+*Example Program.******************** 
+*OpenCL Raytracer Application README*
+*************************************
+
+--How to Compile--
+
+Asuming Nvidia SDK and a Nvidia based Graphics card. 
+
+First step:  make sure you have installed the OpenCL enabled drivers for your
+Graphics card.
+
+Second make sure you have installed NVIDIA_GPU_Computing_SDK. 
+
+Third step: make sure that you have the path to NVIDIA_GPU_Computing_SDK/ exported to OPENCL_HOME (the path could be for example /home/user/NVIDIA_GPU_Computing_SDK/OpenCL)
+
+Forth: run the Makefile. 
+
+Done. 
+
+--How to run--
+
+run the application by typing 
+>./raytracer
+
+this will give you the options to the Program. 
+Usage: <path to OpenCL code> <startline> <stopline> <total lines> <scene_file>  <pid_file_path>
+
+You will at the moment need to use them all. 
+
+So if you want to raytrace a complete image from the scenfile scene.scn with the resulting image size of 1024x1024 
+to the file scene.ppm. Then you do like this. 
+
+>./raytracer tracelines.cl 1024 0 1024 scene.scn . > test.ppm
+
+The <startline> <stopline> arguments is used for when the raytracer is run 
+on the cluster. This tells the raytracer to do only a specified part of the image. One example could be 
+
+>./raytracer tracelines.cl 1024 512 1024 scene.scn . > test.ppm 
+
+this will raytrace only half the image. 
+
+--Creating a Scene file-- 
+You should know that the scene file reading and rendering is not completly finnished. 
+And is not optimal in any way. 
+
+The scene file is just a list of objects which you have to order according to z-value.  
+
+Object1 
+Object2 
+Object3
+Object4 
+.
+.
+.
+and so on 
+
+an object is consisting of 5 float values space separated. 
+like this 
+ 
+x y z radius colorid 
+
+example file could look like this.
+
+1 0.5 -1 0.5  2
+0 0.5 0 0.5 3
+-1 0.5 -1 0.5 1
+
+
+--Pre defined color ID's-- 
+
+The Color ID's are at them moment hardcoded.
+You have the following color id's to choose from. 
+
+  0   =  black 
+  1   =  red
+  2   =  green 
+  3   =  blue
+  4   =  yellow
+  5   =  white  
+  6   =  orange  
+  7   =  purple 
+  8   =  gray 
+  9   =  turquoise
+  10  =  slime green 
+  11  =  pink
+
+This was supposed to be changed, so that you could enter RGB values in the scene file.
+For future work this could be refactored to use xml instead for better clarity.  
+
+--Known Issues---
+
+if you do not enter the path to where to write the pidfile, the program will 
+give a segmentation fault. 
+
+The scenfile reader is not finnished and needs more work. The z-value of an object is ignored(when rendering but not 
+when reading so it still needs to be there). So the z-order of an object is determined by the order in which the object 
+appear in the file.
+
+

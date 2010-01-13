@@ -22,7 +22,8 @@
          get_job_name/1,
          get_job_id/1,
          remove_job_name/1,
-         is_valid_jobtype/1]).
+         is_valid_jobtype/1,
+         save_result/3]).
 
 %% gen_server callbacks
 -export([start_link/0, init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -199,6 +200,11 @@ get_job_id(JobName) ->
 remove_job_name(JobId) ->
     chronicler:info("~w : called remove_job_name with JobId=~B~n", [?MODULE, JobId]),
     gen_server:call(?MODULE, {remove_job_name, JobId}).
+
+save_result(JobId, Key, Path) ->
+    Bucket = list_to_binary(lists:concat([JobId, "/results/"])),
+    {ok, Data} = io_module:get(Bucket, list_to_binary(Key)),
+    file:write_file(Path, Data).
 
 %%%=============================================================================
 %%% gen_server callbacks

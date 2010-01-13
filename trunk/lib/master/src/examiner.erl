@@ -81,9 +81,8 @@ report_assigned(JobId, TaskType) ->
 %% @spec report_done(JobId, TaskType) -> ok
 %% @end
 report_done(JobId, TaskType) ->
-    %gen_server:cast({global, ?MODULE},
-    %                {update_entry, JobId, TaskType, done}).
-    ok.
+    gen_server:cast({global, ?MODULE},
+                    {update_entry, JobId, TaskType, done}).
 
 %% @doc
 %% Report that all tasks ({JobId, TaskType}) in Tasks were freed.
@@ -340,8 +339,7 @@ update_job(JobStats, TaskType, NewTaskState) ->
                     chronicler:user_info(fix_me_need_user_id,
                         "Job ~p is done.",
                                          [JobName]),
-                    statistician:job_finished(JobId),
-                    db:remove_job(JobId);
+                    statistician:job_finished(JobId);
                 {true, _} ->
                     chronicler:user_info(fix_me_need_user_id,
                         "All ~p tasks in job ~p are done.",

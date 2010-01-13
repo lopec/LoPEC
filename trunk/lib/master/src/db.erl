@@ -48,7 +48,7 @@
 %% APIs for information
 -export([get_job/1,
          get_task/1,
-	     get_user_from_job/1]).
+         get_user_from_job/1]).
 
 %% APIs for users
 -export([add_user/3,
@@ -57,7 +57,7 @@
 	 set_role/2,
 	 set_password/3,
 	 set_email/2,
-     set_email_notification/2,
+         set_email_notification/2,
 	 exist_user/1,
 	 task_info_from_job/2,
 	 list_users/0,
@@ -963,7 +963,7 @@ handle_call({fetch_task, NodeId}, _From, State) ->
                         {ProperTask, []}
                 end
         end,
-    chronicler:info("~w:Retrieved task.~nTask:~p~n",
+    chronicler:debug("~w:Retrieved task.~nTask:~p~n",
                     [?MODULE, Result]),
     {reply, Result, State};
 

@@ -30,7 +30,7 @@ init_per_suite(Config) ->
     ok = application:start(chronicler),
 
     {ok, LogDir} =
-    configparser:read_config("/etc/clusterbusters.conf",
+    configparser:read_config("/etc/lopec.conf",
         log_dir),
     LogFile = LogDir ++ "/" ++ atom_to_list(node()),
 

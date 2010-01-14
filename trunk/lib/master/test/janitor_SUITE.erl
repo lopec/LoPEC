@@ -17,7 +17,7 @@
 
 init_per_suite(Config) ->
     {ok, ClusterRoot} =
-        configparser:read_config("/etc/clusterbusters.conf", cluster_root),
+        configparser:read_config("/etc/lopec.conf", cluster_root),
     JobId = 10101,
     JobRoot = lists:concat([ClusterRoot, "/tmp/", JobId]),
     [filelib:ensure_dir(JobRoot ++ Task)

@@ -31,7 +31,7 @@ user_status() ->
 
 body() ->
     %% Setting up Program Types
-    {ok, Path} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
+    {ok, Path} = configparser:read_config("/etc/lopec.conf", cluster_root),
     ProgramFiles = lists:filter(
         fun(X) -> filelib:is_dir(X) end, filelib:wildcard(Path ++ "/programs/*")),
     ProgramTypes = lists:map(fun(T) -> #option {text=T,value=T} end, ProgramFiles),

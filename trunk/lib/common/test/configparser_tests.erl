@@ -17,7 +17,7 @@ configparser_test_() ->
                ?_assertEqual({error, enoent},
                              configparser:read_config("ysnftf, HEHE", key)),
                ?_assertEqual({ok, "/storage/test/"},
-                             configparser:read_config("/storage/clusterbusters.conf",
+                             configparser:read_config("/storage/lopec.conf",
                                                       cluster_root)),
                ?_assertEqual({ok, "jansson"}, 
                              configparser:parse("Apan",

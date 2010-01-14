@@ -29,7 +29,7 @@
 %% @end
 %%--------------------------------------------------------------------
 init(_Args) ->
-    {ok, Path} = configparser:read_config("/etc/clusterbusters.conf",
+    {ok, Path} = configparser:read_config("/etc/lopec.conf",
                                           fs_backend_root),
     {ok, {fs, Path}}.
 

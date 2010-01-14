@@ -373,7 +373,7 @@ handle_call({add_bg_job, JobSpec}, _From, State) ->
 handle_call({task_failed, JobId, Node, TaskType}, _From, State) ->
     Result = db:increment_task_restarts(JobId),
     {ok, Max_Restarts} =
-        configparser:read_config("/etc/clusterbusters.conf",
+        configparser:read_config("/etc/lopec.conf",
                                  max_restarts),
     if
 	Result < Max_Restarts ->

@@ -57,7 +57,7 @@ init(no_args) ->
     Examiner = child(examiner, worker, no_args),
     % @todo make the io module configurable instead of hard coded
     IoModule = child(io_module, worker,
-                     case configparser:read_config("/etc/clusterbusters.conf",
+                     case configparser:read_config("/etc/lopec.conf",
                                                    storage_backend) of
                          {ok, fs} -> [fs_io_module, no_args];
                          {ok, riak} -> [riak_io_module,

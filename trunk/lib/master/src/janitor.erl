@@ -111,7 +111,7 @@ init(_Args) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({cleanup_job, JobId}, _From, State) ->
-    {ok, Path} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
+    {ok, Path} = configparser:read_config("/etc/lopec.conf", cluster_root),
     JobPath = concat_path([Path, tmp, JobId]),
     ReturnValue = file:del_dir(JobPath),
     {reply, ReturnValue, State};
@@ -126,7 +126,7 @@ handle_call({cleanup_job, JobId}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({cleanup_split, JobId}, _From, State) ->
-    {ok, Path} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
+    {ok, Path} = configparser:read_config("/etc/lopec.conf", cluster_root),
     SplitPath = concat_path([Path, tmp, JobId, input]),
     ReturnValue = file:del_dir(SplitPath),
     {reply, ReturnValue, State};
@@ -141,7 +141,7 @@ handle_call({cleanup_split, JobId}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({cleanup_map, JobId}, _From, State) ->
-    {ok, Path} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
+    {ok, Path} = configparser:read_config("/etc/lopec.conf", cluster_root),
     MapPath = concat_path([Path, tmp, JobId, map]),
     ReturnValue = file:del_dir(MapPath),
     {reply, ReturnValue, State};
@@ -156,7 +156,7 @@ handle_call({cleanup_map, JobId}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({cleanup_reduce, JobId}, _From, State) ->
-    {ok, Path} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
+    {ok, Path} = configparser:read_config("/etc/lopec.conf", cluster_root),
     ReducePath = concat_path([Path, tmp, JobId, reduce]),
     ReturnValue = file:del_dir(ReducePath),
     {reply, ReturnValue, State};
@@ -171,7 +171,7 @@ handle_call({cleanup_reduce, JobId}, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({cleanup_finalize, JobId}, _From, State) ->
-    {ok, Path} = configparser:read_config("/etc/clusterbusters.conf", cluster_root),
+    {ok, Path} = configparser:read_config("/etc/lopec.conf", cluster_root),
     FinalizePath = concat_path([Path, tmp, JobId, results]),
     ReturnValue = file:del_dir(FinalizePath),
     {reply, ReturnValue, State}.

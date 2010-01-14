@@ -45,7 +45,7 @@ tests_init() ->
     %examiner:start_link(),
     %listener:start_link(),
     %dispatcher:start_link(),
-    {ok, Root} = configparser:read_config("/etc/clusterbusters.conf",
+    {ok, Root} = configparser:read_config("/etc/lopec.conf",
                                           cluster_root),
     {ok, JobId} = listener:add_job(raytracer, mapreduce, owner, 0,
                                             Root++"lol.txt"),

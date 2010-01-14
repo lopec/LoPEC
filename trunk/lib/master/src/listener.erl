@@ -90,7 +90,7 @@ add_job(ProgramType, ProblemType, Owner, Priority, InputData) ->
 add_bg_job(ProgramType, ProblemType, Owner, Priority, InputData, Name) ->
     chronicler:debug("~w: called new_bg_job with a name=~w~n",
                     [?MODULE, Name]),
-    case configparser:read_config("/etc/clusterbusters.conf", allow_bg_jobs) of
+    case configparser:read_config("/etc/lopec.conf", allow_bg_jobs) of
         {ok, yes} ->
             gen_server:call(?MODULE,
                             {new_job, ProgramType, ProblemType, Owner,

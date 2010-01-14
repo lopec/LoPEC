@@ -54,7 +54,7 @@ init(no_args) ->
           child(statistician, worker, [slave]),
 	  child(taskFetcher, worker, []),
           child(io_module, worker,
-                case configparser:read_config("/etc/clusterbusters.conf",
+                case configparser:read_config("/etc/lopec.conf",
                                               storage_backend) of
                          {ok, fs} -> [fs_io_module, no_args];
                          {ok, riak} -> [riak_io_module,

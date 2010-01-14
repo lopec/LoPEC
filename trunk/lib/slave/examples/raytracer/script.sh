@@ -34,13 +34,13 @@ def split(task_key, node_count)
   i = data.index("\n")
   size = data[0,i].to_i
   scene = data[i+1,data.length]
-  split_count = node_count * 2
+  split_count = 16 # change to fit your number of nodes, the number must be even
   split_size = size/split_count
   (0..(split_count - 1)).each do | i |
     split_id = ("%0" + split_count.to_s.length.to_s + "d") % i
     start = size - i*split_size
     stop = start - split_size
-    send("NEW_MAP split#{i} scene\n#{size} #{start} #{stop}\n#{scene}")
+    send("NEW_MAP #{split_id} scene\n#{size} #{start} #{stop}\n#{scene}")
   end
 end
 
